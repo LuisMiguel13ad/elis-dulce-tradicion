@@ -1,6 +1,7 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Coffee, Facebook, Instagram, MapPin } from 'lucide-react';
+import { Facebook, Instagram, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import logoImage from '@/assets/TransparentLogo.png';
 
 const Footer = () => {
   const { t } = useLanguage();
@@ -12,9 +13,11 @@ const Footer = () => {
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80">
-                <Coffee className="h-6 w-6 text-secondary" />
-              </div>
+              <img 
+                src={logoImage} 
+                alt="Eli's Bakery Logo" 
+                className="h-12 w-12 object-contain"
+              />
               <div className="flex flex-col">
                 <span className="font-display text-xl font-bold leading-none text-primary">
                   Eli's Bakery
@@ -50,6 +53,11 @@ const Footer = () => {
               <li>
                 <Link to="/gallery" className="text-background/80 transition-smooth hover:text-primary">
                   {t('Galería', 'Gallery')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/menu" className="text-background/80 transition-smooth hover:text-primary">
+                  {t('Menú', 'Menu')}
                 </Link>
               </li>
             </ul>

@@ -60,6 +60,16 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Google Maps API Setup
+
+This project uses Google Maps Places API for address verification in the delivery order form. To enable this feature:
+
+1. Get a Google Maps API key from [Google Cloud Console](https://console.cloud.google.com/google/maps-apis)
+2. Enable the **Places API** and **Maps JavaScript API** for your project
+3. Replace `YOUR_API_KEY` in `index.html` with your actual API key
+
+The address verification feature will gracefully handle cases where the API key is not configured by allowing manual address entry.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/9247db20-f66d-479e-bdf6-4234dba1420a) and click on Share -> Publish.

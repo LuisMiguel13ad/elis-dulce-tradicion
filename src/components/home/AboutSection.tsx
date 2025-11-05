@@ -1,32 +1,8 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Heart, Award, Users } from 'lucide-react';
+import { Features } from '@/components/blocks/features-8';
 
 const AboutSection = () => {
   const { t } = useLanguage();
-
-  const features = [
-    {
-      icon: Heart,
-      titleES: 'Hecho con Amor',
-      titleEN: 'Made with Love',
-      descES: 'Cada producto es elaborado con dedicación y pasión',
-      descEN: 'Every product crafted with dedication and passion',
-    },
-    {
-      icon: Award,
-      titleES: 'Calidad Premium',
-      titleEN: 'Premium Quality',
-      descES: 'Solo los mejores ingredientes frescos',
-      descEN: 'Only the finest fresh ingredients',
-    },
-    {
-      icon: Users,
-      titleES: 'Tradición Familiar',
-      titleEN: 'Family Tradition',
-      descES: 'Recetas transmitidas por generaciones',
-      descEN: 'Recipes passed down through generations',
-    },
-  ];
 
   return (
     <section className="relative bg-background py-24">
@@ -60,24 +36,7 @@ const AboutSection = () => {
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="group rounded-2xl border border-border bg-card p-8 text-center shadow-card transition-smooth hover:scale-105 hover:shadow-elegant"
-              >
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent shadow-glow transition-smooth group-hover:animate-glow">
-                  <feature.icon className="h-8 w-8 text-secondary" />
-                </div>
-                <h3 className="mb-3 font-display text-xl font-bold text-foreground">
-                  {t(feature.titleES, feature.titleEN)}
-                </h3>
-                <p className="font-sans text-muted-foreground">
-                  {t(feature.descES, feature.descEN)}
-                </p>
-              </div>
-            ))}
-          </div>
+          <Features />
         </div>
       </div>
     </section>

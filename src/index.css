@@ -40,7 +40,7 @@ All colors MUST be HSL.
     --ring: 45 92% 63%;
 
     --radius: 0.75rem;
-    
+
     /* Custom bakery tokens */
     --gold: 45 92% 63%;
     --gold-light: 45 90% 75%;
@@ -48,16 +48,16 @@ All colors MUST be HSL.
     --charcoal: 0 0% 10%;
     --charcoal-light: 0 0% 20%;
     --cherry: 0 69% 54%;
-    
+
     /* Gradients */
     --gradient-gold: linear-gradient(135deg, hsl(45 92% 63%) 0%, hsl(45 85% 50%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(0 0% 10% / 0.95) 0%, hsl(0 0% 15% / 0.9) 100%);
-    
+
     /* Shadows */
     --shadow-elegant: 0 10px 40px -10px hsl(45 92% 63% / 0.2);
     --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.1);
     --shadow-glow: 0 0 30px hsl(45 92% 63% / 0.3);
-    
+
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -106,7 +106,7 @@ All colors MUST be HSL.
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 45 92% 63%;
-    
+
     --sidebar-background: 0 0% 10%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 45 92% 63%;
@@ -116,21 +116,24 @@ All colors MUST be HSL.
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 45 92% 63%;
   }
+  .theme {
+    --animate-border-beam: border-beam calc(var(--duration)*1s) infinite linear;
+  }
 }
 
 @layer utilities {
   .text-gradient-gold {
     @apply bg-gradient-to-r from-primary via-[hsl(var(--gold-light))] to-primary bg-clip-text text-transparent;
   }
-  
+
   .shadow-elegant {
     box-shadow: var(--shadow-elegant);
   }
-  
+
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
-  
+
   .transition-smooth {
     transition: var(--transition-smooth);
   }
@@ -143,5 +146,55 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Minimal loader spinner for Suspense fallbacks */
+.loader {
+  width: 32px;
+  height: 32px;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shine-pulse {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  to {
+    background-position: 0% 0%;
+  }
+}
+
+/* ---break---
+*/
+
+@theme inline {
+  @keyframes border-beam {
+  100% {
+    offset-distance: 100%;
+    }
+  }
+  @keyframes shine-pulse {
+  0% {
+    background-position: 0% 0%;
+    }
+  50% {
+    background-position: 100% 100%;
+    }
+  to {
+    background-position: 0% 0%;
+    }
   }
 }

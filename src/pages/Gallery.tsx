@@ -3,7 +3,15 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import customCake from '@/assets/custom-cake.jpg';
 import tresLeches from '@/assets/tres-leches.jpg';
-import panDulce from '@/assets/pan-dulce.jpg';
+import carBirthdayCake from '@/assets/CarBirthdayCake.jpg';
+import butterflyBirthdayCake from '@/assets/ButterflyBirthdayCake.jpg';
+import pawPatrolBirthdayCake from '@/assets/PawPatrolBirthdayCake.jpg';
+import alWeddingCake from '@/assets/ALWeddingCake.jpg';
+import weddingCake from '@/assets/weddingCake.jpg';
+import jmWeddingCake from '@/assets/JMWeddingCake.jpg';
+import quinceImage1 from '@/assets/3.png';
+import quinceImage2 from '@/assets/4.png';
+import quinceImage3 from '@/assets/6.png';
 
 const Gallery = () => {
   const { t } = useLanguage();
@@ -12,22 +20,17 @@ const Gallery = () => {
     {
       titleES: 'Pasteles de Cumpleaños',
       titleEN: 'Birthday Cakes',
-      images: [customCake, tresLeches, customCake],
+      images: [carBirthdayCake, butterflyBirthdayCake, pawPatrolBirthdayCake],
     },
     {
       titleES: 'Bodas',
       titleEN: 'Weddings',
-      images: [customCake, customCake, tresLeches],
+      images: [alWeddingCake, weddingCake, jmWeddingCake],
     },
     {
-      titleES: 'Baby Showers',
-      titleEN: 'Baby Showers',
-      images: [tresLeches, customCake, customCake],
-    },
-    {
-      titleES: 'Pan Dulce',
-      titleEN: 'Sweet Bread',
-      images: [panDulce, panDulce, panDulce],
+      titleES: 'Mis Quince Años',
+      titleEN: 'My Sweet Fifteen',
+      images: [quinceImage1, quinceImage2, quinceImage3],
     },
   ];
 
@@ -62,7 +65,7 @@ const Gallery = () => {
                       key={imgIdx}
                       className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:scale-105 hover:shadow-elegant"
                     >
-                      <div className="relative aspect-square overflow-hidden">
+                      <div className="relative aspect-[9/16] overflow-hidden">
                         <img
                           src={image}
                           alt={`${t(category.titleES, category.titleEN)} ${imgIdx + 1}`}

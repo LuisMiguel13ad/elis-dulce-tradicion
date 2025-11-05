@@ -1,6 +1,13 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import {
+  CardCurtainReveal,
+  CardCurtainRevealBody,
+  CardCurtainRevealTitle,
+  CardCurtainRevealDescription,
+  CardCurtain,
+} from '@/components/ui/card-curtain-reveal';
 import customCake from '@/assets/custom-cake.jpg';
 import tresLeches from '@/assets/tres-leches.jpg';
 import panDulce from '@/assets/pan-dulce.jpg';
@@ -45,9 +52,9 @@ const FeaturedProducts = () => {
 
           <div className="grid gap-8 md:grid-cols-3">
             {products.map((product, index) => (
-              <div
+              <CardCurtainReveal
                 key={index}
-                className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:scale-105 hover:shadow-elegant"
+                className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:shadow-elegant"
               >
                 <div className="relative aspect-square overflow-hidden">
                   <img
@@ -56,16 +63,17 @@ const FeaturedProducts = () => {
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-secondary/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <CardCurtain className="bg-primary/20" />
                 </div>
-                <div className="p-6">
-                  <h3 className="mb-3 font-display text-2xl font-bold text-foreground">
+                <CardCurtainRevealBody>
+                  <CardCurtainRevealTitle className="mb-3 font-display text-2xl font-bold text-foreground">
                     {t(product.titleES, product.titleEN)}
-                  </h3>
-                  <p className="mb-4 font-sans text-muted-foreground">
+                  </CardCurtainRevealTitle>
+                  <CardCurtainRevealDescription className="font-sans text-muted-foreground">
                     {t(product.descES, product.descEN)}
-                  </p>
-                </div>
-              </div>
+                  </CardCurtainRevealDescription>
+                </CardCurtainRevealBody>
+              </CardCurtainReveal>
             ))}
           </div>
 

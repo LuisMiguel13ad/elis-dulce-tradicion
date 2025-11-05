@@ -1,59 +1,76 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageToggle from './LanguageToggle';
-import { Coffee } from 'lucide-react';
+import logoImage from '@/assets/TransparentLogo.png';
+import { useState, useEffect } from 'react';
 
 const Navbar = () => {
   const { t } = useLanguage();
   const location = useLocation();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
-  return (
-    <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur-md">
-      <div className="container mx-auto flex h-20 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-3 transition-smooth hover:opacity-80">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 shadow-glow">
-            <Coffee className="h-6 w-6 text-secondary" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-display text-xl font-bold leading-none text-gradient-gold">
-              Eli's Bakery
-            </span>
-            <span className="text-xs font-semibold text-muted-foreground">
-              Café & Panadería
-            </span>
-          </div>
-        </Link>
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      setIsScrolled(scrollPosition > 50);
+    };
 
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check initial position
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  return (
+    <nav className={`fixed top-0 z-50 w-full border-b backdrop-blur-md transition-all duration-300 ${
+      isScrolled 
+        ? 'bg-background/80 border-border/50' 
+        : 'bg-transparent border-transparent'
+    }`}>
+      <div className="container relative mx-auto flex h-28 items-center justify-between px-4">
         <div className="hidden items-center gap-8 md:flex">
           <Link
             to="/"
-            className={`font-sans font-semibold transition-smooth hover:text-primary ${
-              isActive('/') ? 'text-primary' : 'text-foreground'
-            }`}
+            className="font-sans font-semibold text-primary transition-smooth hover:opacity-80"
           >
             {t('Inicio', 'Home')}
           </Link>
           <Link
             to="/order"
-            className={`font-sans font-semibold transition-smooth hover:text-primary ${
-              isActive('/order') ? 'text-primary' : 'text-foreground'
-            }`}
+            className="font-sans font-semibold text-primary transition-smooth hover:opacity-80"
           >
             {t('Ordenar Pastel', 'Order Cake')}
           </Link>
           <Link
             to="/gallery"
-            className={`font-sans font-semibold transition-smooth hover:text-primary ${
-              isActive('/gallery') ? 'text-primary' : 'text-foreground'
-            }`}
+            className="font-sans font-semibold text-primary transition-smooth hover:opacity-80"
           >
             {t('Galería', 'Gallery')}
           </Link>
+          <Link
+            to="/menu"
+            className="font-sans font-semibold text-primary transition-smooth hover:opacity-80"
+          >
+            {t('Menú', 'Menu')}
+          </Link>
         </div>
 
-        <LanguageToggle />
+        {/* Language toggle absolutely centered */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <LanguageToggle />
+        </div>
+
+        <Link to="/" className="flex items-center transition-smooth hover:opacity-80">
+          <img 
+            src={logoImage} 
+            alt="Eli's Bakery Logo" 
+            className="h-32 w-32 object-contain"
+          />
+        </Link>
       </div>
     </nav>
   );
