@@ -76,6 +76,7 @@ import { GalleryManager } from '@/components/admin/GalleryManager';
 import { AnnouncementManager } from '@/components/admin/AnnouncementManager';
 import ContactSubmissionsManager from '@/components/admin/ContactSubmissionsManager';
 import OrderIssuesManager from '@/components/admin/OrderIssuesManager';
+import InventoryManager from '@/components/dashboard/InventoryManager';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -343,11 +344,10 @@ const OwnerDashboard = () => {
 
             {/* Charts and Data */}
             <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList>
+              <TabsList className="flex flex-wrap">
                 <TabsTrigger value="overview">{t('Resumen', 'Overview')}</TabsTrigger>
-                <TabsTrigger value="revenue">{t('Ingresos', 'Revenue')}</TabsTrigger>
                 <TabsTrigger value="orders">{t('Pedidos', 'Orders')}</TabsTrigger>
-                <TabsTrigger value="analytics">{t('Analíticas', 'Analytics')}</TabsTrigger>
+                <TabsTrigger value="inventory">{t('Inventario', 'Inventory')}</TabsTrigger>
                 <TabsTrigger value="reports">{t('Reportes', 'Reports')}</TabsTrigger>
                 <TabsTrigger value="cms">{t('Contenido', 'Content')}</TabsTrigger>
                 <TabsTrigger value="support">{t('Soporte', 'Support')}</TabsTrigger>
@@ -489,73 +489,21 @@ const OwnerDashboard = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="revenue" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('Análisis de Ingresos', 'Revenue Analysis')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={400}>
-                      <BarChart data={revenueData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="revenue" fill="#8884d8" />
-                        <Bar dataKey="orderCount" fill="#82ca9d" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
               <TabsContent value="orders" className="space-y-4">
                 <OrderListWithSearch
                   userRole="owner"
                   onOrderClick={(order) => {
-                    // Navigate to order details or open modal
-                    console.log('Order clicked:', order);
+                    toast.info(
+                      `${t('Orden', 'Order')} #${order.order_number}: ${order.cake_size} - ${order.filling}`,
+                      { description: `${order.customer_name} • ${order.date_needed} @ ${order.time_needed}` }
+                    );
                   }}
                   showExport={true}
                 />
               </TabsContent>
 
-              <TabsContent value="analytics" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{t('Horas Pico', 'Peak Ordering Times')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={peakTimes}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="hour" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="orderCount" fill="#8884d8" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{t('Utilización de Capacidad', 'Capacity Utilization')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={capacityData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="utilizationPercentage" stroke="#82ca9d" strokeWidth={2} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                </div>
+              <TabsContent value="inventory" className="space-y-4">
+                <InventoryManager />
               </TabsContent>
 
               <TabsContent value="reports" className="space-y-4">

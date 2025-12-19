@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Clock, CheckCircle2, AlertTriangle, X, Calendar as CalendarIcon, Printer, Truck, MapPin, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { Clock, CheckCircle2, AlertTriangle, Printer, Truck, MapPin, XCircle, Wifi, WifiOff } from 'lucide-react';
 import { differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
@@ -18,7 +18,6 @@ import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { MobileOrderCard } from '@/components/mobile/MobileOrderCard';
-import { FloatingActionButton } from '@/components/mobile/FloatingActionButton';
 import { QuickFilterBar } from '@/components/order/QuickFilterBar';
 import { OrderStatus } from '@/types/orderState';
 
@@ -49,10 +48,7 @@ const KitchenDisplay = () => {
   const { isConnected } = useRealtimeOrders({
     filterByUserId: false, // Bakers see all orders
   });
-  
-  // View Mode: 'board' (Today's Kanban) or 'calendar' (Future planning)
-  const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
-  
+
   // Track which confirmed orders have been "seen" locally to prevent infinite popup loop
   const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
 
@@ -102,18 +98,6 @@ const KitchenDisplay = () => {
 
   }, [orders, statusFilter]);
 
-  // Load today's deliveries
-  useEffect(() => {
-    const loadDeliveries = async () => {
-      try {
-        const deliveries = await api.getTodayDeliveries();
-        setDeliveryOrders(deliveries);
-      } catch (error) {
-        console.error('Error loading deliveries:', error);
-      }
-    };
-    loadDeliveries();
-  }, []);
 
 
   const updateStatus = async (orderId: number, newStatus: string) => {
@@ -285,47 +269,23 @@ const KitchenDisplay = () => {
         )}
       </AnimatePresence>
         
-        {/* View Toggle and Quick Filters */}
-        <div className="space-y-4 mb-6">
-          <div className="flex justify-center">
-            <div className="bg-muted p-1 rounded-lg flex gap-1">
-              <Button 
-                  variant={viewMode === 'board' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('board')}
-                 className="w-32"
-              >
-                 Live Board
-              </Button>
-              <Button 
-                  variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-                  onClick={() => setViewMode('calendar')}
-                 className="w-32"
-               >
-                 <CalendarIcon className="mr-2 h-4 w-4" />
-                 Future
-            </Button>
-          </div>
-          </div>
-          
-          {/* Quick Filter Bar */}
-          {viewMode === 'board' && (
-            <QuickFilterBar
-              activeStatus={statusFilter}
-              onStatusChange={setStatusFilter}
-              orderCounts={{
-                all: activeOrders.length,
-                pending: activeOrders.filter(o => o.status === 'pending').length,
-                confirmed: activeOrders.filter(o => o.status === 'confirmed').length,
-                in_progress: activeOrders.filter(o => o.status === 'in_progress').length,
-                ready: activeOrders.filter(o => o.status === 'ready').length,
-              }}
-            />
-          )}
+        {/* Quick Filter Bar */}
+        <div className="mb-6">
+          <QuickFilterBar
+            activeStatus={statusFilter}
+            onStatusChange={setStatusFilter}
+            orderCounts={{
+              all: activeOrders.length,
+              pending: activeOrders.filter(o => o.status === 'pending').length,
+              confirmed: activeOrders.filter(o => o.status === 'confirmed').length,
+              in_progress: activeOrders.filter(o => o.status === 'in_progress').length,
+              ready: activeOrders.filter(o => o.status === 'ready').length,
+            }}
+          />
         </div>
 
-        {/* Board View */}
-        {viewMode === 'board' && (
-          <PullToRefresh onRefresh={refreshOrders}>
+        {/* Orders Board */}
+        <PullToRefresh onRefresh={refreshOrders}>
             {isMobile ? (
               // Mobile: Swipeable cards
               <div className="space-y-4">
@@ -444,7 +404,6 @@ const KitchenDisplay = () => {
               </div>
             )}
           </PullToRefresh>
-        )}
 
         {/* Delivery Orders Section */}
         {deliveryOrders.length > 0 && (
@@ -550,13 +509,6 @@ const KitchenDisplay = () => {
           </div>
         )}
 
-        {/* Simple Calendar Placeholder */}
-        {viewMode === 'calendar' && (
-           <div className="text-center py-20 text-muted-foreground">
-              <p>Calendar view coming soon...</p>
-              <Button variant="outline" className="mt-4" onClick={() => setViewMode('board')}>Back to Board</Button>
-          </div>
-      )}
 
         {/* Cancel Order Modal */}
         {cancelOrderId && (
@@ -569,14 +521,6 @@ const KitchenDisplay = () => {
               setCancelOrderId(null);
             }}
             isAdmin={true}
-          />
-        )}
-        
-        {/* Floating Action Button for Mobile */}
-        {isMobile && (
-          <FloatingActionButton
-            to="/order"
-            label={undefined}
           />
         )}
       </div>
