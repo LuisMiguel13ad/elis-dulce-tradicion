@@ -1,24 +1,51 @@
-import React, { createContext, useContext, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 
 type Language = 'es' | 'en';
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (es: string, en: string) => string;
+  t: (key: string, options?: any) => string;
+  i18n: typeof i18n;
+  isRTL: boolean;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('es');
+  const { i18n: i18nInstance } = useTranslation();
+  const [language, setLanguageState] = useState<Language>((i18nInstance.language as Language) || 'es');
+  const [isRTL, setIsRTL] = useState(false);
 
-  const t = (es: string, en: string) => {
-    return language === 'es' ? es : en;
+  // Update document language and direction
+  useEffect(() => {
+    const currentLang = i18nInstance.language as Language;
+    document.documentElement.lang = currentLang;
+    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+  }, [i18nInstance.language, isRTL]);
+
+  // Sync language state with i18n
+  useEffect(() => {
+    const currentLang = i18nInstance.language as Language;
+    setLanguageState(currentLang);
+  }, [i18nInstance.language]);
+
+  const setLanguage = (lang: Language) => {
+    i18nInstance.changeLanguage(lang);
+    setLanguageState(lang);
+    // Save to localStorage (handled by i18next-browser-languagedetector)
+    localStorage.setItem('i18nextLng', lang);
+  };
+
+  const t = (key: string, options?: any) => {
+    return i18nInstance.t(key, options);
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, i18n: i18nInstance, isRTL }}>
       {children}
     </LanguageContext.Provider>
   );

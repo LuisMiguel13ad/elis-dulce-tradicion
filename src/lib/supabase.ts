@@ -1,0 +1,73 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { UserProfile } from '@/types/auth';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('⚠️ Supabase environment variables are not set. Authentication and image uploads will not work.');
+}
+
+export const supabase: SupabaseClient | null = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    })
+  : null;
+
+export const STORAGE_BUCKET = 'reference-images';
+
+/**
+ * Helper to check if Supabase is configured
+ */
+export const isSupabaseConfigured = () => !!supabase;
+
+/**
+ * Get user profile from Supabase
+ */
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  if (!supabase) return null;
+
+  // Optimized: Only select needed columns
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, role, full_name, phone, preferred_language, created_at, updated_at')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(
+  userId: string,
+  updates: Partial<Pick<UserProfile, 'full_name' | 'phone'>>
+): Promise<UserProfile | null> {
+  if (!supabase) return null;
+
+  // Optimized: Only select updated columns
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .select('id, role, full_name, phone, preferred_language, updated_at')
+    .single();
+
+  if (error) {
+    console.error('Error updating user profile:', error);
+    return null;
+  }
+
+  return data;
+}
+

@@ -9,7 +9,7 @@ interface Particle {
 }
 
 const LanguageToggle = () => {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   
   // State Management
   const [mounted, setMounted] = useState(false);
@@ -152,7 +152,7 @@ const LanguageToggle = () => {
             : '2px solid rgba(248, 204, 74, 0.6)',
           position: 'relative',
         }}
-        aria-label={`Switch to ${isEnglish ? 'Español' : 'English'}`}
+        aria-label={isEnglish ? t('common.switchToSpanish', 'Switch to Español') : t('common.switchToEnglish', 'Switch to English')}
         role="switch"
         aria-checked={isEnglish}
         whileTap={{ scale: 0.98 }}

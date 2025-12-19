@@ -1,21 +1,22 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { memo, useMemo } from 'react';
 import {
   CardCurtainReveal,
   CardCurtainRevealBody,
   CardCurtainRevealTitle,
   CardCurtainRevealDescription,
-  CardCurtain,
 } from '@/components/ui/card-curtain-reveal';
+import { LazyImage } from '@/components/optimized/LazyImage';
 import customCake from '@/assets/custom-cake.jpg';
 import tresLeches from '@/assets/tres-leches.jpg';
 import panDulce from '@/assets/pan-dulce.jpg';
 
-const FeaturedProducts = () => {
+const FeaturedProducts = memo(() => {
   const { t } = useLanguage();
 
-  const products = [
+  const products = useMemo(() => [
     {
       image: customCake,
       titleES: 'Pasteles Personalizados',
@@ -37,7 +38,7 @@ const FeaturedProducts = () => {
       descES: 'Conchas, bolillos, cuernitos y más, horneados cada día con ingredientes frescos.',
       descEN: 'Conchas, bolillos, croissants and more, baked fresh every day.',
     },
-  ];
+  ], []);
 
   return (
     <section className="relative bg-muted/30 py-24">
@@ -56,14 +57,14 @@ const FeaturedProducts = () => {
                 key={index}
                 className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:shadow-elegant"
               >
-                <div className="relative aspect-square overflow-hidden">
-                  <img
+                <div className="relative aspect-square overflow-hidden bg-muted">
+                  <LazyImage
                     src={product.image}
                     alt={t(product.titleES, product.titleEN)}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    effect="blur"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-secondary/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                  <CardCurtain className="bg-primary/20" />
                 </div>
                 <CardCurtainRevealBody>
                   <CardCurtainRevealTitle className="mb-3 font-display text-2xl font-bold text-foreground">
@@ -90,6 +91,8 @@ const FeaturedProducts = () => {
       </div>
     </section>
   );
-};
+});
+
+FeaturedProducts.displayName = 'FeaturedProducts';
 
 export default FeaturedProducts;

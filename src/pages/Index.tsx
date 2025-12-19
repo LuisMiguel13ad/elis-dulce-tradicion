@@ -4,6 +4,8 @@ import HeroSection from '@/components/home/HeroSection';
 import AboutSection from '@/components/home/AboutSection';
 import FeaturedProducts from '@/components/home/FeaturedProducts';
 import LocationSection from '@/components/home/LocationSection';
+import TestimonialCarousel from '@/components/testimonials/TestimonialCarousel';
+import NewsletterSignup from '@/components/newsletter/NewsletterSignup';
 
 const Index = () => {
   return (
@@ -12,6 +14,14 @@ const Index = () => {
       <HeroSection />
       <AboutSection />
       <FeaturedProducts />
+      <TestimonialCarousel />
+      <section className="py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-3xl">
+            <NewsletterSignup />
+          </div>
+        </div>
+      </section>
       <LocationSection />
       <Footer />
     </div>
