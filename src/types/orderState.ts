@@ -7,6 +7,8 @@ export type OrderStatus =
   | 'confirmed'
   | 'in_progress'
   | 'ready'
+  | 'out_for_delivery'
+  | 'delivered'
   | 'completed'
   | 'cancelled';
 

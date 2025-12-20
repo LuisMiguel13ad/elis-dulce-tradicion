@@ -3,9 +3,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageToggle from '@/components/LanguageToggle';
 import { Button } from '@/components/ui/button';
-import { LogOut, RefreshCw, LayoutDashboard, Calendar, ShoppingBag, Menu as MenuIcon, Settings } from 'lucide-react';
+import { LogOut, RefreshCw, LayoutDashboard, Calendar, ShoppingBag, Menu as MenuIcon, Settings, Sun, Moon, Keyboard } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTheme } from 'next-themes';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -24,12 +30,17 @@ const DashboardLayout = ({
 }: DashboardLayoutProps) => {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   const getActiveTab = () => {
@@ -57,19 +68,23 @@ const DashboardLayout = ({
             <h1 className="font-semibold text-lg">{title}</h1>
           </div>
 
-          {/* Navigation Tabs (Optional - mainly for Owner/Manager to switch views) */}
-          {showTabs && user?.role === 'owner' && (
+          {/* Navigation Tabs - For staff to switch between views */}
+          {showTabs && (user?.profile?.role === 'owner' || user?.profile?.role === 'baker') && (
             <div className="hidden lg:flex items-center justify-center flex-1 mx-4">
               <div className="flex bg-muted/50 p-1 rounded-lg">
-                <Button 
-                    variant={location.pathname === '/owner-dashboard' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => navigate('/owner-dashboard')}
-                    className="gap-2"
-                >
-                    <Settings className="h-4 w-4" />
-                    Owner
-                </Button>
+                {/* Owner-only tab */}
+                {user?.profile?.role === 'owner' && (
+                  <Button 
+                      variant={location.pathname === '/owner-dashboard' ? 'secondary' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => navigate('/owner-dashboard')}
+                      className="gap-2"
+                  >
+                      <Settings className="h-4 w-4" />
+                      {t('Admin', 'Admin')}
+                  </Button>
+                )}
+                {/* Shared tabs for baker and owner */}
                 <Button 
                     variant={location.pathname === '/bakery-dashboard' ? 'secondary' : 'ghost'} 
                     size="sm" 
@@ -77,7 +92,7 @@ const DashboardLayout = ({
                     className="gap-2"
                 >
                     <ShoppingBag className="h-4 w-4" />
-                    Orders
+                    {t('Órdenes', 'Orders')}
                 </Button>
                 <Button 
                     variant={location.pathname === '/kitchen-display' ? 'secondary' : 'ghost'} 
@@ -86,7 +101,7 @@ const DashboardLayout = ({
                     className="gap-2"
                 >
                     <MenuIcon className="h-4 w-4" />
-                    Kitchen
+                    {t('Cocina', 'Kitchen')}
                 </Button>
               </div>
             </div>
@@ -95,17 +110,65 @@ const DashboardLayout = ({
           {/* Actions */}
           <div className="flex items-center gap-2 md:gap-4">
              {onRefresh && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{t('Actualizar', 'Refresh')}</span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline">{t('Actualizar', 'Refresh')}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('Actualizar', 'Refresh')} <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-xs">R</kbd></p>
+                </TooltipContent>
+              </Tooltip>
             )}
+
+            {/* Keyboard Shortcuts Hint */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden md:flex h-9 w-9"
+                  onClick={() => {
+                    // Trigger the ? shortcut help
+                    window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
+                  }}
+                >
+                  <Keyboard className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('Atajos de Teclado', 'Keyboard Shortcuts')} <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-xs">?</kbd></p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* Dark Mode Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  className="h-9 w-9"
+                >
+                  {theme === 'dark' ? (
+                    <Sun className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Moon className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{theme === 'dark' ? t('Modo Claro', 'Light Mode') : t('Modo Oscuro', 'Dark Mode')}</p>
+              </TooltipContent>
+            </Tooltip>
             
             <LanguageToggle />
             
@@ -113,12 +176,19 @@ const DashboardLayout = ({
             
             <div className="flex items-center gap-3">
               <div className="text-right hidden md:block">
-                <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role || 'Guest'}</p>
+                <p className="text-sm font-medium leading-none">{user?.profile?.full_name || user?.email || 'User'}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user?.profile?.role || 'Guest'}</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
-                <LogOut className="h-5 w-5 text-muted-foreground hover:text-destructive" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleLogout}>
+                    <LogOut className="h-5 w-5 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('Cerrar Sesión', 'Logout')}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>

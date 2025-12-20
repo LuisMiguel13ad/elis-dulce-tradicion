@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from '@/contexts/LanguageContext';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Clock, CheckCircle2, AlertTriangle, Printer, Truck, MapPin, XCircle, Wifi, WifiOff } from 'lucide-react';
@@ -12,6 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
+import ReferenceImageViewer from '@/components/order/ReferenceImageViewer';
+import { useDashboardShortcuts } from '@/hooks/useDashboardShortcuts';
 import { printOrderTicket } from '@/utils/printTicket';
 import { Order } from '@/types/order';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
@@ -31,6 +34,7 @@ const getSortableDate = (order: Order) => {
 const KitchenDisplay = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const isMobile = useIsMobile();
   
   const { orders, refreshOrders, isRefreshing, newOrderAlert, latestOrder, dismissAlert } = useOrdersFeed('baker');
@@ -43,6 +47,27 @@ const KitchenDisplay = () => {
   const [selectedDeliveryOrder, setSelectedDeliveryOrder] = useState<Order | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [selectedOrderIndex, setSelectedOrderIndex] = useState<number>(0);
+
+  // Keyboard shortcuts for Kitchen Display
+  useDashboardShortcuts({
+    onRefresh: refreshOrders,
+    onPrint: () => {
+      const order = filteredActiveOrders[selectedOrderIndex];
+      if (order) printOrderTicket(order);
+    },
+    onFilterAll: () => setStatusFilter('all'),
+    onFilterPending: () => setStatusFilter('pending'),
+    onFilterConfirmed: () => setStatusFilter('confirmed'),
+    onFilterInProgress: () => setStatusFilter('in_progress'),
+    onFilterReady: () => setStatusFilter('ready'),
+    onNextOrder: () => setSelectedOrderIndex(prev => Math.min(prev + 1, filteredActiveOrders.length - 1)),
+    onPrevOrder: () => setSelectedOrderIndex(prev => Math.max(prev - 1, 0)),
+    onEscape: () => {
+      setCancelOrderId(null);
+      setIsReviewing(false);
+    },
+  });
   
   // Real-time connection status
   const { isConnected } = useRealtimeOrders({
@@ -310,11 +335,17 @@ const KitchenDisplay = () => {
             ) : (
               // Desktop: Grid layout
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredActiveOrders.map((order: Order) => (
-                  <Card key={order.id} className={`border-2 flex flex-col ${
-                    order.status === 'ready' ? 'border-green-500 bg-green-50/10' : 
-                    order.status === 'in_progress' ? 'border-purple-500' : 'border-border'
-                  }`}>
+                {filteredActiveOrders.map((order: Order, index: number) => {
+                  const isSelected = index === selectedOrderIndex;
+                  return (
+                  <Card 
+                    key={order.id} 
+                    className={`border-2 flex flex-col cursor-pointer transition-all ${
+                      order.status === 'ready' ? 'border-green-500 bg-green-50/10' : 
+                      order.status === 'in_progress' ? 'border-purple-500' : 'border-border'
+                    } ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                    onClick={() => setSelectedOrderIndex(index)}
+                  >
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                       <Badge variant="outline" className="font-mono text-sm">#{order.order_number}</Badge>
@@ -343,10 +374,19 @@ const KitchenDisplay = () => {
                  
                  <CardContent className="flex-1 flex flex-col gap-4">
                     <div className="bg-muted/30 p-3 rounded-lg flex-1">
-                       <p className="font-semibold text-sm text-muted-foreground uppercase mb-1">Theme / Design</p>
+                       <p className="font-semibold text-sm text-muted-foreground uppercase mb-1">{t('Tema / Diseño', 'Theme / Design')}</p>
                        <p className="text-lg font-medium leading-snug">{order.theme}</p>
                         {order.dedication && (
                          <p className="mt-2 text-sm italic">"{order.dedication}"</p>
+                        )}
+                        {order.reference_image_path && (
+                          <div className="mt-3">
+                            <ReferenceImageViewer 
+                              imagePath={order.reference_image_path}
+                              orderNumber={order.order_number}
+                              theme={order.theme}
+                            />
+                          </div>
                         )}
                       </div>
                       
@@ -393,7 +433,8 @@ const KitchenDisplay = () => {
               </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
              
                 {filteredActiveOrders.length === 0 && (
                   <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-xl">

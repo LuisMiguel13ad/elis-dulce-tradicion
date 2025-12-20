@@ -17,12 +17,15 @@ import {
   XCircle,
   Download,
   RotateCcw,
-  Eye
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice } from '@/lib/pricing';
 import { format } from 'date-fns';
+import OrderDetailsModal from './OrderDetailsModal';
+import { Order } from '@/types/order';
 
 interface OrderHistoryProps {
   userId: string;
@@ -31,14 +34,19 @@ interface OrderHistoryProps {
 const OrderHistory = ({ userId }: OrderHistoryProps) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<any[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  // Helper to check if order is active (can be tracked)
+  const isActiveOrder = (status: string) => {
+    return !['cancelled', 'completed', 'delivered'].includes(status);
+  };
 
   useEffect(() => {
     loadOrders();
@@ -270,7 +278,7 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
                   )}
                 </div>
 
-                <div className="flex gap-2 pt-4 border-t">
+                <div className="flex flex-wrap gap-2 pt-4 border-t">
                   <Button
                     variant="outline"
                     size="sm"
@@ -279,7 +287,16 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
                     <Eye className="mr-2 h-4 w-4" />
                     {t('Ver Detalles', 'View Details')}
                   </Button>
-                  {order.status === 'completed' && (
+                  {isActiveOrder(order.status) && (
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/order-tracking?order=${order.order_number}`)}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t('Rastrear', 'Track')}
+                    </Button>
+                  )}
+                  {(order.status === 'completed' || order.status === 'delivered') && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -304,25 +321,12 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
         )}
       </div>
 
-      {/* Order Details Modal/Dialog would go here */}
-      {selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Order #{selectedOrder.order_number}</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(null)}>
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Order details would be displayed here */}
-              <p>{JSON.stringify(selectedOrder, null, 2)}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        open={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+      />
     </div>
   );
 };

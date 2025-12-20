@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+server.log
 
 node_modules
 dist
@@ -33,6 +34,27 @@ test-results
 .env
 .env.local
 .env.production
+.env.*
 
 # Logs directory
 logs/
+
+# Backend specific
+backend/node_modules
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+npm-cache/
+.npm/
+.cache/
+
+# Bun lockfile (if using npm)
+bun.lockb
+
+# Uploaded files (user data)
+backend/uploads/*
+!backend/uploads/.gitkeep

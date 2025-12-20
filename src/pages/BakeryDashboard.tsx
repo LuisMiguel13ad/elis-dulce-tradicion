@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Bell, CheckCircle2, Clock, Package, X, Search, Truck, Home, ShoppingBag, XCircle } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, Package, X, Search, Truck, Home, ShoppingBag, XCircle, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -13,9 +13,14 @@ import { useOrdersFeed } from '@/hooks/useOrdersFeed';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
+import CustomerQuickActions from '@/components/order/CustomerQuickActions';
+import ReferenceImageViewer from '@/components/order/ReferenceImageViewer';
+import { useDashboardShortcuts } from '@/hooks/useDashboardShortcuts';
 import { api } from '@/lib/api';
 import { Order } from '@/types/order';
+import { printOrderTicket } from '@/utils/printTicket';
 
 const BakeryDashboard = () => {
   const { t } = useLanguage();
@@ -39,6 +44,8 @@ const BakeryDashboard = () => {
   const [flashScreen, setFlashScreen] = useState(false);
   const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [selectedOrderIndex, setSelectedOrderIndex] = useState<number>(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Auth Guard - ProtectedRoute handles this, but keeping for backward compatibility
   useEffect(() => {
@@ -96,6 +103,28 @@ const BakeryDashboard = () => {
         );
       });
 
+  // Keyboard shortcuts (after filteredOrders is defined)
+  useDashboardShortcuts({
+    onRefresh: refreshOrders,
+    onPrint: () => {
+      const order = filteredOrders[selectedOrderIndex];
+      if (order) printOrderTicket(order);
+    },
+    onSearch: () => searchInputRef.current?.focus(),
+    onFilterAll: () => setFilter('all'),
+    onFilterPending: () => setFilter('pending'),
+    onFilterConfirmed: () => setFilter('confirmed'),
+    onFilterInProgress: () => setFilter('in_progress'),
+    onFilterReady: () => setFilter('ready'),
+    onFilterDelivery: () => setFilter('out_for_delivery'),
+    onNextOrder: () => setSelectedOrderIndex(prev => Math.min(prev + 1, filteredOrders.length - 1)),
+    onPrevOrder: () => setSelectedOrderIndex(prev => Math.max(prev - 1, 0)),
+    onEscape: () => {
+      setCancelOrderId(null);
+      setSearchQuery('');
+    },
+  });
+
   if (authLoading || feedLoading && orders.length === 0) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -147,8 +176,11 @@ const BakeryDashboard = () => {
       </AnimatePresence>
 
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {/* Today's Schedule Summary */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            {/* Stats Cards */}
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
           {[
              { label: 'Total', count: stats.total, icon: ShoppingBag, color: 'blue' },
              { label: 'Pending', count: stats.pending, icon: Clock, color: 'yellow' },
@@ -166,6 +198,13 @@ const BakeryDashboard = () => {
                </CardContent>
             </Card>
           ))}
+            </div>
+          </div>
+          
+          {/* Today's Schedule Summary */}
+          <div className="lg:col-span-1">
+            <TodayScheduleSummary orders={orders} />
+          </div>
         </div>
 
         <Separator />
@@ -175,7 +214,8 @@ const BakeryDashboard = () => {
            <div className="relative w-full md:w-96">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
              <Input 
-               placeholder={t('Buscar...', 'Search...')} 
+               ref={searchInputRef}
+               placeholder={t('Buscar... (F)', 'Search... (F)')} 
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
                className="pl-10"
@@ -183,15 +223,23 @@ const BakeryDashboard = () => {
            </div>
            
            <div className="flex flex-wrap gap-2">
-             {['all', 'pending', 'confirmed', 'in_progress', 'ready'].map((status) => (
+             {[
+               { key: 'all', label: t('Todos', 'All') },
+               { key: 'pending', label: t('Pendiente', 'Pending') },
+               { key: 'confirmed', label: t('Confirmado', 'Confirmed') },
+               { key: 'in_progress', label: t('En Progreso', 'In Progress') },
+               { key: 'ready', label: t('Listo', 'Ready') },
+               { key: 'out_for_delivery', label: t('En Entrega', 'Delivering') },
+               { key: 'delivered', label: t('Entregado', 'Delivered') },
+               { key: 'cancelled', label: t('Cancelado', 'Cancelled') },
+             ].map((status) => (
                <Button
-                 key={status}
-                 variant={filter === status ? 'default' : 'outline'}
+                 key={status.key}
+                 variant={filter === status.key ? 'default' : 'outline'}
                  size="sm"
-                 onClick={() => setFilter(status)}
-                 className="capitalize"
+                 onClick={() => setFilter(status.key)}
                >
-                 {status}
+                 {status.label}
                </Button>
              ))}
            </div>
@@ -205,11 +253,16 @@ const BakeryDashboard = () => {
            </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredOrders.map((order: Order) => {
+        {filteredOrders.map((order: Order, index: number) => {
                 const isNew = !seenIds.has(order.id) && order.status === 'pending';
+                const isSelected = index === selectedOrderIndex;
                 
                 return (
-                  <Card key={order.id} className={`h-full transition-all hover:shadow-md ${isNew ? 'border-primary border-2' : ''}`}>
+                  <Card 
+                    key={order.id} 
+                    className={`h-full transition-all hover:shadow-md ${isNew ? 'border-primary border-2' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                    onClick={() => setSelectedOrderIndex(index)}
+                  >
                     <CardHeader className="pb-3">
                        <div className="flex justify-between items-start">
                          <div>
@@ -219,13 +272,27 @@ const BakeryDashboard = () => {
                            </CardTitle>
                            <CardDescription>{new Date(order.created_at).toLocaleDateString()}</CardDescription>
                          </div>
-                         <Badge variant="outline" className="capitalize">{order.status}</Badge>
+                         <div className="flex items-center gap-2">
+                           <Button
+                             size="icon"
+                             variant="ghost"
+                             className="h-8 w-8"
+                             onClick={() => printOrderTicket(order)}
+                             title={t('Imprimir Ticket', 'Print Ticket')}
+                           >
+                             <Printer className="h-4 w-4" />
+                           </Button>
+                           <Badge variant="outline" className="capitalize">{order.status}</Badge>
+                         </div>
                        </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                       <div>
-                         <p className="font-semibold">{order.customer_name}</p>
-                         <p className="text-sm text-muted-foreground">{order.customer_phone}</p>
+                       <div className="flex items-start justify-between">
+                         <div>
+                           <p className="font-semibold">{order.customer_name}</p>
+                           <p className="text-sm text-muted-foreground">{order.customer_phone}</p>
+                         </div>
+                         <CustomerQuickActions order={order} variant="dropdown" />
                        </div>
                        
                        <Separator />
@@ -234,6 +301,15 @@ const BakeryDashboard = () => {
                          <p className="text-sm font-medium">{order.cake_size} - {order.filling}</p>
                          <p className="text-sm text-muted-foreground">{t('Tema', 'Theme')}: {order.theme}</p>
                          {order.dedication && <p className="text-sm italic mt-1">"{order.dedication}"</p>}
+                         {order.reference_image_path && (
+                           <div className="mt-2">
+                             <ReferenceImageViewer 
+                               imagePath={order.reference_image_path} 
+                               orderNumber={order.order_number}
+                               theme={order.theme}
+                             />
+                           </div>
+                         )}
                        </div>
 
                        <div className="flex items-center gap-2 text-sm">

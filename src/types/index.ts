@@ -31,22 +31,8 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
-// Common types
-export type OrderStatus = 
-  | 'pending'
-  | 'confirmed'
-  | 'in_progress'
-  | 'ready'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'completed'
-  | 'cancelled';
-
-export type PaymentStatus = 
-  | 'pending'
-  | 'completed'
-  | 'failed'
-  | 'refunded';
+// Note: OrderStatus, DeliveryStatus, RefundStatus, PaymentStatus are now exported from './order'
+// Re-exporting for backward compatibility
 
 export type DeliveryOption = 'pickup' | 'delivery';
 
