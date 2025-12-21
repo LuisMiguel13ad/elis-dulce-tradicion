@@ -1,0 +1,265 @@
+{
+  "name": "Eli's Bakery - Ready for Pickup",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-ready",
+        "options": {}
+      },
+      "id": "webhook-ready",
+      "name": "Webhook - Order Update",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "webhookId": "order-ready"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-update",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "UPDATE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "condition-ready",
+              "leftValue": "={{ $json.record.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "condition-was-not-ready",
+              "leftValue": "={{ $json.old_record.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-status-ready",
+      "name": "IF Status Changed to Ready",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-spanish",
+              "leftValue": "={{ $json.record.customer_language }}",
+              "rightValue": "es",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-spanish-ready",
+      "name": "IF Spanish",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=🎂 ¡Tu Pedido Está Listo! - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #4CAF50, #45a049); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #fff; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .ready-badge { background: #4CAF50; color: white; padding: 15px 30px; border-radius: 50px; display: inline-block; font-size: 20px; font-weight: bold; margin: 20px 0; }\n    .order-info { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .pickup-info { background: #e8f5e9; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #4CAF50; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .highlight { color: #4CAF50; font-weight: bold; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 ¡Tu Pedido Está Listo!</h1>\n    </div>\n    <div class=\"content\">\n      <p style=\"text-align: center;\">Hola <strong>{{ $json.record.customer_name }}</strong>,</p>\n      \n      <p style=\"text-align: center;\"><span class=\"ready-badge\">✅ LISTO PARA RECOGER</span></p>\n      \n      <div class=\"order-info\">\n        <p style=\"font-size: 18px; margin: 0;\">Orden <span class=\"highlight\">#{{ $json.record.order_number }}</span></p>\n        <p style=\"margin: 10px 0 0 0;\">{{ $json.record.cake_size }} - {{ $json.record.filling }}</p>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3 style=\"margin-top: 0;\">📍 Ven a Recogerlo</h3>\n        <p style=\"font-size: 18px; margin: 10px 0;\"><strong>Eli's Bakery</strong></p>\n        <p style=\"margin: 5px 0;\">Bensalem, PA</p>\n        <p style=\"margin: 15px 0 0 0;\">⏰ <strong>Horario:</strong> 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p style=\"text-align: center;\">Por favor trae tu confirmación de pedido o identificación.</p>\n      <p style=\"text-align: center;\">¿Preguntas? Llámanos: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>¡Gracias por elegir Eli's Bakery! 💛</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-ready-spanish",
+      "name": "Email Ready - Spanish",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 150],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.record.customer_phone }}",
+        "message": "=🎂 Eli's Bakery: ¡Tu pedido #{{ $json.record.order_number }} está LISTO para recoger!\n\n📍 Ubicación: Bensalem, PA\n⏰ Horario: 8AM-9PM\n\n¡Te esperamos!"
+      },
+      "id": "sms-ready-spanish",
+      "name": "SMS Ready - Spanish",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1130, 150],
+      "credentials": {
+        "twilioApi": {
+          "id": "TWILIO_CREDENTIAL_ID",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=🎂 Your Order is Ready! - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #4CAF50, #45a049); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #fff; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .ready-badge { background: #4CAF50; color: white; padding: 15px 30px; border-radius: 50px; display: inline-block; font-size: 20px; font-weight: bold; margin: 20px 0; }\n    .order-info { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .pickup-info { background: #e8f5e9; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #4CAF50; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .highlight { color: #4CAF50; font-weight: bold; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 Your Order is Ready!</h1>\n    </div>\n    <div class=\"content\">\n      <p style=\"text-align: center;\">Hi <strong>{{ $json.record.customer_name }}</strong>,</p>\n      \n      <p style=\"text-align: center;\"><span class=\"ready-badge\">✅ READY FOR PICKUP</span></p>\n      \n      <div class=\"order-info\">\n        <p style=\"font-size: 18px; margin: 0;\">Order <span class=\"highlight\">#{{ $json.record.order_number }}</span></p>\n        <p style=\"margin: 10px 0 0 0;\">{{ $json.record.cake_size }} - {{ $json.record.filling }}</p>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3 style=\"margin-top: 0;\">📍 Come Pick It Up</h3>\n        <p style=\"font-size: 18px; margin: 10px 0;\"><strong>Eli's Bakery</strong></p>\n        <p style=\"margin: 5px 0;\">Bensalem, PA</p>\n        <p style=\"margin: 15px 0 0 0;\">⏰ <strong>Hours:</strong> 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p style=\"text-align: center;\">Please bring your order confirmation or ID.</p>\n      <p style=\"text-align: center;\">Questions? Call us: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Thank you for choosing Eli's Bakery! 💛</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-ready-english",
+      "name": "Email Ready - English",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 450],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.record.customer_phone }}",
+        "message": "=🎂 Eli's Bakery: Your order #{{ $json.record.order_number }} is READY for pickup!\n\n📍 Location: Bensalem, PA\n⏰ Hours: 8AM-9PM\n\nSee you soon!"
+      },
+      "id": "sms-ready-english",
+      "name": "SMS Ready - English",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1130, 450],
+      "credentials": {
+        "twilioApi": {
+          "id": "TWILIO_CREDENTIAL_ID",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-op-skip-ready",
+      "name": "Skip - Not Ready Status",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [690, 550]
+    }
+  ],
+  "connections": {
+    "Webhook - Order Update": {
+      "main": [
+        [
+          {
+            "node": "IF Status Changed to Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Status Changed to Ready": {
+      "main": [
+        [
+          {
+            "node": "IF Spanish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Not Ready Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Spanish": {
+      "main": [
+        [
+          {
+            "node": "Email Ready - Spanish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Ready - English",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Ready - Spanish": {
+      "main": [
+        [
+          {
+            "node": "SMS Ready - Spanish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Ready - English": {
+      "main": [
+        [
+          {
+            "node": "SMS Ready - English",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Bakery",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

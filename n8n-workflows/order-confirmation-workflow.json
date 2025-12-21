@@ -1,0 +1,189 @@
+{
+  "name": "Eli's Bakery - Order Confirmation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-confirmation",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - New Order",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "webhookId": "order-confirmation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-new-order",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "INSERT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-new-order",
+      "name": "IF New Order",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-spanish",
+              "leftValue": "={{ $json.record.customer_language }}",
+              "rightValue": "es",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-spanish",
+      "name": "IF Spanish",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=Pedido Confirmado - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #f8cc4a, #e6b84d); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #1a1a1a; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .order-details { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }\n    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }\n    .detail-row:last-child { border-bottom: none; }\n    .label { color: #666; }\n    .value { font-weight: bold; }\n    .pickup-info { background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .total { font-size: 24px; color: #f8cc4a; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎂 ¡Pedido Confirmado!</h1>\n    </div>\n    <div class=\"content\">\n      <p>Hola <strong>{{ $json.record.customer_name }}</strong>,</p>\n      <p>¡Gracias por tu pedido! Aquí están los detalles:</p>\n      \n      <div class=\"order-details\">\n        <div class=\"detail-row\">\n          <span class=\"label\">📋 Número de Orden:</span>\n          <span class=\"value\">#{{ $json.record.order_number }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">📅 Fecha de Recogida:</span>\n          <span class=\"value\">{{ $json.record.date_needed }} a las {{ $json.record.time_needed }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎂 Tamaño:</span>\n          <span class=\"value\">{{ $json.record.cake_size }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🍰 Relleno:</span>\n          <span class=\"value\">{{ $json.record.filling }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎨 Tema:</span>\n          <span class=\"value\">{{ $json.record.theme }}</span>\n        </div>\n        {{ $json.record.dedication ? '<div class=\"detail-row\"><span class=\"label\">✍️ Dedicatoria:</span><span class=\"value\">\"' + $json.record.dedication + '\"</span></div>' : '' }}\n        <div class=\"detail-row\">\n          <span class=\"label\">💰 Total:</span>\n          <span class=\"value total\">${{ $json.record.total_amount }}</span>\n        </div>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3>📍 Lugar de Recogida</h3>\n        <p><strong>Eli's Bakery</strong><br>Bensalem, PA</p>\n        <p>⏰ Horario: 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p>¡Te notificaremos cuando tu pedido esté listo!</p>\n      <p>¿Preguntas? Llámanos: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Gracias por elegir Eli's Bakery 💛</p>\n      <p>Sabores que Celebran la Vida</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-spanish",
+      "name": "Email - Spanish",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 200],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=Order Confirmed - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #f8cc4a, #e6b84d); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #1a1a1a; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .order-details { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }\n    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }\n    .detail-row:last-child { border-bottom: none; }\n    .label { color: #666; }\n    .value { font-weight: bold; }\n    .pickup-info { background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .total { font-size: 24px; color: #f8cc4a; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎂 Order Confirmed!</h1>\n    </div>\n    <div class=\"content\">\n      <p>Hi <strong>{{ $json.record.customer_name }}</strong>,</p>\n      <p>Thank you for your order! Here are your details:</p>\n      \n      <div class=\"order-details\">\n        <div class=\"detail-row\">\n          <span class=\"label\">📋 Order Number:</span>\n          <span class=\"value\">#{{ $json.record.order_number }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">📅 Pickup Date:</span>\n          <span class=\"value\">{{ $json.record.date_needed }} at {{ $json.record.time_needed }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎂 Size:</span>\n          <span class=\"value\">{{ $json.record.cake_size }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🍰 Filling:</span>\n          <span class=\"value\">{{ $json.record.filling }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎨 Theme:</span>\n          <span class=\"value\">{{ $json.record.theme }}</span>\n        </div>\n        {{ $json.record.dedication ? '<div class=\"detail-row\"><span class=\"label\">✍️ Dedication:</span><span class=\"value\">\"' + $json.record.dedication + '\"</span></div>' : '' }}\n        <div class=\"detail-row\">\n          <span class=\"label\">💰 Total:</span>\n          <span class=\"value total\">${{ $json.record.total_amount }}</span>\n        </div>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3>📍 Pickup Location</h3>\n        <p><strong>Eli's Bakery</strong><br>Bensalem, PA</p>\n        <p>⏰ Hours: 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p>We'll notify you when your order is ready!</p>\n      <p>Questions? Call us: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Thank you for choosing Eli's Bakery 💛</p>\n      <p>Flavors that Celebrate Life</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-english",
+      "name": "Email - English",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 400],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-op-skip",
+      "name": "Skip - Not New Order",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [690, 500]
+    }
+  ],
+  "connections": {
+    "Webhook - New Order": {
+      "main": [
+        [
+          {
+            "node": "IF New Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF New Order": {
+      "main": [
+        [
+          {
+            "node": "IF Spanish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Not New Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Spanish": {
+      "main": [
+        [
+          {
+            "node": "Email - Spanish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email - English",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Bakery",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
