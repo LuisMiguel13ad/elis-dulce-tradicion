@@ -821,8 +821,43 @@ const Order = () => {
   );
   };
 
-  // Step 3: Delivery
+  // Step 3: Pickup Information
   const renderStep3 = () => (
+    <div className="space-y-6">
+      {/* Pickup Only - Delivery coming soon */}
+      <div className="rounded-lg bg-primary/10 border border-primary/30 p-6 text-center">
+        <h3 className="font-display text-xl font-bold mb-2">
+          {t('📍 Recoger en Tienda', '📍 Store Pickup')}
+        </h3>
+        <p className="text-muted-foreground mb-4">
+          {t(
+            'Le notificaremos cuando su pedido esté listo para recoger.',
+            'We will notify you when your order is ready for pickup.'
+          )}
+        </p>
+        <div className="bg-card rounded-lg p-4 inline-block">
+          <p className="font-semibold">{t('Dirección', 'Address')}:</p>
+          <p className="text-muted-foreground">Bensalem, PA</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            {t('Horario de recogida', 'Pickup hours')}: 8:00 AM - 9:00 PM
+          </p>
+        </div>
+      </div>
+
+      {/* Hidden delivery option for future use */}
+      <input type="hidden" value="pickup" />
+
+      {/* Delivery coming soon notice */}
+      <div className="rounded-lg bg-muted/50 border border-dashed p-4 text-center">
+        <p className="text-sm text-muted-foreground">
+          🚗 {t('Entrega a domicilio próximamente', 'Home delivery coming soon')}
+        </p>
+      </div>
+    </div>
+  );
+
+  // Keep delivery code for future - just hide the UI
+  const renderStep3_delivery_future = () => (
     <div className="space-y-6">
       <div className="space-y-2">
         <Label>{t('Entrega', 'Delivery Option')} *</Label>

@@ -104,7 +104,8 @@ export default defineConfig(({ mode }) => ({
           }
         ],
         skipWaiting: true,
-        clientsClaim: true
+        clientsClaim: true,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for large images
       },
       devOptions: {
         enabled: true,

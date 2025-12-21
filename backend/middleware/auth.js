@@ -3,7 +3,13 @@
 
 import { AppError } from './errorHandler.js';
 
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'bakery-secret-key-123';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
+
+// Security: Fail if ADMIN_API_KEY is not set in production
+if (!ADMIN_API_KEY && process.env.NODE_ENV === 'production') {
+  console.error('❌ CRITICAL: ADMIN_API_KEY environment variable must be set in production');
+  process.exit(1);
+}
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;

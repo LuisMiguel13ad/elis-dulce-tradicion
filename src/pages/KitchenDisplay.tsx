@@ -446,109 +446,14 @@ const KitchenDisplay = () => {
             )}
           </PullToRefresh>
 
-        {/* Delivery Orders Section */}
+        {/* Delivery Orders Section - Hidden for now (pickup only) */}
+        {/* TODO: Uncomment when delivery is enabled
         {deliveryOrders.length > 0 && (
           <div className="mt-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Truck className="h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-bold">Today's Deliveries ({deliveryOrders.length})</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {deliveryOrders.map((order: Order) => (
-                <Card key={order.id} className="border-2 border-blue-200">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <Badge variant="outline" className="font-mono">#{order.order_number}</Badge>
-                      <Badge variant={
-                        order.delivery_status === 'delivered' ? 'default' :
-                        order.delivery_status === 'in_transit' ? 'default' :
-                        order.delivery_status === 'assigned' ? 'secondary' :
-                        'outline'
-                      }>
-                        {order.delivery_status || 'pending'}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-lg mt-2">{order.customer_name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {order.delivery_address && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-muted-foreground">Address:</p>
-                          <p className="text-sm">{order.delivery_address}</p>
-                          {order.delivery_apartment && (
-                            <p className="text-xs text-muted-foreground">Apt: {order.delivery_apartment}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {order.delivery_zone && (
-                      <div>
-                        <span className="text-xs text-muted-foreground">Zone: </span>
-                        <Badge variant="outline" className="text-xs">{order.delivery_zone}</Badge>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 text-sm">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{order.time_needed}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      {order.delivery_status === 'assigned' && (
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => updateDeliveryStatus(order.id, 'in_transit')}
-                        >
-                          <Truck className="mr-2 h-4 w-4" />
-                          Out for Delivery
-                        </Button>
-                      )}
-                      {order.delivery_status === 'in_transit' && (
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                          onClick={() => updateDeliveryStatus(order.id, 'delivered')}
-                        >
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Mark Delivered
-                        </Button>
-                      )}
-                      {(!order.delivery_status || order.delivery_status === 'pending') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => setSelectedDeliveryOrder(order)}
-                        >
-                          Manage Delivery
-                        </Button>
-                      )}
-                      {/* Cancel Order Button */}
-                      {order.status !== 'cancelled' && order.status !== 'completed' && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setCancelOrderId(order.id)}
-                        >
-                          <XCircle className="mr-2 h-4 w-4" />
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-                    {order.driver_notes && (
-                      <div className="rounded bg-muted p-2 text-xs">
-                        <span className="font-semibold">Notes: </span>
-                        {order.driver_notes}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            ... delivery section hidden ...
           </div>
         )}
+        */}
 
 
         {/* Cancel Order Modal */}
