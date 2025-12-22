@@ -74,7 +74,7 @@ const MobileMenu = () => {
                 href="tel:+16109109067"
                 className="block text-primary font-semibold hover:opacity-80 transition-smooth"
               >
-                610-910-9067
+                (610) 279-6200
               </a>
             </div>
           </div>

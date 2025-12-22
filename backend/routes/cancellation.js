@@ -1,14 +1,14 @@
 import express from 'express';
 import pool from '../db/connection.js';
 import { requireAuth } from '../middleware/auth.js';
-import { Client } from '@square/square-sdk';
+import { SquareClient, SquareEnvironment } from 'square';
 
 const router = express.Router();
 
 // Initialize Square client
-const squareClient = new Client({
-  accessToken: process.env.SQUARE_ACCESS_TOKEN,
-  environment: process.env.SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox',
+const squareClient = new SquareClient({
+  token: process.env.SQUARE_ACCESS_TOKEN,
+  environment: process.env.SQUARE_ENVIRONMENT === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
 });
 
 /**

@@ -1,0 +1,519 @@
+{
+  "name": "Eli's Bakery - Order Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-notifications",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-main",
+      "name": "Webhook - Orders",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [250, 400],
+      "webhookId": "order-notifications",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "INSERT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "New Order"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "UPDATE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.record.status }}",
+                    "rightValue": "ready",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.old_record.status }}",
+                    "rightValue": "ready",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Order Ready"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Other"
+        }
+      },
+      "id": "switch-event",
+      "name": "Route by Event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [470, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.record.customer_language }}",
+              "rightValue": "es",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-lang-confirm",
+      "name": "Language - Confirmation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [700, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.record.customer_language }}",
+              "rightValue": "es",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-lang-ready",
+      "name": "Language - Ready",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [700, 600],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=Pedido Confirmado - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #f8cc4a, #e6b84d); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #1a1a1a; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .order-details { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }\n    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }\n    .detail-row:last-child { border-bottom: none; }\n    .label { color: #666; }\n    .value { font-weight: bold; }\n    .pickup-info { background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .total { font-size: 24px; color: #f8cc4a; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎂 ¡Pedido Confirmado!</h1>\n    </div>\n    <div class=\"content\">\n      <p>Hola <strong>{{ $json.record.customer_name }}</strong>,</p>\n      <p>¡Gracias por tu pedido! Aquí están los detalles:</p>\n      \n      <div class=\"order-details\">\n        <div class=\"detail-row\">\n          <span class=\"label\">📋 Número de Orden:</span>\n          <span class=\"value\">#{{ $json.record.order_number }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">📅 Fecha de Recogida:</span>\n          <span class=\"value\">{{ $json.record.date_needed }} a las {{ $json.record.time_needed }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎂 Tamaño:</span>\n          <span class=\"value\">{{ $json.record.cake_size }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🍰 Relleno:</span>\n          <span class=\"value\">{{ $json.record.filling }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎨 Tema:</span>\n          <span class=\"value\">{{ $json.record.theme }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">💰 Total:</span>\n          <span class=\"value total\">${{ $json.record.total_amount }}</span>\n        </div>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3>📍 Lugar de Recogida</h3>\n        <p><strong>Eli's Bakery</strong><br>Bensalem, PA</p>\n        <p>⏰ Horario: 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p>¡Te notificaremos cuando tu pedido esté listo!</p>\n      <p>¿Preguntas? Llámanos: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Gracias por elegir Eli's Bakery 💛</p>\n      <p>Sabores que Celebran la Vida</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-confirm-es",
+      "name": "Confirmation Email - ES",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [940, 100],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=Order Confirmed - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #f8cc4a, #e6b84d); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #1a1a1a; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .order-details { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }\n    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }\n    .detail-row:last-child { border-bottom: none; }\n    .label { color: #666; }\n    .value { font-weight: bold; }\n    .pickup-info { background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .total { font-size: 24px; color: #f8cc4a; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎂 Order Confirmed!</h1>\n    </div>\n    <div class=\"content\">\n      <p>Hi <strong>{{ $json.record.customer_name }}</strong>,</p>\n      <p>Thank you for your order! Here are your details:</p>\n      \n      <div class=\"order-details\">\n        <div class=\"detail-row\">\n          <span class=\"label\">📋 Order Number:</span>\n          <span class=\"value\">#{{ $json.record.order_number }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">📅 Pickup Date:</span>\n          <span class=\"value\">{{ $json.record.date_needed }} at {{ $json.record.time_needed }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎂 Size:</span>\n          <span class=\"value\">{{ $json.record.cake_size }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🍰 Filling:</span>\n          <span class=\"value\">{{ $json.record.filling }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">🎨 Theme:</span>\n          <span class=\"value\">{{ $json.record.theme }}</span>\n        </div>\n        <div class=\"detail-row\">\n          <span class=\"label\">💰 Total:</span>\n          <span class=\"value total\">${{ $json.record.total_amount }}</span>\n        </div>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3>📍 Pickup Location</h3>\n        <p><strong>Eli's Bakery</strong><br>Bensalem, PA</p>\n        <p>⏰ Hours: 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p>We'll notify you when your order is ready!</p>\n      <p>Questions? Call us: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Thank you for choosing Eli's Bakery 💛</p>\n      <p>Flavors that Celebrate Life</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-confirm-en",
+      "name": "Confirmation Email - EN",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [940, 280],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=🎂 ¡Tu Pedido Está Listo! - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #4CAF50, #45a049); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #fff; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .ready-badge { background: #4CAF50; color: white; padding: 15px 30px; border-radius: 50px; display: inline-block; font-size: 20px; font-weight: bold; margin: 20px 0; }\n    .order-info { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .pickup-info { background: #e8f5e9; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #4CAF50; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .highlight { color: #4CAF50; font-weight: bold; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 ¡Tu Pedido Está Listo!</h1>\n    </div>\n    <div class=\"content\">\n      <p style=\"text-align: center;\">Hola <strong>{{ $json.record.customer_name }}</strong>,</p>\n      \n      <p style=\"text-align: center;\"><span class=\"ready-badge\">✅ LISTO PARA RECOGER</span></p>\n      \n      <div class=\"order-info\">\n        <p style=\"font-size: 18px; margin: 0;\">Orden <span class=\"highlight\">#{{ $json.record.order_number }}</span></p>\n        <p style=\"margin: 10px 0 0 0;\">{{ $json.record.cake_size }} - {{ $json.record.filling }}</p>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3 style=\"margin-top: 0;\">📍 Ven a Recogerlo</h3>\n        <p style=\"font-size: 18px; margin: 10px 0;\"><strong>Eli's Bakery</strong></p>\n        <p style=\"margin: 5px 0;\">Bensalem, PA</p>\n        <p style=\"margin: 15px 0 0 0;\">⏰ <strong>Horario:</strong> 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p style=\"text-align: center;\">Por favor trae tu confirmación de pedido o identificación.</p>\n      <p style=\"text-align: center;\">¿Preguntas? Llámanos: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>¡Gracias por elegir Eli's Bakery! 💛</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-ready-es",
+      "name": "Ready Email - ES",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [940, 500],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'orders@elisdulcetradicion.com' }}",
+        "toEmail": "={{ $json.record.customer_email }}",
+        "subject": "=🎂 Your Order is Ready! - Eli's Bakery #{{ $json.record.order_number }}",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #4CAF50, #45a049); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n    .header h1 { color: #fff; margin: 0; font-size: 28px; }\n    .content { background: #fff; padding: 30px; border: 1px solid #eee; }\n    .ready-badge { background: #4CAF50; color: white; padding: 15px 30px; border-radius: 50px; display: inline-block; font-size: 20px; font-weight: bold; margin: 20px 0; }\n    .order-info { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .pickup-info { background: #e8f5e9; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #4CAF50; }\n    .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }\n    .highlight { color: #4CAF50; font-weight: bold; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 Your Order is Ready!</h1>\n    </div>\n    <div class=\"content\">\n      <p style=\"text-align: center;\">Hi <strong>{{ $json.record.customer_name }}</strong>,</p>\n      \n      <p style=\"text-align: center;\"><span class=\"ready-badge\">✅ READY FOR PICKUP</span></p>\n      \n      <div class=\"order-info\">\n        <p style=\"font-size: 18px; margin: 0;\">Order <span class=\"highlight\">#{{ $json.record.order_number }}</span></p>\n        <p style=\"margin: 10px 0 0 0;\">{{ $json.record.cake_size }} - {{ $json.record.filling }}</p>\n      </div>\n      \n      <div class=\"pickup-info\">\n        <h3 style=\"margin-top: 0;\">📍 Come Pick It Up</h3>\n        <p style=\"font-size: 18px; margin: 10px 0;\"><strong>Eli's Bakery</strong></p>\n        <p style=\"margin: 5px 0;\">Bensalem, PA</p>\n        <p style=\"margin: 15px 0 0 0;\">⏰ <strong>Hours:</strong> 8:00 AM - 9:00 PM</p>\n      </div>\n      \n      <p style=\"text-align: center;\">Please bring your order confirmation or ID.</p>\n      <p style=\"text-align: center;\">Questions? Call us: <strong>610-910-9067</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Thank you for choosing Eli's Bakery! 💛</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-ready-en",
+      "name": "Ready Email - EN",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [940, 700],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.record.customer_phone }}",
+        "message": "=🎂 Eli's Bakery: ¡Tu pedido #{{ $json.record.order_number }} está LISTO!\n\n📍 Bensalem, PA\n⏰ 8AM-9PM\n\n¡Te esperamos!"
+      },
+      "id": "sms-ready-es",
+      "name": "SMS Ready - ES",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1180, 500],
+      "credentials": {
+        "twilioApi": {
+          "id": "TWILIO_CREDENTIAL_ID",
+          "name": "Twilio Account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.record.customer_phone }}",
+        "message": "=🎂 Eli's Bakery: Your order #{{ $json.record.order_number }} is READY!\n\n📍 Bensalem, PA\n⏰ 8AM-9PM\n\nSee you soon!"
+      },
+      "id": "sms-ready-en",
+      "name": "SMS Ready - EN",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1180, 700],
+      "credentials": {
+        "twilioApi": {
+          "id": "TWILIO_CREDENTIAL_ID",
+          "name": "Twilio Account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": true, \"message\": \"Notification sent\", \"order\": \"{{ $json.record.order_number }}\"}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1420, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": true, \"message\": \"Event ignored\", \"type\": \"{{ $json.type }}\"}"
+      },
+      "id": "respond-ignored",
+      "name": "Respond Ignored",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [700, 800]
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "id": "merge-confirm",
+      "name": "Merge Confirmations",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1180, 180],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "id": "merge-ready",
+      "name": "Merge Ready",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1420, 600],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Eli's Bakery - Order Notifications\n\n**Single webhook handles all order events:**\n\n1. **New Order (INSERT)** → Confirmation Email (EN/ES)\n2. **Order Ready (UPDATE + status=ready)** → Ready Email + SMS (EN/ES)\n3. **Other events** → Ignored with response\n\n### Setup Required:\n- SMTP credentials for email\n- Twilio credentials for SMS\n- Environment variables: EMAIL_FROM, TWILIO_PHONE_NUMBER\n\n### Supabase Webhook:\nPoint to: `POST /webhook/order-notifications`"
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [40, 140]
+    }
+  ],
+  "connections": {
+    "Webhook - Orders": {
+      "main": [
+        [
+          {
+            "node": "Route by Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event": {
+      "main": [
+        [
+          {
+            "node": "Language - Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Language - Ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Ignored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Language - Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Email - ES",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confirmation Email - EN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Language - Ready": {
+      "main": [
+        [
+          {
+            "node": "Ready Email - ES",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ready Email - EN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmation Email - ES": {
+      "main": [
+        [
+          {
+            "node": "Merge Confirmations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmation Email - EN": {
+      "main": [
+        [
+          {
+            "node": "Merge Confirmations",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Ready Email - ES": {
+      "main": [
+        [
+          {
+            "node": "SMS Ready - ES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready Email - EN": {
+      "main": [
+        [
+          {
+            "node": "SMS Ready - EN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Ready - ES": {
+      "main": [
+        [
+          {
+            "node": "Merge Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Ready - EN": {
+      "main": [
+        [
+          {
+            "node": "Merge Ready",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Confirmations": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Ready": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Bakery",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Notifications",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "versionId": "1"
+}

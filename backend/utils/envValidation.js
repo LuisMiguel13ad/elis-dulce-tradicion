@@ -38,8 +38,8 @@ const optionalEnvVars = [
  * Validate environment variables
  */
 export function validateEnvironment() {
-  const missing: string[] = [];
-  const warnings: string[] = [];
+  const missing = [];
+  const warnings = [];
 
   // Check required variables
   for (const [key, description] of Object.entries(requiredEnvVars)) {

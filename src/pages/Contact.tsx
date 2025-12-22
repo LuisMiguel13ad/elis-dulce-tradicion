@@ -430,10 +430,10 @@ const Contact = () => {
                       {t('Teléfono', 'Phone')}
                     </p>
                     <a
-                      href="tel:+16109109067"
+                      href="tel:+16102796200"
                       className="font-sans text-lg font-bold text-primary hover:opacity-80 transition-smooth"
                     >
-                      📱 610-910-9067
+                      📱 (610) 279-6200
                     </a>
                   </div>
                   <div>
@@ -441,7 +441,7 @@ const Contact = () => {
                       WhatsApp
                     </p>
                     <a
-                      href="https://wa.me/16109109067"
+                      href="https://wa.me/16102796200"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-sans text-lg font-bold text-primary hover:opacity-80 transition-smooth"
@@ -454,8 +454,8 @@ const Contact = () => {
                       {t('Dirección', 'Address')}
                     </p>
                     <p className="font-sans">
-                      846 Street Rd.<br />
-                      Bensalem, PA 19020
+                      324 W Marshall St<br />
+                      Norristown, PA 19401
                     </p>
                   </div>
                   <div>

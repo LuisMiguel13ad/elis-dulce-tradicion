@@ -1,5 +1,26 @@
 import validator from 'validator';
-import DOMPurify from 'isomorphic-dompurify';
+
+/**
+ * Remove HTML tags from string
+ */
+function removeHtmlTags(str) {
+  return str.replace(/<[^>]*>/g, '');
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str) {
+  const htmlEscapes = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+    '/': '&#x2F;',
+  };
+  return str.replace(/[&<>"'/]/g, char => htmlEscapes[char]);
+}
 
 /**
  * Sanitize string input to prevent XSS
@@ -39,17 +60,29 @@ export function sanitizeObject(obj) {
  * Validate and sanitize request body
  */
 export const validateInput = (req, res, next) => {
-  // Sanitize all string inputs in body, query, and params
+  // Sanitize all string inputs in body
   if (req.body) {
     req.body = sanitizeObject(req.body);
   }
+
+  // Sanitize query parameters in-place (read-only in Express 5)
   if (req.query) {
-    req.query = sanitizeObject(req.query);
+    for (const key of Object.keys(req.query)) {
+      if (typeof req.query[key] === 'string') {
+        req.query[key] = sanitizeString(req.query[key]);
+      }
+    }
   }
+
+  // Sanitize params in-place (read-only in Express 5)
   if (req.params) {
-    req.params = sanitizeObject(req.params);
+    for (const key of Object.keys(req.params)) {
+      if (typeof req.params[key] === 'string') {
+        req.params[key] = sanitizeString(req.params[key]);
+      }
+    }
   }
-  
+
   next();
 };
 

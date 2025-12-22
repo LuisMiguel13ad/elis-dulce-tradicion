@@ -1,19 +1,20 @@
 import express from 'express';
-import { Client, Environment } from 'square';
+import { SquareClient, SquareEnvironment } from 'square';
 import pool from '../db/connection.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Initialize Square client
-const squareClient = new Client({
-  accessToken: process.env.SQUARE_ACCESS_TOKEN,
-  environment: process.env.SQUARE_ENVIRONMENT === 'production' 
-    ? Environment.Production 
-    : Environment.Sandbox,
+const squareClient = new SquareClient({
+  token: process.env.SQUARE_ACCESS_TOKEN,
+  environment: process.env.SQUARE_ENVIRONMENT === 'production'
+    ? SquareEnvironment.Production
+    : SquareEnvironment.Sandbox,
 });
 
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID;
+const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 
 if (!SQUARE_ACCESS_TOKEN || !SQUARE_LOCATION_ID) {
   console.warn('⚠️ Square credentials not configured. Payment features will not work.');

@@ -83,8 +83,8 @@ const Privacy = () => {
               </p>
               <p className="mt-2">
                 <strong>Eli's Dulce Tradición</strong><br />
-                846 Street Rd., Bensalem, PA 19020<br />
-                610-910-9067
+                324 W Marshall St, Norristown, PA 19401<br />
+                (610) 279-6200
               </p>
             </section>
           </div>

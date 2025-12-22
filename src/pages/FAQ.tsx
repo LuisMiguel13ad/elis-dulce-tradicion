@@ -68,8 +68,8 @@ const FAQ = () => {
       id: 4,
       question_en: 'Can I fully customize my cake?',
       question_es: '¿Puedo personalizar completamente mi pastel?',
-      answer_en: 'Absolutely! We offer full customization including size, flavor, filling, theme, and dedication text. You can send us a reference photo via WhatsApp at 610-910-9067.',
-      answer_es: '¡Absolutamente! Ofrecemos personalización completa incluyendo tamaño, sabor, relleno, tema y dedicatoria. Puede enviarnos una foto de referencia por WhatsApp al 610-910-9067.',
+      answer_en: 'Absolutely! We offer full customization including size, flavor, filling, theme, and dedication text. You can send us a reference photo via WhatsApp at (610) 279-6200.',
+      answer_es: '¡Absolutamente! Ofrecemos personalización completa incluyendo tamaño, sabor, relleno, tema y dedicatoria. Puede enviarnos una foto de referencia por WhatsApp al (610) 279-6200.',
       display_order: 4,
       is_active: true,
     },
@@ -95,8 +95,8 @@ const FAQ = () => {
       id: 7,
       question_en: 'What are your hours?',
       question_es: '¿Cuál es su horario de atención?',
-      answer_en: 'We are open Monday through Sunday from 9:00 AM to 8:00 PM. You can visit us at 846 Street Rd., Bensalem, PA 19020.',
-      answer_es: 'Estamos abiertos de lunes a domingo de 9:00 AM a 8:00 PM. Puede visitarnos en 846 Street Rd., Bensalem, PA 19020.',
+      answer_en: 'We are open Monday through Sunday from 5:00 AM to 10:00 PM. You can visit us at 324 W Marshall St, Norristown, PA 19401.',
+      answer_es: 'Estamos abiertos de lunes a domingo de 5:00 AM a 10:00 PM. Puede visitarnos en 324 W Marshall St, Norristown, PA 19401.',
       display_order: 7,
       is_active: true,
     },
@@ -326,13 +326,13 @@ const FAQ = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <a
-                  href="tel:+16109109067"
+                  href="tel:+16102796200"
                   className="font-sans text-xl font-bold text-primary hover:opacity-80 transition-smooth"
                 >
-                  📱 610-910-9067
+                  📱 (610) 279-6200
                 </a>
                 <a
-                  href="https://wa.me/16109109067"
+                  href="https://wa.me/16102796200"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-sans text-xl font-bold text-primary hover:opacity-80 transition-smooth"

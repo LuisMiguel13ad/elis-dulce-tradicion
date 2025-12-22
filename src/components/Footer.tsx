@@ -73,9 +73,9 @@ const Footer = () => {
             <ul className="space-y-2 font-sans text-sm text-background/80">
               <li className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
-                <span>846 Street Rd., Bensalem, PA</span>
+                <span>324 W Marshall St, Norristown, PA 19401</span>
               </li>
-              <li>610-910-9067</li>
+              <li>(610) 279-6200</li>
               <li>{t('home.hours')}</li>
             </ul>
             <div className="mt-4 flex gap-3">

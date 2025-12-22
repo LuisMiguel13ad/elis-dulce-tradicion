@@ -4,6 +4,9 @@
  */
 import { cache, cacheKeys } from '../utils/cache.js';
 
+// Re-export cacheKeys for routes that import from middleware
+export { cacheKeys };
+
 /**
  * Cache middleware factory
  * @param {number} ttlSeconds - Time to live in seconds

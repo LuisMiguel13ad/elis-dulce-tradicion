@@ -221,7 +221,7 @@ function calculateTimeMetrics(order, statusHistory) {
   return metrics;
 }
 
-module.exports = {
+export {
   VALID_STATUSES,
   canTransition,
   validateTransition,

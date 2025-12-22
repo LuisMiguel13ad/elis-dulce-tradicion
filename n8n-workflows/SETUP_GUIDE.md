@@ -2,20 +2,26 @@
 
 ## Overview
 
-Two workflows for Eli's Bakery order notifications:
+**Single unified workflow** for Eli's Bakery order notifications:
 
-1. **Order Confirmation** - Email when new order is placed
-2. **Ready for Pickup** - Email + SMS when order is ready
+| Event | Actions |
+|-------|---------|
+| New Order (INSERT) | Confirmation Email (EN/ES) |
+| Order Ready (UPDATE + status=ready) | Ready Email + SMS (EN/ES) |
+| Other events | Ignored (returns success) |
+
+### Workflow Files
+- **`order-notifications-combined.json`** - Recommended (single webhook)
+- `order-confirmation-workflow.json` - Legacy separate workflow
+- `ready-for-pickup-workflow.json` - Legacy separate workflow
 
 ---
 
-## Step 1: Import Workflows into n8n
+## Step 1: Import Workflow into n8n
 
 1. Open your n8n instance
 2. Go to **Workflows** → **Import from File**
-3. Import both JSON files:
-   - `order-confirmation-workflow.json`
-   - `ready-for-pickup-workflow.json`
+3. Import: `order-notifications-combined.json`
 
 ---
 
@@ -44,9 +50,9 @@ User: resend
 Password: [Your Resend API Key]
 ```
 
-4. Update the credential ID in both workflows (replace `SMTP_CREDENTIAL_ID`)
+4. Update the credential ID in the workflow (replace `SMTP_CREDENTIAL_ID`)
 
-### Twilio (SMS) - Optional
+### Twilio (SMS) - For Ready Notifications
 
 1. Create account at https://www.twilio.com
 2. Get your Account SID and Auth Token
@@ -56,42 +62,34 @@ Password: [Your Resend API Key]
 Account SID: ACxxxxxxxxxx
 Auth Token: your-auth-token
 ```
-5. Update the credential ID in workflows (replace `TWILIO_CREDENTIAL_ID`)
+5. Update the credential ID in workflow (replace `TWILIO_CREDENTIAL_ID`)
 
 ---
 
-## Step 3: Configure Supabase Webhooks
+## Step 3: Configure Supabase Webhook
 
-### In Supabase Dashboard:
+### Single Webhook for All Events
+
+In Supabase Dashboard:
 
 1. Go to **Database** → **Webhooks**
 2. Click **Create Webhook**
 
-### Webhook 1: New Orders
-
 ```
-Name: n8n-new-order
+Name: n8n-order-notifications
 Table: orders
-Events: INSERT
+Events: INSERT, UPDATE
 HTTP Request:
   Method: POST
-  URL: https://your-n8n-url.com/webhook/order-confirmation
+  URL: https://your-n8n-url.com/webhook/order-notifications
   Headers:
     Content-Type: application/json
 ```
 
-### Webhook 2: Order Updates
-
-```
-Name: n8n-order-update
-Table: orders
-Events: UPDATE
-HTTP Request:
-  Method: POST
-  URL: https://your-n8n-url.com/webhook/order-ready
-  Headers:
-    Content-Type: application/json
-```
+The workflow automatically routes:
+- **INSERT** → Confirmation emails
+- **UPDATE + status=ready** → Ready emails + SMS
+- **Other updates** → Ignored
 
 ---
 
@@ -106,17 +104,58 @@ TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
 
 ---
 
-## Step 5: Test the Workflows
+## Step 5: Test the Workflow
 
 ### Test Order Confirmation:
 1. Activate the workflow
 2. Place a test order on your website
-3. Check if email is received
+3. Check if confirmation email is received
 
 ### Test Ready Notification:
-1. Activate the workflow
-2. In the dashboard, mark an order as "Ready"
-3. Check if email and SMS are received
+1. In the dashboard, mark an order as "Ready"
+2. Check if ready email and SMS are received
+
+---
+
+## Workflow Architecture
+
+```
+                    ┌─────────────────┐
+                    │  Webhook POST   │
+                    │ /order-notifs   │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Switch Router  │
+                    │  (by event)     │
+                    └────────┬────────┘
+           ┌─────────────────┼─────────────────┐
+           │                 │                 │
+    ┌──────▼──────┐   ┌──────▼──────┐   ┌──────▼──────┐
+    │  New Order  │   │ Order Ready │   │   Other     │
+    │  (INSERT)   │   │  (UPDATE)   │   │  (ignore)   │
+    └──────┬──────┘   └──────┬──────┘   └──────┬──────┘
+           │                 │                 │
+    ┌──────▼──────┐   ┌──────▼──────┐         │
+    │  Language   │   │  Language   │         │
+    │   Check     │   │   Check     │         │
+    └──────┬──────┘   └──────┬──────┘         │
+      ES ──┴── EN       ES ──┴── EN           │
+       │      │          │      │             │
+    ┌──▼──┐┌──▼──┐   ┌───▼──┐┌──▼───┐        │
+    │Email││Email│   │Email ││Email │        │
+    │ ES  ││ EN  │   │+SMS  ││+SMS  │        │
+    └──┬──┘└──┬──┘   │ ES   ││ EN   │        │
+       │      │      └───┬──┘└──┬───┘        │
+       └──┬───┘          └──┬───┘            │
+          │                 │                │
+          └────────┬────────┴────────────────┘
+                   │
+           ┌───────▼───────┐
+           │ Respond JSON  │
+           │  {success}    │
+           └───────────────┘
+```
 
 ---
 
@@ -168,6 +207,10 @@ For updates, `old_record` contains the previous values.
 - Check Supabase webhook logs
 - Verify n8n workflow is activated
 - Check n8n execution history for errors
+
+### Order Ready not triggering?
+- Make sure the status field changes TO "ready"
+- The old status must NOT be "ready" (prevents duplicate notifications)
 
 ---
 

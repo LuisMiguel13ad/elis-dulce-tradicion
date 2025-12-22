@@ -6,11 +6,11 @@ const LocationSection = () => {
   const { t } = useLanguage();
 
   const handleWhatsApp = () => {
-    window.open('https://wa.me/16109109067', '_blank');
+    window.open('https://wa.me/16102796200', '_blank');
   };
 
   const handleCall = () => {
-    window.location.href = 'tel:+16109109067';
+    window.location.href = 'tel:+16102796200';
   };
 
   return (
@@ -35,8 +35,8 @@ const LocationSection = () => {
                     {t('Dirección', 'Address')}
                   </h3>
                   <p className="font-sans text-muted-foreground">
-                    846 Street Rd.<br />
-                    Bensalem, PA 19020
+                    324 W Marshall St<br />
+                    Norristown, PA 19401
                   </p>
                 </div>
               </div>
@@ -51,7 +51,7 @@ const LocationSection = () => {
                   </h3>
                   <p className="font-sans text-muted-foreground">
                     {t('Lunes – Domingo', 'Monday – Sunday')}<br />
-                    9:00 AM – 8:00 PM
+                    5:00 AM – 10:00 PM
                   </p>
                 </div>
               </div>
@@ -65,7 +65,7 @@ const LocationSection = () => {
                     {t('Teléfono', 'Phone')}
                   </h3>
                   <p className="font-sans text-muted-foreground">
-                    610-910-9067
+                    (610) 279-6200
                   </p>
                 </div>
               </div>
@@ -93,7 +93,7 @@ const LocationSection = () => {
 
             <div className="overflow-hidden rounded-2xl border border-border shadow-elegant">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3052.8447282966977!2d-74.95261892346976!3d40.10627277147694!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c6b3a35a3e4f8d%3A0x7d4f8e8c8f8e8f8e!2s846%20Street%20Rd%2C%20Bensalem%2C%20PA%2019020!5e0!3m2!1sen!2sus!4v1234567890123"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3055.7463887738464!2d-75.34449892347267!3d40.121566871476426!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c6a14a4c4c4c4d%3A0x1234567890abcdef!2s324%20W%20Marshall%20St%2C%20Norristown%2C%20PA%2019401!5e0!3m2!1sen!2sus!4v1234567890123"
                 width="100%"
                 height="500"
                 style={{ border: 0 }}

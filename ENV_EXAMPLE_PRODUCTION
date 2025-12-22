@@ -33,4 +33,8 @@ VITE_SQUARE_ENVIRONMENT=production
 SQUARE_ACCESS_TOKEN=your-square-access-token
 SQUARE_WEBHOOK_SECRET=your-webhook-signature-key
 
+# Webhook Notifications
+# URL to send order notifications to (e.g., n8n, Zapier, Make, etc.)
+ORDER_WEBHOOK_URL=https://n8nlocal.neurovaiagents.uk/webhook-test/order-notifications
+
 # ⚠️ DO NOT DEPLOY WITHOUT SETTING VITE_DASHBOARD_PIN ⚠️

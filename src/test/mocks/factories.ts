@@ -62,7 +62,7 @@ export const createMockAddress = (overrides = {}) => ({
   address: '123 Main St',
   apartment: 'Apt 4B',
   zip_code: '19020',
-  city: 'Bensalem',
+  city: 'Norristown',
   state: 'PA',
   is_default: true,
   ...overrides,

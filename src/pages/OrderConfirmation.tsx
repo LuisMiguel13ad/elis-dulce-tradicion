@@ -334,7 +334,7 @@ const OrderConfirmation = () => {
                         new Date(order.date_needed),
                         order.time_needed,
                         order.delivery_option === 'pickup' 
-                          ? "846 Street Rd., Bensalem, PA"
+                          ? "324 W Marshall St, Norristown, PA 19401"
                           : order.delivery_address
                       );
                       toast.success(t('Añadido al calendario', 'Added to calendar'));

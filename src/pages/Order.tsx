@@ -837,9 +837,9 @@ const Order = () => {
         </p>
         <div className="bg-card rounded-lg p-4 inline-block">
           <p className="font-semibold">{t('Dirección', 'Address')}:</p>
-          <p className="text-muted-foreground">Bensalem, PA</p>
+          <p className="text-muted-foreground">324 W Marshall St, Norristown, PA 19401</p>
           <p className="text-sm text-muted-foreground mt-2">
-            {t('Horario de recogida', 'Pickup hours')}: 8:00 AM - 9:00 PM
+            {t('Horario de recogida', 'Pickup hours')}: 5:00 AM - 10:00 PM
           </p>
         </div>
       </div>
@@ -895,8 +895,8 @@ const Order = () => {
             </p>
             <p className="text-xs text-muted-foreground">
               {t(
-                'Actualmente entregamos en Bensalem y áreas cercanas (15 millas)',
-                'We currently deliver to Bensalem and surrounding areas (15 miles)'
+                'Actualmente entregamos en Norristown y áreas cercanas (15 millas)',
+                'We currently deliver to Norristown and surrounding areas (15 miles)'
               )}
             </p>
           </div>
@@ -1196,7 +1196,7 @@ const Order = () => {
             'You can send your reference photo directly via WhatsApp'
           )}
         </p>
-        <p className="mt-2 font-sans text-lg font-bold text-primary">📱 610-910-9067</p>
+        <p className="mt-2 font-sans text-lg font-bold text-primary">📱 (610) 279-6200</p>
       </div>
 
       {/* Terms and Privacy Consent */}

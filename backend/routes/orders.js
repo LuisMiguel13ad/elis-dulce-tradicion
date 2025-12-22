@@ -279,6 +279,17 @@ router.post('/', validateOrder, async (req, res) => {
       console.error('Error importing edge function utility:', err);
     }
     
+    // Send webhook notification (async, don't block response)
+    try {
+      const { sendOrderWebhook } = await import('../utils/webhook.js');
+      sendOrderWebhook(order).catch((err) => {
+        console.error('Error sending order webhook:', err);
+        // Don't throw - webhook failures shouldn't block order creation
+      });
+    } catch (err) {
+      console.error('Error importing webhook utility:', err);
+    }
+    
     return sendSuccess(res, order, 201);
   } catch (error) {
     await client.query('ROLLBACK');
@@ -286,7 +297,7 @@ router.post('/', validateOrder, async (req, res) => {
   } finally {
     client.release();
   }
-}));
+});
 
 // Update order status (Protected - Admin only)
 router.patch('/:id/status', requireAuth, validateOrderUpdate, asyncHandler(async (req, res) => {
@@ -406,7 +417,7 @@ router.patch('/:id/status', requireAuth, validateOrderUpdate, asyncHandler(async
   } finally {
     client.release();
   }
-});
+}));
 
 export default router;
 

@@ -136,7 +136,7 @@ const Menu = () => {
           <div className="mt-16 rounded-2xl border border-border bg-gradient-to-br from-primary/10 to-accent/10 p-8 text-center shadow-elegant">
             <h3 className="mb-4 font-display text-2xl font-bold text-foreground md:text-3xl">{t('¿Buscas algo especial?', 'Looking for something special?')}</h3>
             <p className="mb-6 font-sans text-lg text-muted-foreground">{t('Contáctanos para consultas sobre productos personalizados o pedidos grandes.', 'Contact us for inquiries about custom products or large orders.')}</p>
-            <p className="font-sans text-xl font-bold text-primary">📱 610-910-9067</p>
+            <p className="font-sans text-xl font-bold text-primary">📱 (610) 279-6200</p>
           </div>
         </div>
       </main>

@@ -50,7 +50,7 @@ export function useAddToCalendar() {
       description: `Pickup your order ${orderNumber} from Eli's Bakery`,
       start: eventDate,
       end: new Date(eventDate.getTime() + 30 * 60 * 1000), // 30 minutes
-      location: location || "846 Street Rd., Bensalem, PA",
+      location: location || "324 W Marshall St, Norristown, PA 19401",
     });
   }, [addToCalendar]);
 

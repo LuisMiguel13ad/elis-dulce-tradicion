@@ -25,7 +25,7 @@ export const buildGoogleMapsUrl = (address: string): string => {
   }
 };
 
-const BAKERY_ADDRESS = '846 Street Rd, Bensalem, PA 19020';
+const BAKERY_ADDRESS = '324 W Marshall St, Norristown, PA 19401';
 const BAKERY_LAT = 40.1063;
 const BAKERY_LNG = -74.9526;
 
