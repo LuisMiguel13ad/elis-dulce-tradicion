@@ -175,6 +175,28 @@ router.post('/create-payment', async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Send webhook notification (async, don't block response)
+    try {
+      const { sendOrderWebhook } = await import('../utils/webhook.js');
+      sendOrderWebhook(order).catch((err) => {
+        console.error('Error sending order webhook:', err);
+        // Don't throw - webhook failures shouldn't block order creation
+      });
+    } catch (err) {
+      console.error('Error importing webhook utility:', err);
+    }
+
+    // Send order confirmation email (async, don't block response)
+    try {
+      const { sendOrderConfirmationEmail } = await import('../utils/edgeFunctions.js');
+      sendOrderConfirmationEmail(order).catch((err) => {
+        console.error('Error sending order confirmation email:', err);
+        // Don't throw - email failures shouldn't block order creation
+      });
+    } catch (err) {
+      console.error('Error importing edge function utility:', err);
+    }
+
     res.json({
       success: true,
       paymentId: squarePaymentId,

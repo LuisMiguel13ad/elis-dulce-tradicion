@@ -9,9 +9,9 @@ import {
   CardCurtainRevealDescription,
 } from '@/components/ui/card-curtain-reveal';
 import { LazyImage } from '@/components/optimized/LazyImage';
-import customCake from '@/assets/custom-cake.jpg';
-import tresLeches from '@/assets/tres-leches.jpg';
-import panDulce from '@/assets/pan-dulce.jpg';
+import customCake from '@/assets/ButterflyBirthdayCake.jpg';
+import tresLeches from '@/assets/weddingCake.jpg';
+import panDulce from '@/assets/3.png';
 
 const FeaturedProducts = memo(() => {
   const { t } = useLanguage();

@@ -6,6 +6,37 @@ import { supabase, getUserProfile } from '@/lib/supabase';
 import { AuthUser, UserRole } from '@/types/auth';
 import type { Session, User } from '@supabase/supabase-js';
 
+// DEV MODE: Set to true to enable dummy logins (disable in production)
+const DEV_MODE = true;
+
+// Dummy users for development (Owner and Baker only)
+const DUMMY_USERS: Record<string, AuthUser> = {
+  owner: {
+    id: 'dev-owner-001',
+    email: 'owner@elisdulce.com',
+    profile: {
+      id: 'dev-owner-001',
+      role: 'owner',
+      full_name: 'Eli (Owner)',
+      phone: '555-0001',
+      email_notifications_enabled: true,
+      sms_notifications_enabled: true,
+    },
+  },
+  baker: {
+    id: 'dev-baker-001',
+    email: 'baker@elisdulce.com',
+    profile: {
+      id: 'dev-baker-001',
+      role: 'baker',
+      full_name: 'Baker Demo',
+      phone: '555-0002',
+      email_notifications_enabled: true,
+      sms_notifications_enabled: true,
+    },
+  },
+};
+
 interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
@@ -15,6 +46,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   hasRole: (role: UserRole | UserRole[]) => boolean;
+  // Dev mode helpers
+  devLogin: (role: 'owner' | 'baker') => void;
+  isDevMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,8 +58,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Dev mode login - stores in localStorage for persistence
+  const devLogin = (role: 'owner' | 'baker') => {
+    if (!DEV_MODE) return;
+    const dummyUser = DUMMY_USERS[role];
+    setUser(dummyUser);
+    localStorage.setItem('dev_user_role', role);
+    toast.success(`Dev login as ${role}`);
+  };
+
   // Load user session on mount
   useEffect(() => {
+    // Check for dev mode login first
+    if (DEV_MODE) {
+      const savedRole = localStorage.getItem('dev_user_role') as 'owner' | 'baker' | null;
+      if (savedRole && DUMMY_USERS[savedRole]) {
+        setUser(DUMMY_USERS[savedRole]);
+        setIsLoading(false);
+        return;
+      }
+    }
+
     if (!supabase) {
       setIsLoading(false);
       return;
@@ -171,17 +224,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (!supabase) return;
-
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-      toast.info('Signed out successfully');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Error signing out');
+    // Clear dev mode login
+    if (DEV_MODE) {
+      localStorage.removeItem('dev_user_role');
     }
+
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
+    }
+
+    setUser(null);
+    setSession(null);
+    toast.info('Signed out successfully');
   };
 
   const hasRole = (role: UserRole | UserRole[]): boolean => {
@@ -201,6 +259,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         hasRole,
+        devLogin,
+        isDevMode: DEV_MODE,
       }}
     >
       {children}

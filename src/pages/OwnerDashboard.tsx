@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  TrendingUp, 
-  DollarSign, 
-  Package, 
-  Users, 
+import {
+  TrendingUp,
+  DollarSign,
+  Package,
+  Users,
   AlertTriangle,
   Truck,
   Download,
@@ -25,15 +25,15 @@ import {
   Clock,
   XCircle
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
   Line,
   PieChart as RechartsPieChart,
   Pie,
@@ -41,10 +41,10 @@ import {
   Legend
 } from 'recharts';
 import { formatPrice } from '@/lib/pricing';
-import { 
-  getDashboardMetrics, 
-  getRevenueByPeriod, 
-  getPopularItems, 
+import {
+  getDashboardMetrics,
+  getRevenueByPeriod,
+  getPopularItems,
   getOrdersByStatus,
   getPeakOrderingTimes,
   getCapacityUtilization,
@@ -67,7 +67,7 @@ import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, LogOut } from 'lucide-react';
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { BusinessSettingsManager } from '@/components/admin/BusinessSettingsManager';
 import { BusinessHoursManager } from '@/components/admin/BusinessHoursManager';
@@ -82,9 +82,9 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 const OwnerDashboard = () => {
   const { t } = useLanguage();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  
+
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
   const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
@@ -99,6 +99,7 @@ const OwnerDashboard = () => {
   const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month'>('day');
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Use real-time orders feed
   const { orders: realtimeOrders, stats: orderStats } = useOrdersFeed('owner');
@@ -166,7 +167,7 @@ const OwnerDashboard = () => {
       setStatusBreakdown(statusBreakdownRes);
       setPeakTimes(peakTimesRes);
       setCapacityData(capacityDataRes);
-      setRecentOrders(ordersRes.slice(0, 10));
+      setRecentOrders((ordersRes as any[]).slice(0, 10));
       setLowStockItems(lowStockRes);
       setTodayDeliveries(deliveriesRes);
       setLastUpdate(new Date());
@@ -272,6 +273,17 @@ const OwnerDashboard = () => {
                     <SelectItem value="month">{t('Mes', 'Month')}</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/login');
+                  }}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  {t('Salir', 'Logout')}
+                </Button>
               </div>
             </div>
 
@@ -292,7 +304,10 @@ const OwnerDashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card
+                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => setActiveTab('orders')}
+              >
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {t('Pedidos Pendientes', 'Pending Orders')}
@@ -343,7 +358,7 @@ const OwnerDashboard = () => {
             </div>
 
             {/* Charts and Data */}
-            <Tabs defaultValue="overview" className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
               <TabsList className="flex flex-wrap">
                 <TabsTrigger value="overview">{t('Resumen', 'Overview')}</TabsTrigger>
                 <TabsTrigger value="orders">{t('Pedidos', 'Orders')}</TabsTrigger>

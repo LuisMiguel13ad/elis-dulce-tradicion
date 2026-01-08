@@ -13,7 +13,6 @@ import { queryClient } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
-import { CookieConsent } from "@/components/legal/CookieConsent";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { initServiceWorker } from "@/lib/pwa";
 
@@ -31,7 +30,6 @@ const Gallery = lazy(() => import("./pages/Gallery"));
 const Menu = lazy(() => import("./pages/Menu"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const OrderTracking = lazy(() => import("./pages/OrderTracking"));
-const CustomerDashboard = lazy(() => import("./pages/CustomerDashboard"));
 const About = lazy(() => import("./pages/About"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -66,7 +64,6 @@ const App = () => {
             <Sonner />
             <OfflineIndicator />
             <InstallPrompt />
-            <CookieConsent />
             <AnnouncementBanner />
             <BrowserRouter>
               <ScrollToTop />
@@ -95,16 +92,6 @@ const App = () => {
                 <Route path="/order-issue" element={<OrderIssue />} />
 
                 {/* Protected Routes - Require Authentication */}
-                <Route
-                  path="/customer-dashboard"
-                  element={
-                    <ProtectedRoute requiredRole="customer">
-                      <Suspense fallback={<PageLoader />}>
-                        <CustomerDashboard />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
                 <Route
                   path="/bakery-dashboard"
                   element={

@@ -139,7 +139,6 @@ export default defineConfig(({ mode }) => ({
           'dashboard': [
             './src/pages/BakeryDashboard',
             './src/pages/OwnerDashboard',
-            './src/pages/CustomerDashboard',
             './src/pages/KitchenDisplay',
           ],
           'order': [

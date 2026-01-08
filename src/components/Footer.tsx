@@ -14,9 +14,9 @@ const Footer = () => {
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <div className="mb-4 flex items-center gap-3">
-              <img 
-                src={logoImage} 
-                alt="Eli's Bakery Logo" 
+              <img
+                src={logoImage}
+                alt={t('Logo de Eli\'s Bakery', 'Eli\'s Bakery Logo')}
                 className="h-12 w-12 object-contain"
               />
               <div className="flex flex-col">
@@ -118,10 +118,10 @@ const Footer = () => {
                 {t('navigation.terms', 'Terms of Service')}
               </Link>
               <Link to="/legal/refund" className="hover:text-primary hover:underline">
-                {t('Refund Policy', 'Refund Policy')}
+                {t('Política de Reembolso', 'Refund Policy')}
               </Link>
-              <Link to="/legal/cookie-policy" className="hover:text-primary hover:underline">
-                {t('Cookie Policy', 'Cookie Policy')}
+              <Link to="/login" className="hover:text-primary hover:underline">
+                {t('Acceso Staff', 'Staff Login')}
               </Link>
             </div>
           </div>

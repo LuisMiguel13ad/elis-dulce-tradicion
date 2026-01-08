@@ -1082,7 +1082,7 @@ const Order = () => {
 
         {/* Promo Code */}
         <div className="pt-4 border-t">
-          <Label htmlFor="promoCode">{t('Código Promocional', 'Promo Code')} (Opcional)</Label>
+          <Label htmlFor="promoCode">{t('Código Promocional', 'Promo Code')} ({t('Opcional', 'Optional')})</Label>
           <div className="flex gap-2 mt-2">
             <Input
               id="promoCode"

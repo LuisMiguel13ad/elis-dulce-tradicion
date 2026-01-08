@@ -28,14 +28,14 @@ const DashboardLayout = ({
   isRefreshing = false,
   showTabs = true
 }: DashboardLayoutProps) => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 
@@ -85,23 +85,23 @@ const DashboardLayout = ({
                   </Button>
                 )}
                 {/* Shared tabs for baker and owner */}
-                <Button 
-                    variant={location.pathname === '/bakery-dashboard' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => navigate('/bakery-dashboard')}
-                    className="gap-2"
-                >
-                    <ShoppingBag className="h-4 w-4" />
-                    {t('Órdenes', 'Orders')}
-                </Button>
-                <Button 
-                    variant={location.pathname === '/kitchen-display' ? 'secondary' : 'ghost'} 
-                    size="sm" 
+                <Button
+                    variant={location.pathname === '/kitchen-display' ? 'secondary' : 'ghost'}
+                    size="sm"
                     onClick={() => navigate('/kitchen-display')}
                     className="gap-2"
                 >
+                    <ShoppingBag className="h-4 w-4" />
+                    {t('Panel de Cocina', 'Kitchen Display')}
+                </Button>
+                <Button
+                    variant={location.pathname === '/bakery-dashboard' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => navigate('/bakery-dashboard')}
+                    className="gap-2"
+                >
                     <MenuIcon className="h-4 w-4" />
-                    {t('Cocina', 'Kitchen')}
+                    {t('Cola del Panadero', 'Baker Queue')}
                 </Button>
               </div>
             </div>

@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, ChefHat, Crown, UtensilsCrossed } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 const Login = () => {
   const { t } = useLanguage();
-  const { signIn, user, isLoading, isAuthenticated } = useAuth();
+  const { signIn, signOut, user, isLoading, isAuthenticated, devLogin, isDevMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -27,19 +28,7 @@ const Login = () => {
   // Get redirect message from location state
   const message = location.state?.message;
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-      const role = user.profile?.role;
-      if (role === 'owner') {
-        navigate('/owner-dashboard', { replace: true });
-      } else if (role === 'baker') {
-        navigate('/kitchen-display', { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
-    }
-  }, [isLoading, isAuthenticated, user, navigate]);
+  // Note: We no longer auto-redirect so users can switch accounts or logout
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,10 +58,106 @@ const Login = () => {
     }
   };
 
+  const handleDevLogin = (role: 'owner' | 'baker', destination?: string) => {
+    devLogin(role);
+    // Navigate after dev login
+    setTimeout(() => {
+      if (destination) {
+        navigate(destination);
+      } else if (role === 'owner') {
+        navigate('/owner-dashboard');
+      } else {
+        navigate('/kitchen-display');
+      }
+    }, 100);
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If already logged in, show options to go to dashboard or logout
+  if (isAuthenticated && user) {
+    const role = user.profile?.role;
+    const dashboardPath = role === 'owner' ? '/owner-dashboard' : '/kitchen-display';
+
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+          <Card className="w-full max-w-md">
+            <CardHeader className="space-y-1 text-center">
+              <CardTitle className="text-2xl font-bold">
+                {t('Ya has iniciado sesión', 'Already Logged In')}
+              </CardTitle>
+              <CardDescription>
+                {t('Conectado como', 'Logged in as')} <strong>{user.profile?.full_name || user.email}</strong>
+                <span className="block text-xs mt-1 capitalize">({user.profile?.role})</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                className="w-full"
+                onClick={() => navigate(dashboardPath)}
+              >
+                {t('Ir al Panel', 'Go to Dashboard')}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={async () => {
+                  await signOut();
+                }}
+              >
+                {t('Cerrar Sesión', 'Logout')}
+              </Button>
+
+              {/* Dev Mode Quick Switch */}
+              {isDevMode && (
+                <>
+                  <Separator className="my-4" />
+                  <p className="text-center text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                    Dev Mode - Switch Account
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin('owner')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
+                    >
+                      <Crown className="h-5 w-5 text-amber-600" />
+                      <span className="text-xs">Owner</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin('baker', '/kitchen-display')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
+                    >
+                      <UtensilsCrossed className="h-5 w-5 text-blue-600" />
+                      <span className="text-xs">Kitchen</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin('baker', '/bakery-dashboard')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-orange-300 hover:bg-orange-50 hover:border-orange-400"
+                    >
+                      <ChefHat className="h-5 w-5 text-orange-600" />
+                      <span className="text-xs">Baker</span>
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -183,6 +268,47 @@ const Login = () => {
                 </Link>
               </div>
             </form>
+
+            {/* Dev Mode Quick Login */}
+            {isDevMode && (
+              <>
+                <Separator className="my-6" />
+                <div className="space-y-3">
+                  <p className="text-center text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                    Dev Mode - Quick Login
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin('owner')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
+                    >
+                      <Crown className="h-5 w-5 text-amber-600" />
+                      <span className="text-xs">Owner</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin('baker', '/kitchen-display')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
+                    >
+                      <UtensilsCrossed className="h-5 w-5 text-blue-600" />
+                      <span className="text-xs">Kitchen</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDevLogin('baker', '/bakery-dashboard')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-orange-300 hover:bg-orange-50 hover:border-orange-400"
+                    >
+                      <ChefHat className="h-5 w-5 text-orange-600" />
+                      <span className="text-xs">Baker</span>
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </main>

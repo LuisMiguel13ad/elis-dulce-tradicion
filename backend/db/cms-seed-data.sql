@@ -237,4 +237,21 @@ INSERT INTO seo_config (page_path, meta_title_en, meta_title_es, meta_descriptio
      'Galería - Eli''s Dulce Tradición',
      'Our beautiful cake creations',
      'Nuestras hermosas creaciones de pasteles')
-ON CONFLICT (page_path) DO NOTHING;
+
+-- Insert default gallery items
+INSERT INTO gallery_items (image_url, category, category_en, category_es, caption_en, caption_es, display_order, is_active) VALUES
+    -- Birthday Cakes
+    ('/images/CarBirthdayCake.jpg', 'birthday', 'Birthday Cakes', 'Pasteles de Cumpleaños', 'Car Themed Cake', 'Pastel con Tema de Autos', 1, true),
+    ('/images/ButterflyBirthdayCake.jpg', 'birthday', 'Birthday Cakes', 'Pasteles de Cumpleaños', 'Butterfly Themed Cake', 'Pastel con Tema de Mariposas', 2, true),
+    ('/images/PawPatrolBirthdayCake.jpg', 'birthday', 'Birthday Cakes', 'Pasteles de Cumpleaños', 'Paw Patrol Cake', 'Pastel de Paw Patrol', 3, true),
+    
+    -- Wedding Cakes
+    ('/images/ALWeddingCake.jpg', 'wedding', 'Weddings', 'Bodas', 'Elegant Wedding Cake', 'Pastel de Boda Elegante', 4, true),
+    ('/images/weddingCake.jpg', 'wedding', 'Weddings', 'Bodas', 'Classic Wedding Cake', 'Pastel de Boda Clásico', 5, true),
+    ('/images/JMWeddingCake.jpg', 'wedding', 'Weddings', 'Bodas', 'Floral Wedding Cake', 'Pastel de Boda Floral', 6, true),
+    
+    -- Quinceañera (Using the number files based on previous inspection: 3.png, 4.png, 6.png)
+    ('/images/3.png', 'quince', 'My Sweet Fifteen', 'Mis Quince Años', 'Quinceañera Cake 1', 'Pastel de Quince Años 1', 7, true),
+    ('/images/4.png', 'quince', 'My Sweet Fifteen', 'Mis Quince Años', 'Quinceañera Cake 2', 'Pastel de Quince Años 2', 8, true),
+    ('/images/6.png', 'quince', 'My Sweet Fifteen', 'Mis Quince Años', 'Quinceañera Cake 3', 'Pastel de Quince Años 3', 9, true)
+ON CONFLICT DO NOTHING;

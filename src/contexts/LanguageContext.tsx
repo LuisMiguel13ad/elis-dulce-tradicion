@@ -8,7 +8,7 @@ type Language = 'es' | 'en';
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, options?: any) => string;
+  t: (spanishOrKey: string, englishOrOptions?: string | Record<string, unknown>) => string;
   i18n: typeof i18n;
   isRTL: boolean;
 }
@@ -40,8 +40,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('i18nextLng', lang);
   };
 
-  const t = (key: string, options?: any) => {
-    return i18nInstance.t(key, options);
+  const t = (spanishOrKey: string, englishOrOptions?: string | Record<string, unknown>): string => {
+    // If second argument is a string, use inline translation pattern: t('Spanish', 'English')
+    if (typeof englishOrOptions === 'string') {
+      return language === 'es' ? spanishOrKey : englishOrOptions;
+    }
+    // Otherwise, use i18next key-based translation: t('key', { options })
+    return i18nInstance.t(spanishOrKey, englishOrOptions);
   };
 
   return (

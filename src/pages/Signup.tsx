@@ -65,7 +65,7 @@ const Signup = () => {
 
       if (result.success) {
         // Redirect to login or home page
-        navigate('/login', { state: { message: 'Account created! Please sign in.' } });
+        navigate('/login', { state: { message: t('¡Cuenta creada! Por favor inicia sesión.', 'Account created! Please sign in.') } });
       } else {
         setError(result.error || t('Error al crear la cuenta', 'Error creating account'));
       }

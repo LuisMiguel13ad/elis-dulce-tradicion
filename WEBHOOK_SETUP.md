@@ -75,7 +75,9 @@ You can:
 
 ## Location in Code
 - Webhook utility: `/backend/utils/webhook.js`
-- Called from: `/backend/routes/orders.js` (line ~282)
+- Called from: 
+  - `/backend/routes/payments.js` (line ~178) - **Primary route for website orders**
+  - `/backend/routes/orders.js` (line ~282) - For direct order creation
 - Triggered: After successful order creation and database commit
 
 ## Support

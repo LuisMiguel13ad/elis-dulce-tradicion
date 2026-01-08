@@ -286,7 +286,7 @@ const Contact = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="phone">{t('Teléfono', 'Phone')} (opcional)</Label>
+                    <Label htmlFor="phone">{t('Teléfono', 'Phone')} ({t('opcional', 'optional')})</Label>
                     <Input
                       id="phone"
                       type="tel"
@@ -343,7 +343,7 @@ const Contact = () => {
                   
                   <div>
                     <Label htmlFor="attachment">
-                      {t('Adjuntar Imagen', 'Attach Image')} (opcional)
+                      {t('Adjuntar Imagen', 'Attach Image')} ({t('opcional', 'optional')})
                     </Label>
                     <div className="mt-2 space-y-3">
                       <div className="flex gap-3">

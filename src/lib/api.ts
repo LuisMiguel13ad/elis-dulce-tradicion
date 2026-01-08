@@ -17,7 +17,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     // Get auth token if available (for customer/analytics endpoints)
     let authToken = null;
     try {
@@ -29,7 +29,7 @@ class ApiClient {
     } catch (error) {
       // Supabase not available, continue without token
     }
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -37,8 +37,8 @@ class ApiClient {
 
     // Add auth token for customer/analytics/search endpoints, API key for admin endpoints
     if (authToken && (
-      endpoint.startsWith('/customers') || 
-      endpoint.startsWith('/analytics') || 
+      endpoint.startsWith('/customers') ||
+      endpoint.startsWith('/analytics') ||
       endpoint.startsWith('/reports') ||
       endpoint.startsWith('/orders/search')
     )) {
@@ -46,7 +46,7 @@ class ApiClient {
     } else {
       headers['x-api-key'] = ADMIN_API_KEY;
     }
-    
+
     const response = await fetch(url, {
       ...options,
       headers,
@@ -253,9 +253,7 @@ class ApiClient {
   }
 
   // Capacity API
-  async getAvailableDates(daysAhead: number = 90) {
-    return this.request(`/capacity/available-dates?days=${daysAhead}`);
-  }
+
 
   async getCapacityByDate(date: string) {
     return this.request(`/capacity/${date}`);
@@ -268,9 +266,7 @@ class ApiClient {
     });
   }
 
-  async getBusinessHours() {
-    return this.request('/capacity/business-hours');
-  }
+
 
   async checkHoliday(date: string) {
     return this.request(`/capacity/holiday/${date}`);
@@ -399,9 +395,7 @@ class ApiClient {
     });
   }
 
-  async getOrderByNumber(orderNumber: string) {
-    return this.request(`/orders/number/${orderNumber}`);
-  }
+
 
   // Newsletter API
   async subscribeNewsletter(email: string) {
@@ -489,7 +483,7 @@ class ApiClient {
     limit?: number;
   }) {
     const queryParams = new URLSearchParams();
-    
+
     if (params.q) queryParams.append('q', params.q);
     if (params.status && params.status.length > 0) queryParams.append('status', params.status.join(','));
     if (params.paymentStatus && params.paymentStatus.length > 0) queryParams.append('paymentStatus', params.paymentStatus.join(','));

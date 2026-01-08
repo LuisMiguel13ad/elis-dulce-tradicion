@@ -5,18 +5,8 @@ import ImageLightbox from '@/components/gallery/ImageLightbox';
 import { Button } from '@/components/ui/button';
 import { useState, useMemo, useCallback, memo } from 'react';
 import { LazyImage } from '@/components/optimized/LazyImage';
-import customCake from '@/assets/custom-cake.jpg';
-import tresLeches from '@/assets/tres-leches.jpg';
-import carBirthdayCake from '@/assets/CarBirthdayCake.jpg';
-import butterflyBirthdayCake from '@/assets/ButterflyBirthdayCake.jpg';
-import pawPatrolBirthdayCake from '@/assets/PawPatrolBirthdayCake.jpg';
-import alWeddingCake from '@/assets/ALWeddingCake.jpg';
-import weddingCake from '@/assets/weddingCake.jpg';
-import jmWeddingCake from '@/assets/JMWeddingCake.jpg';
-import quinceImage1 from '@/assets/3.png';
-import quinceImage2 from '@/assets/4.png';
-import quinceImage3 from '@/assets/6.png';
-
+import { useGalleryItems } from '@/hooks/useGalleryItems';
+import { Skeleton } from '@/components/ui/skeleton';
 interface GalleryImage {
   src: string;
   category: string;
@@ -26,42 +16,10 @@ interface GalleryImage {
 
 const Gallery = () => {
   const { t } = useLanguage();
+  const { categories, loading } = useGalleryItems();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  const categories = useMemo(() => [
-    {
-      id: 'birthday',
-      titleES: 'Pasteles de Cumpleaños',
-      titleEN: 'Birthday Cakes',
-      images: [
-        { src: carBirthdayCake, category: 'birthday', categoryES: 'Pasteles de Cumpleaños', categoryEN: 'Birthday Cakes' },
-        { src: butterflyBirthdayCake, category: 'birthday', categoryES: 'Pasteles de Cumpleaños', categoryEN: 'Birthday Cakes' },
-        { src: pawPatrolBirthdayCake, category: 'birthday', categoryES: 'Pasteles de Cumpleaños', categoryEN: 'Birthday Cakes' },
-      ],
-    },
-    {
-      id: 'wedding',
-      titleES: 'Bodas',
-      titleEN: 'Weddings',
-      images: [
-        { src: alWeddingCake, category: 'wedding', categoryES: 'Bodas', categoryEN: 'Weddings' },
-        { src: weddingCake, category: 'wedding', categoryES: 'Bodas', categoryEN: 'Weddings' },
-        { src: jmWeddingCake, category: 'wedding', categoryES: 'Bodas', categoryEN: 'Weddings' },
-      ],
-    },
-    {
-      id: 'quince',
-      titleES: 'Mis Quince Años',
-      titleEN: 'My Sweet Fifteen',
-      images: [
-        { src: quinceImage1, category: 'quince', categoryES: 'Mis Quince Años', categoryEN: 'My Sweet Fifteen' },
-        { src: quinceImage2, category: 'quince', categoryES: 'Mis Quince Años', categoryEN: 'My Sweet Fifteen' },
-        { src: quinceImage3, category: 'quince', categoryES: 'Mis Quince Años', categoryEN: 'My Sweet Fifteen' },
-      ],
-    },
-  ], []);
 
   // Flatten all images for lightbox navigation
   const allImages = useMemo(() => {
@@ -91,7 +49,7 @@ const Gallery = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="pt-32 pb-24">
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
@@ -107,106 +65,125 @@ const Gallery = () => {
             </p>
           </div>
 
-          {/* Category Filters */}
-          <div className="mb-12 flex flex-wrap justify-center gap-2">
-            <Button
-              variant={selectedCategory === null ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory(null)}
-              size="sm"
-            >
-              {t('Todos', 'All')}
-            </Button>
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                onClick={() => setSelectedCategory(category.id)}
-                size="sm"
-              >
-                {t(category.titleES, category.titleEN)}
-              </Button>
-            ))}
-            <Button
-              variant={selectedCategory === 'videos' ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory('videos')}
-              size="sm"
-            >
-              Videos
-            </Button>
-          </div>
 
-          <div className="space-y-16">
-            {filteredCategories.map((category, idx) => (
-              <div key={idx} className="animate-fade-in">
-                <h2 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
-                  {t(category.titleES, category.titleEN)}
-                </h2>
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {category.images.map((image, imgIdx) => (
-                    <div
-                      key={imgIdx}
-                      onClick={() => handleImageClick(image.src)}
-                      className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:scale-105 hover:border-primary/50 hover:shadow-elegant"
-                    >
-                      <div className="relative aspect-[9/16] overflow-hidden">
-                        <LazyImage
-                          src={image.src}
-                          alt={`${t(category.titleES, category.titleEN)} ${imgIdx + 1}`}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          effect="blur"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="rounded-full bg-white/20 backdrop-blur-sm p-4">
-                            <svg
-                              className="h-8 w-8 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                              />
-                            </svg>
+          {loading ? (
+            <div className="space-y-12">
+              <div className="flex justify-center gap-4">
+                <Skeleton className="h-10 w-24 rounded-md" />
+                <Skeleton className="h-10 w-32 rounded-md" />
+                <Skeleton className="h-10 w-32 rounded-md" />
+                <Skeleton className="h-10 w-32 rounded-md" />
+              </div>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="aspect-[9/16] w-full rounded-2xl" />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Category Filters */}
+              <div className="mb-12 flex flex-wrap justify-center gap-2">
+                <Button
+                  variant={selectedCategory === null ? 'default' : 'outline'}
+                  onClick={() => setSelectedCategory(null)}
+                  size="sm"
+                >
+                  {t('Todos', 'All')}
+                </Button>
+                {categories.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? 'default' : 'outline'}
+                    onClick={() => setSelectedCategory(category.id)}
+                    size="sm"
+                  >
+                    {t(category.titleES, category.titleEN)}
+                  </Button>
+                ))}
+                <Button
+                  variant={selectedCategory === 'videos' ? 'default' : 'outline'}
+                  onClick={() => setSelectedCategory('videos')}
+                  size="sm"
+                >
+                  {t('Videos', 'Videos')}
+                </Button>
+              </div>
+
+              <div className="space-y-16">
+                {filteredCategories.map((category, idx) => (
+                  <div key={idx} className="animate-fade-in">
+                    <h2 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
+                      {t(category.titleES, category.titleEN)}
+                    </h2>
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {category.images.map((image, imgIdx) => (
+                        <div
+                          key={imgIdx}
+                          onClick={() => handleImageClick(image.src)}
+                          className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:scale-105 hover:border-primary/50 hover:shadow-elegant"
+                        >
+                          <div className="relative aspect-[9/16] overflow-hidden">
+                            <LazyImage
+                              src={image.src}
+                              alt={`${t(category.titleES, category.titleEN)} ${imgIdx + 1}`}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                              effect="blur"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="rounded-full bg-white/20 backdrop-blur-sm p-4">
+                                <svg
+                                  className="h-8 w-8 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Videos Section */}
+                {showVideos && (
+                  <div className="animate-fade-in">
+                    <h2 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
+                      {t('Videos', 'Videos')}
+                    </h2>
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+                        <div className="relative aspect-[9/16] w-full">
+                          <iframe
+                            src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F751834970733497&show_text=false&width=340"
+                            width="100%"
+                            height="100%"
+                            style={{ border: 'none', overflow: 'hidden' }}
+                            scrolling="no"
+                            frameBorder="0"
+                            allowFullScreen={true}
+                            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                            title="Eli's Bakery Facebook Reel"
+                            className="absolute inset-0 h-full w-full"
+                          />
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
-            ))}
-
-            {/* Videos Section */}
-            {showVideos && (
-               <div className="animate-fade-in">
-                 <h2 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
-                   Videos
-                 </h2>
-                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                   <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-                     <div className="relative aspect-[9/16] w-full">
-                       <iframe
-                         src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F751834970733497&show_text=false&width=340"
-                         width="100%"
-                         height="100%"
-                         style={{ border: 'none', overflow: 'hidden' }}
-                         scrolling="no"
-                         frameBorder="0"
-                         allowFullScreen={true}
-                         allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                         title="Eli's Bakery Facebook Reel"
-                         className="absolute inset-0 h-full w-full"
-                       />
-                     </div>
-                   </div>
-                 </div>
-               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </main>
 
