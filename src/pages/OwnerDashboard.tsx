@@ -23,7 +23,10 @@ import {
   BarChart3,
   PieChart,
   Clock,
-  XCircle
+  XCircle,
+  Wifi,
+  WifiOff,
+  LogOut
 } from 'lucide-react';
 import {
   BarChart,
@@ -67,7 +70,7 @@ import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
-import { Wifi, WifiOff, LogOut } from 'lucide-react';
+
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { BusinessSettingsManager } from '@/components/admin/BusinessSettingsManager';
 import { BusinessHoursManager } from '@/components/admin/BusinessHoursManager';
@@ -242,18 +245,15 @@ const OwnerDashboard = () => {
                   {t('Panel de Administración', 'Admin Dashboard')}
                 </h1>
                 <div className="flex items-center gap-4">
-                  <p className="text-muted-foreground">
-                    {t('Última actualización', 'Last updated')}: {format(lastUpdate, 'PPp')}
-                  </p>
                   {isConnected ? (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 shadow-sm animate-pulse">
                       <Wifi className="mr-1 h-3 w-3" />
-                      {t('Actualización en tiempo real', 'Live Updates')}
+                      {t('En línea', 'Online')}
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                    <Badge variant="destructive" className="shadow-sm">
                       <WifiOff className="mr-1 h-3 w-3" />
-                      {t('Sin conexión', 'Offline')}
+                      {t('Desconectado', 'Offline')}
                     </Badge>
                   )}
                 </div>
@@ -287,64 +287,86 @@ const OwnerDashboard = () => {
               </div>
             </div>
 
-            {/* Key Metrics Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {t('Pedidos de Hoy', 'Today\'s Orders')}
-                  </CardTitle>
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{metrics?.todayOrders || 0}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('Ingresos', 'Revenue')}: {formatPrice(metrics?.todayRevenue || 0)}
-                  </p>
-                </CardContent>
-              </Card>
+            {/* Command Center Layout */}
 
+            {/* 1. Actions Required (Top Priority) */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
               <Card
-                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                className="bg-gradient-to-br from-amber-50 to-orange-100 border-amber-200 cursor-pointer hover:shadow-lg transition-all"
                 onClick={() => setActiveTab('orders')}
               >
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardTitle className="text-sm font-bold text-amber-800">
                     {t('Pedidos Pendientes', 'Pending Orders')}
                   </CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="h-4 w-4 text-amber-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{metrics?.pendingOrders || 0}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('Requieren atención', 'Need attention')}
+                  <div className="text-3xl font-bold text-amber-900">{metrics?.pendingOrders || 0}</div>
+                  <p className="text-xs text-amber-700 mt-1 font-medium">
+                    {t('Requieren atención inmediata', 'Need immediate attention')}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {t('Utilización de Capacidad', 'Capacity Utilization')}
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {metrics?.capacityUtilization?.toFixed(1) || 0}%
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('Próximos 7 días', 'Next 7 days')}
-                  </p>
-                </CardContent>
-              </Card>
+              {lowStockItems.length > 0 ? (
+                <Card
+                  className="bg-gradient-to-br from-red-50 to-rose-100 border-red-200 cursor-pointer hover:shadow-lg transition-all"
+                  onClick={() => setActiveTab('inventory')}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-bold text-red-800">
+                      {t('Alerta de Inventario', 'Low Stock Alert')}
+                    </CardTitle>
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-red-900">{lowStockItems.length}</div>
+                    <p className="text-xs text-red-700 mt-1 font-medium">
+                      {t('Artículos bajos en stock', 'Items low in stock')}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-gradient-to-br from-green-50 to-emerald-100 border-green-200">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-bold text-green-800">
+                      {t('Estado de Inventario', 'Inventory Status')}
+                    </CardTitle>
+                    <Package className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-green-900">OK</div>
+                    <p className="text-xs text-green-700 mt-1 font-medium">
+                      {t('Niveles óptimos', 'Optimal levels')}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
+              {/* Live Metrics */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {t('Valor Promedio', 'Avg Order Value')}
+                    {t('Ventas de Hoy', "Today's Sales")}
                   </CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatPrice(metrics?.todayRevenue || 0)}</div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                    <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+                    {metrics?.todayOrders || 0} {t('pedidos hoy', 'orders today')}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {t('Ticket Promedio', 'Avg Ticket')}
+                  </CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">

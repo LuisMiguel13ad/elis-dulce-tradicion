@@ -15,7 +15,7 @@ export const useOrdersFeed = (role?: UserRole) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [latestOrder, setLatestOrder] = useState<Order | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
-  
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ordersMapRef = useRef<Map<number, Order>>(new Map());
 
@@ -28,15 +28,15 @@ export const useOrdersFeed = (role?: UserRole) => {
     try {
       if (showLoading) setIsRefreshing(true);
       const data = await api.getAllOrders();
-      
+
       if (Array.isArray(data)) {
         setOrders(data);
         // Update map
         ordersMapRef.current = new Map(data.map((o: Order) => [o.id, o]));
       }
     } catch (error) {
-      console.error('Error loading orders:', error);
-      toast.error('Error loading orders');
+      console.error('Error loading orders in useOrdersFeed:', error);
+      toast.error(`Error loading orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       if (showLoading) setIsRefreshing(false);
       setIsLoading(false);
@@ -50,7 +50,7 @@ export const useOrdersFeed = (role?: UserRole) => {
 
   // Real-time subscription
   const isAdmin = role === 'owner' || role === 'baker' || user?.profile?.role === 'owner' || user?.profile?.role === 'baker';
-  
+
   useRealtimeOrders({
     filterByUserId: !isAdmin, // Customers only see their orders, admins see all
     onOrderInsert: (newOrder) => {
@@ -59,16 +59,16 @@ export const useOrdersFeed = (role?: UserRole) => {
         if (ordersMapRef.current.has(newOrder.id)) {
           return prev;
         }
-        
+
         // Add new order
         ordersMapRef.current.set(newOrder.id, newOrder);
         const updated = [newOrder, ...prev];
-        
+
         // Show alert for admins/bakers
         if (isAdmin) {
           setLatestOrder(newOrder);
           setNewOrderAlert(true);
-          
+
           // Play sound
           if (audioRef.current) {
             audioRef.current.currentTime = 0;
@@ -87,7 +87,7 @@ export const useOrdersFeed = (role?: UserRole) => {
             description: `#${newOrder.order_number} - ${newOrder.customer_name}`,
           });
         }
-        
+
         return updated;
       });
     },
@@ -99,7 +99,7 @@ export const useOrdersFeed = (role?: UserRole) => {
           ordersMapRef.current.set(updatedOrder.id, updatedOrder);
           return [updatedOrder, ...prev];
         }
-        
+
         // Update existing order
         ordersMapRef.current.set(updatedOrder.id, updatedOrder);
         const updated = [...prev];

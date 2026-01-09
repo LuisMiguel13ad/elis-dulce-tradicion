@@ -1,93 +1,115 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { memo, useMemo } from 'react';
-import {
-  CardCurtainReveal,
-  CardCurtainRevealBody,
-  CardCurtainRevealTitle,
-  CardCurtainRevealDescription,
-} from '@/components/ui/card-curtain-reveal';
-import { LazyImage } from '@/components/optimized/LazyImage';
-import customCake from '@/assets/ButterflyBirthdayCake.jpg';
-import tresLeches from '@/assets/weddingCake.jpg';
-import panDulce from '@/assets/3.png';
+import { memo } from 'react';
+import { Heart, ChevronRight } from 'lucide-react';
+import sprite from '@/assets/featured-sprite.png';
 
 const FeaturedProducts = memo(() => {
   const { t } = useLanguage();
 
-  const products = useMemo(() => [
+  const products = [
     {
-      image: customCake,
-      titleES: 'Pasteles Personalizados',
-      titleEN: 'Custom Cakes',
-      descES: 'Pasteles personalizados para toda ocasión. Diseños elegantes, colores hermosos y sabor incomparable.',
-      descEN: 'Custom cakes for every occasion, crafted with elegance and unforgettable flavor.',
+      id: 1,
+      title: '6 X CONCHAS, THE CLASSICS',
+      price: 'FROM $18.00',
+      bgPosition: '0% 0%',
     },
     {
-      image: tresLeches,
-      titleES: 'Pastel de 3 Leches',
-      titleEN: 'Tres Leches Cake',
-      descES: 'Suave, delicado y húmedo, preparado con nuestra receta especial. El favorito de la casa.',
-      descEN: 'Soft, rich, and deeply flavorful — prepared with our signature recipe. A house favorite.',
+      id: 2,
+      title: '12 X PAN DULCE, THE ULTIMATE FAVORITES',
+      price: 'FROM $32.00',
+      bgPosition: '33.35% 0%',
     },
     {
-      image: panDulce,
-      titleES: 'Pan Dulce & Panadería',
-      titleEN: 'Sweet Bread & Bakery',
-      descES: 'Conchas, bolillos, cuernitos y más, horneados cada día con ingredientes frescos.',
-      descEN: 'Conchas, bolillos, croissants and more, baked fresh every day.',
+      id: 3,
+      title: '6 X SPECIALTY PASTRIES, THE CELEBRATION BOX',
+      price: 'FROM $24.00',
+      bgPosition: '66.65% 0%',
     },
-  ], []);
+    {
+      id: 4,
+      title: '18 X PAN DULCE, THE FAMILY BOX',
+      price: 'FROM $45.00',
+      bgPosition: '100% 0%',
+    },
+  ];
 
   return (
-    <section className="relative bg-muted/30 py-24">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 font-display text-4xl font-bold text-gradient-gold md:text-5xl">
-              {t('Productos Destacados', 'Featured Products')}
-            </h2>
-            <div className="mx-auto h-1 w-24 rounded-full bg-gradient-to-r from-primary to-accent" />
-          </div>
+    <section className="py-20 bg-white">
+      <div className="container mx-auto px-4 max-w-7xl">
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {products.map((product, index) => (
-              <CardCurtainReveal
-                key={index}
-                className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:shadow-elegant"
-              >
-                <div className="relative aspect-square overflow-hidden bg-muted">
-                  <LazyImage
-                    src={product.image}
-                    alt={t(product.titleES, product.titleEN)}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    effect="blur"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-secondary/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                </div>
-                <CardCurtainRevealBody>
-                  <CardCurtainRevealTitle className="mb-3 font-display text-2xl font-bold text-foreground">
-                    {t(product.titleES, product.titleEN)}
-                  </CardCurtainRevealTitle>
-                  <CardCurtainRevealDescription className="font-sans text-muted-foreground">
-                    {t(product.descES, product.descEN)}
-                  </CardCurtainRevealDescription>
-                </CardCurtainRevealBody>
-              </CardCurtainReveal>
-            ))}
-          </div>
-
-          <div className="mt-12 text-center">
-            <Button
-              asChild
-              size="lg"
-              className="rounded-full bg-primary px-8 font-sans text-base font-bold text-secondary shadow-glow transition-smooth hover:scale-105"
-            >
-              <Link to="/order">{t('Hacer Pedido', 'Place Order')}</Link>
-            </Button>
-          </div>
+        {/* Section Header */}
+        <div className="mb-12 text-center">
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3 tracking-tight">
+            ELI'S <span className="text-[#C6A649]">PAN DULCE</span>
+          </h2>
+          <div className="h-1 w-20 bg-[#C6A649] mx-auto rounded-full"></div>
+          <p className="mt-4 text-gray-500 font-medium tracking-wide text-sm uppercase">
+            Freshly Baked Every Morning
+          </p>
         </div>
+
+        {/* Products Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          {products.map((product) => (
+            <div key={product.id} className="flex flex-col group cursor-pointer">
+              {/* Card Image Area (Sprite) */}
+              <div className="relative rounded-md overflow-hidden shadow-sm transition-transform duration-300 group-hover:-translate-y-1">
+                {/* 
+                  Sprite Implementation:
+                  - The image contains 4 boxes with margin/padding and text below.
+                  - We want to show just the box part.
+                  - We use a predetermined aspect ratio that likely cuts off the text at the bottom.
+                */}
+                <div
+                  className="w-full aspect-square bg-no-repeat transition-transform duration-500 group-hover:scale-105"
+                  style={{
+                    backgroundImage: `url(${sprite})`,
+                    backgroundSize: '400% auto', // 4 images width
+                    backgroundPosition: product.bgPosition,
+                  }}
+                />
+              </div>
+
+              {/* Product Info */}
+              <div className="mt-6 text-center">
+                <h3 className="font-black text-sm md:text-base text-gray-900 uppercase tracking-wide px-2 leading-tight mb-2">
+                  {product.title}
+                </h3>
+                <p className="text-xs font-bold text-gray-500 tracking-wider">
+                  {product.price}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Carousel Indicators (Mock visual) */}
+        <div className="flex justify-center gap-3 mb-12">
+          <div className="w-3 h-3 rounded-full bg-amber-400"></div>
+          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+        </div>
+
+        {/* Description & CTA */}
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <p className="text-gray-600 font-medium leading-relaxed md:text-lg">
+            Eli’s Bakery Cafe Pan Dulce are kind of a big deal – we took inspiration from the traditional Mexican sweet breads we love to create the ultimate Pan Dulce experience. Fresh, authentic, and made with the finest ingredients. Our Pan Dulce are available for next day pickup or delivery. Try a mixed box, or check out one of our signature flavors such as Conchas or Orejas.
+          </p>
+
+          <Button
+            asChild
+            size="lg"
+            className="rounded-full bg-[#C6A649] hover:bg-[#B5953F] text-white px-10 py-7 font-black text-sm tracking-widest shadow-xl shadow-amber-900/10 transition-transform hover:scale-105"
+          >
+            <Link to="/order">
+              NEXT DAY FRESH PAN DULCE <img src="https://em-content.zobj.net/source/apple/391/croissant_1f950.png" alt="croissant" className="w-5 h-5 ml-2 inline-block filter brightness-0 invert" />
+            </Link>
+          </Button>
+        </div>
+
       </div>
     </section>
   );

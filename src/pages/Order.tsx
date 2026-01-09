@@ -1,118 +1,164 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useLanguage } from '@/contexts/LanguageContext';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShineBorder } from '@/components/ui/shine-border';
-import OrderProgress from '@/components/order/OrderProgress';
-import AddressAutocomplete from '@/components/order/AddressAutocomplete';
-import { MessageCircle, Upload, CreditCard, AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, X } from 'lucide-react';
+import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Confetti, type ConfettiRef } from '@/components/Confetti';
-import { validateOrderDateTime, formatHoursUntilEvent } from '@/lib/validation';
-import { api } from '@/lib/api';
+import { validateLeadTime, validateOrderDateTimeComplete } from '@/lib/validation';
 import { useNavigate } from 'react-router-dom';
 import { uploadReferenceImage } from '@/lib/storage';
 import { isValidImageType, isValidFileSize } from '@/lib/imageCompression';
-import { calculateTotal, fetchCurrentPricing, formatPrice, type PricingBreakdown, type OrderDetails } from '@/lib/pricing';
 import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
-import { useAvailableDates } from '@/lib/queries/capacity';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Camera } from 'lucide-react';
 import { CameraCapture } from '@/components/mobile/CameraCapture';
-import { BottomSheet } from '@/components/mobile/BottomSheet';
-import { useGeolocation } from '@/hooks/useGeolocation';
-import { useShare } from '@/hooks/useShare';
 import { useAuth } from '@/contexts/AuthContext';
-import { Checkbox } from '@/components/ui/checkbox';
-import { FoodSafetyDisclaimer } from '@/components/legal/FoodSafetyDisclaimer';
+import { formatPrice } from '@/lib/pricing';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const STORAGE_KEY = 'bakery_order_draft';
 
+// --- CONSTANTS ---
+const CAKE_SIZES = [
+  { value: 'quarter-sheet', label: '1/4 Sheet', labelEs: '1/4 Plancha', price: 45, serves: '20-25', featured: false },
+  { value: 'half-sheet', label: '1/2 Sheet', labelEs: '1/2 Plancha', price: 75, serves: '40-50', featured: true },
+  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', price: 140, serves: '90-100', featured: false },
+  { value: '8-round', label: '8" Round', labelEs: '8" Redondo', price: 35, serves: '10-12', featured: false },
+  { value: '10-round', label: '10" Round', labelEs: '10" Redondo', price: 50, serves: '20-25', featured: false },
+  { value: '12-round', label: '12" Round', labelEs: '12" Redondo', price: 65, serves: '30-35', featured: false },
+];
+
+const BREAD_TYPES = [
+  { value: 'tres-leches', label: '3 Leches', desc: 'Moist & Traditional' },
+  { value: 'chocolate', label: 'Chocolate', desc: 'Rich & Decadent' },
+  { value: 'vanilla', label: 'Regular', desc: 'Classic Vanilla' },
+];
+
+const FILLINGS = [
+  { value: 'strawberry', label: 'Fresa', sub: 'Strawberry' },
+  { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate' },
+  { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend' },
+  { value: 'mousse', label: 'Mousse', sub: 'Whipped' },
+  { value: 'napolitano', label: 'Napolitano', sub: 'Mix' },
+  { value: 'pecan', label: 'Nuez', sub: 'Pecan' },
+  { value: 'coconut', label: 'Coco', sub: 'Coconut' },
+  { value: 'pineapple', label: 'Piña', sub: 'Pineapple' },
+  { value: 'pina-colada', label: 'Piña Colada', sub: 'Tropical' },
+  { value: 'peach', label: 'Durazno', sub: 'Peach' },
+  { value: 'tiramisu', label: 'Tiramisu', sub: 'Italian Style' },
+  { value: 'oreo', label: 'Oreo', sub: 'Cookies & Cream' },
+  { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese' },
+];
+
+const TIME_OPTIONS = [
+  '08:00', '09:00', '10:00', '11:00', '12:00',
+  '13:00', '14:00', '15:00', '16:00', '17:00',
+  '18:00', '19:00', '20:00'
+];
+
+const formatTimeDisplay = (time: string) => {
+  const [hours, minutes] = time.split(':');
+  const h = parseInt(hours);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes} ${ampm}`;
+};
+
+// --- ANIMATION VARIANTS ---
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 50 : -50,
+    opacity: 0,
+    position: 'absolute' as const,
+  }),
+  center: {
+    zIndex: 1,
+    x: 0,
+    opacity: 1,
+    position: 'relative' as const,
+  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? 50 : -50,
+    opacity: 0,
+    position: 'absolute' as const,
+  })
+};
+
+// --- CUSTOM COMPONENTS ---
+const FloatingInput = ({ label, value, onChange, type = "text", placeholder, icon: Icon, maxLength, className }: any) => {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <div className={`relative group ${className}`}>
+      <div className={`absolute inset-0 bg-gradient-to-r from-amber-200/20 to-orange-100/20 rounded-2xl transition-all duration-300 ${focused ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} />
+      <div className={`relative bg-white/60 backdrop-blur-xl border border-white/40 shadow-sm rounded-2xl overflow-hidden transition-all duration-300 group-hover:shadow-md ${focused ? 'ring-2 ring-amber-400/50 shadow-lg shadow-amber-100' : 'hover:border-amber-200/50'}`}>
+        <label className={`absolute left-10 transition-all duration-200 pointer-events-none text-gray-500 font-medium ${focused || value ? 'top-2 text-[10px] text-amber-600 font-bold tracking-wider uppercase' : 'top-4 text-sm'}`}>
+          {label}
+        </label>
+        {Icon && (
+          <div className={`absolute left-3 top-4 transition-colors duration-300 ${focused ? 'text-amber-500' : 'text-gray-400'}`}>
+            <Icon size={18} />
+          </div>
+        )}
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          maxLength={maxLength}
+          className="w-full bg-transparent p-4 pl-10 pt-5 text-gray-800 font-semibold placeholder-transparent focus:outline-none min-h-[60px]"
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 const Order = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const isSpanish = language === 'es';
-  const confettiRef = useRef<ConfettiRef>(null);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const [pricingBreakdown, setPricingBreakdown] = useState<PricingBreakdown | null>(null);
-  const [promoCode, setPromoCode] = useState('');
-  const [promoCodeError, setPromoCodeError] = useState<string | null>(null);
-  const [availableDates, setAvailableDates] = useState<Array<{ date: string; available: boolean; current_orders: number; max_orders: number; reason: string }>>([]);
-  const [dateCapacity, setDateCapacity] = useState<{ current: number; max: number } | null>(null);
-  const [isCheckingCapacity, setIsCheckingCapacity] = useState(false);
-  const [deliveryZone, setDeliveryZone] = useState<string | null>(null);
-  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [saveAddress, setSaveAddress] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Steps definition
+  const STEPS = [
+    { id: 'date', title: t('Fecha', 'Date'), subtitle: t('¿Cuándo lo necesitas?', 'When needed?') },
+    { id: 'size', title: t('Tamaño', 'Size'), subtitle: t('¿Para cuántas personas?', 'How many people?') },
+    { id: 'flavor', title: t('Sabor', 'Flavor'), subtitle: t('Pan y Relleno', 'Bread & Filling') },
+    { id: 'details', title: t('Detalles', 'Details'), subtitle: t('Personalización', 'Customization') },
+    { id: 'info', title: t('Contacto', 'Contact'), subtitle: t('Tus datos', 'Your info') },
+  ];
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [direction, setDirection] = useState(0);
+
   const [formData, setFormData] = useState({
     dateNeeded: '',
     timeNeeded: '',
     customerName: '',
     phone: '',
     email: '',
-    size: '',
+    pickupType: 'pickup',
+    cakeSize: '',
+    breadType: 'tres-leches',
     filling: '',
     theme: '',
     dedication: '',
-    referenceImage: null as File | null,
-    deliveryOption: 'pickup',
-    address: '',
-    apartment: '',
-    zipCode: '',
   });
+
+  const [selectedFillings, setSelectedFillings] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
 
-  // Fetch available dates using React Query (cached, auto-refetch)
-  const { data: availableDatesData = [] } = useAvailableDates(90);
-  
-  useEffect(() => {
-    if (availableDatesData) {
-      setAvailableDates(availableDatesData);
-    }
-  }, [availableDatesData]);
-
-  // Load saved addresses if user is logged in
-  useEffect(() => {
-    const loadAddresses = async () => {
-      if (user && user.profile?.role === 'customer') {
-        try {
-          const addresses = await api.getCustomerAddresses();
-          setSavedAddresses(addresses);
-          
-          // Pre-fill from default address
-          const defaultAddress = addresses.find((a: any) => a.is_default);
-          if (defaultAddress && formData.deliveryOption === 'delivery') {
-            setFormData(prev => ({
-              ...prev,
-              address: defaultAddress.address,
-              apartment: defaultAddress.apartment || '',
-              zipCode: defaultAddress.zip_code || '',
-            }));
-            setSelectedAddressId(defaultAddress.id);
-          }
-        } catch (error) {
-          console.error('Error loading addresses:', error);
-        }
-      }
-    };
-    loadAddresses();
-  }, [user]);
-
-  // Pre-fill customer info from profile
+  // --- LOGIC HOOKS ---
   useEffect(() => {
     if (user && user.profile) {
       setFormData(prev => ({
@@ -120,1254 +166,617 @@ const Order = () => {
         customerName: user.profile.full_name || prev.customerName,
         email: user.email || prev.email,
         phone: user.profile.phone || prev.phone,
-        size: user.profile.favorite_cake_size || prev.size,
-        filling: user.profile.favorite_filling || prev.filling,
-        theme: user.profile.favorite_theme || prev.theme,
       }));
     }
   }, [user]);
 
-  // Check capacity when date changes
   useEffect(() => {
-    const checkCapacity = async () => {
-      if (!formData.dateNeeded) {
-        setDateCapacity(null);
-        return;
-      }
-
-      setIsCheckingCapacity(true);
-      try {
-        const capacity = await api.getCapacityByDate(formData.dateNeeded);
-        setDateCapacity({
-          current: capacity.current_orders || 0,
-          max: capacity.max_orders || 10,
-        });
-      } catch (error) {
-        console.error('Error checking capacity:', error);
-      } finally {
-        setIsCheckingCapacity(false);
-      }
-    };
-
-    checkCapacity();
-  }, [formData.dateNeeded]);
-
-  // Load saved draft and prefill data on mount
-  useEffect(() => {
-    // Check for menu prefill first
-    const prefill = sessionStorage.getItem('orderPrefill');
-    if (prefill) {
-      try {
-        const parsed = JSON.parse(prefill);
-        setFormData(prev => ({
-          ...prev,
-          filling: parsed.filling || prev.filling,
-          size: parsed.size || prev.size,
-          theme: parsed.theme || prev.theme,
-        }));
-        sessionStorage.removeItem('orderPrefill');
-        toast.success(t('Información del producto cargada', 'Product information loaded'));
-      } catch (e) {
-        console.error('Error loading prefill:', e);
-      }
-    }
-    
-    // Then check for saved draft
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         setFormData(prev => ({ ...prev, ...parsed }));
+        if (parsed.selectedFillings) setSelectedFillings(parsed.selectedFillings);
+        // Note: We don't restore currentStep to avoid confusion, user starts fresh or at beginning
       } catch (e) {
         console.error('Error loading draft:', e);
       }
     }
-  }, [t]);
+  }, []);
 
-  // Auto-save form data (excluding File objects)
   useEffect(() => {
     const timer = setTimeout(() => {
-      const dataToSave = { ...formData };
-      // Don't save File object to localStorage
-      if (dataToSave.referenceImage) {
-        dataToSave.referenceImage = null;
-      }
+      const dataToSave = { ...formData, selectedFillings };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [formData]);
+  }, [formData, selectedFillings]);
 
-  // Cleanup preview URL on unmount
   useEffect(() => {
     return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
-      }
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     };
   }, [imagePreviewUrl]);
 
-  const [configurator, setConfigurator] = useState<{
-    attributes: any[];
-    rules: any[];
-  }>({ attributes: [], rules: [] });
-
-  // Fetch configurator data
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const data = await api.getAttributes();
-        setConfigurator(data);
-      } catch (error) {
-        console.error('Error loading attributes:', error);
-      }
-    };
-    loadConfig();
-  }, []);
-
-  // Optimized pricing calculation with debouncing and React Query caching
-  const { pricingBreakdown: optimizedPricing, isLoading: isCalculatingPrice } = useOptimizedPricing({
-    size: formData.size,
-    filling: formData.filling,
-    theme: formData.theme,
-    deliveryOption: formData.deliveryOption,
-    deliveryAddress: formData.deliveryOption === 'delivery' ? formData.address : undefined,
-    zipCode: formData.deliveryOption === 'delivery' ? formData.zipCode : undefined,
-    promoCode: promoCode || undefined,
+  const { pricingBreakdown, isLoading: isCalculatingPrice } = useOptimizedPricing({
+    size: formData.cakeSize,
+    filling: formData.breadType,
+    theme: formData.theme || 'custom',
+    deliveryOption: formData.pickupType as 'pickup' | 'delivery',
   });
 
-  // Update pricing breakdown when optimized pricing changes
-  useEffect(() => {
-    if (optimizedPricing) {
-      setPricingBreakdown(optimizedPricing);
-    }
-  }, [optimizedPricing]);
-
-  // Get current total for display
-  const getCurrentTotal = (): number => {
-    if (pricingBreakdown) {
-      return pricingBreakdown.total;
-    }
-    // Fallback
-    return formData.deliveryOption === 'delivery' ? 65 : 50;
+  const getBasePrice = () => {
+    const size = CAKE_SIZES.find(s => s.value === formData.cakeSize);
+    return size?.price || 0;
   };
 
-  const isOptionDisabled = (optionId: number) => {
-    // Check against rules based on current selections
-    // This requires mapping formData values back to option IDs
-    // Simplified implementation for now
-    return false;
+  const getTotal = () => {
+    if (pricingBreakdown) return pricingBreakdown.total;
+    return getBasePrice();
   };
 
-  // Validate current step
-  const validateStep = async (step: number): Promise<boolean> => {
-    setValidationError(null);
-    
-    if (step === 1) {
-      if (!formData.dateNeeded || !formData.timeNeeded) {
-        setValidationError(t('Por favor seleccione fecha y hora', 'Please select date and time'));
-        return false;
-      }
-
-      // Comprehensive validation
-      const validation = await validateOrderDateTimeComplete(formData.dateNeeded, formData.timeNeeded);
-      
-      if (!validation.isValid) {
-        const errorMessage = validation.errors.join(', ');
-        setValidationError(errorMessage);
-        return false;
-      }
-
-      // Check capacity
-      if (validation.capacity && !validation.capacity.available) {
-        setValidationError(
-          t(
-            'Esta fecha está llena. Por favor seleccione otra fecha.',
-            'This date is full. Please select another date.'
-          )
-        );
-        return false;
-      }
-
-      if (!formData.customerName || !formData.phone || !formData.email) {
-        setValidationError(t('Por favor complete todos los campos', 'Please fill all fields'));
-        return false;
-      }
-      return true;
-    }
-    
-    if (step === 2) {
-      if (!formData.size || !formData.filling || !formData.theme) {
-        setValidationError(t('Por favor seleccione tamaño, relleno y tema', 'Please select size, filling, and theme'));
-        return false;
-      }
-      return true;
-    }
-    
-    if (step === 3) {
-      if (formData.deliveryOption === 'delivery' && !formData.address.trim()) {
-        setValidationError(t('Por favor ingrese su dirección', 'Please enter your address'));
-        return false;
-      }
-      return true;
-    }
-    
-    return true;
+  const toggleFilling = (filling: string) => {
+    setSelectedFillings(prev => {
+      if (prev.includes(filling)) return prev.filter(f => f !== filling);
+      return [...prev, filling];
+    });
   };
 
-  const handleNext = async () => {
-    const isValid = await validateStep(currentStep);
-    if (isValid) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleBack = () => {
-    setCurrentStep(currentStep - 1);
-    setValidationError(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+    let formatted = '';
+    if (digits.length > 0) formatted = '(' + digits.slice(0, 3);
+    if (digits.length > 3) formatted += ') ' + digits.slice(3, 6);
+    if (digits.length > 6) formatted += '-' + digits.slice(6, 10);
+    setFormData({ ...formData, phone: formatted });
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    
-    if (!file) {
-      setFormData({ ...formData, referenceImage: null });
-      setImagePreviewUrl(null);
-      setUploadedImageUrl(null);
-      return;
-    }
+    if (!file) return;
 
-    // Validate file type
     if (!isValidImageType(file)) {
-      toast.error(
-        t(
-          'Tipo de archivo no válido. Por favor suba una imagen JPG, PNG o WebP.',
-          'Invalid file type. Please upload a JPG, PNG, or WebP image.'
-        )
-      );
-      e.target.value = ''; // Reset input
+      toast.error(t('Tipo de archivo no válido. Solo JPG, PNG o WebP.', 'Invalid file type. Only JPG, PNG or WebP.'));
       return;
     }
-
-    // Validate file size
     if (!isValidFileSize(file)) {
-      toast.error(
-        t(
-          'El archivo es demasiado grande. Por favor suba una imagen menor a 5MB.',
-          'File is too large. Please upload an image smaller than 5MB.'
-        )
-      );
-      e.target.value = ''; // Reset input
+      toast.error(t('Archivo muy grande. Máximo 5MB.', 'File too large. Max 5MB.'));
       return;
     }
 
-    // Set file and create preview
-    setFormData({ ...formData, referenceImage: file });
     const previewUrl = URL.createObjectURL(file);
     setImagePreviewUrl(previewUrl);
-    setUploadedImageUrl(null);
-
-    // Auto-upload image
     setIsUploadingImage(true);
-    setUploadProgress(0);
 
     try {
-      // Simulate progress (Supabase doesn't provide progress callbacks)
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 100);
-
       const result = await uploadReferenceImage(file);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
       if (result.success && result.url) {
         setUploadedImageUrl(result.url);
-        toast.success(
-          t('Imagen subida exitosamente', 'Image uploaded successfully')
-        );
+        toast.success(t('Imagen subida', 'Image uploaded'));
       } else {
         throw new Error(result.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error(
-        t(
-          'Error al subir imagen. Por favor intente nuevamente.',
-          'Error uploading image. Please try again.'
-        )
-      );
-      setFormData({ ...formData, referenceImage: null });
+      toast.error(t('Error al subir imagen', 'Error uploading image'));
       setImagePreviewUrl(null);
-      e.target.value = ''; // Reset input
     } finally {
       setIsUploadingImage(false);
-      setUploadProgress(0);
     }
   };
 
-  const handleRemoveImage = () => {
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-    }
-    setFormData({ ...formData, referenceImage: null });
+  const handleRemoveImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setImagePreviewUrl(null);
     setUploadedImageUrl(null);
-    // Reset file input
-    const fileInput = document.getElementById('referenceImage') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // --- NAVIGATION VALIDATION ---
+  const validateStep = async (stepIndex: number): Promise<boolean> => {
+    setValidationError(null);
+    const stepId = STEPS[stepIndex].id;
+
+    if (stepId === 'date') {
+      if (!formData.dateNeeded || !formData.timeNeeded) {
+        setValidationError(t('Selecciona fecha y hora', 'Select date and time'));
+        return false;
+      }
+      const validation = await validateOrderDateTimeComplete(formData.dateNeeded, formData.timeNeeded);
+      if (!validation.isValid) {
+        setValidationError(validation.errors.join(', '));
+        return false;
+      }
+    }
+
+    if (stepId === 'size') {
+      if (!formData.cakeSize) {
+        setValidationError(t('Debes seleccionar un tamaño', 'Must select a size'));
+        return false;
+      }
+    }
+
+    if (stepId === 'info') {
+      if (!formData.customerName.trim()) {
+        setValidationError(t('Tu nombre es requerido', 'Name is required'));
+        return false;
+      }
+      if (formData.phone.replace(/\D/g, '').length !== 10) {
+        setValidationError(t('Teléfono incompleto', 'Phone incomplete'));
+        return false;
+      }
+      if (!consentGiven) {
+        setValidationError(t('Marca la casilla de confirmación', 'Check the confirmation box'));
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const nextStep = async () => {
+    const isValid = await validateStep(currentStep);
+    if (isValid) {
+      if (currentStep < STEPS.length - 1) {
+        setDirection(1);
+        setCurrentStep(c => c + 1);
+      } else {
+        handleSubmit();
+      }
+    } else {
+      // Shake animation triggering could be added here
+      toast.error(validationError || t('Completa este paso', 'Complete this step'));
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setDirection(-1);
+      setCurrentStep(c => c - 1);
+      setValidationError(null);
     }
   };
 
   const handleSubmit = async () => {
-    const isValid = await validateStep(4);
-    if (!isValid) return;
-    
     setIsSubmitting(true);
-    setValidationError(null);
-    
     try {
-      const totalAmount = pricingBreakdown?.total || getCurrentTotal();
-      
-      let referenceImagePath = uploadedImageUrl || '';
-      
-      // If image was selected but not uploaded yet, upload it now
-      if (formData.referenceImage && !uploadedImageUrl) {
-        setIsUploadingImage(true);
-        try {
-          const uploadResult = await uploadReferenceImage(formData.referenceImage);
-          if (uploadResult.success && uploadResult.url) {
-            referenceImagePath = uploadResult.url;
-          } else {
-            throw new Error(uploadResult.error || 'Upload failed');
-          }
-        } catch (uploadError) {
-          console.error('Error uploading image:', uploadError);
-          toast.error(
-            t(
-              'Error al subir imagen, continuando sin ella',
-              'Error uploading image, continuing without it'
-            )
-          );
-          // Continue without image
-        } finally {
-          setIsUploadingImage(false);
-        }
-      }
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      const selectedSize = CAKE_SIZES.find(s => s.value === formData.cakeSize);
 
       const orderData = {
         customer_name: formData.customerName,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        customer_language: language, // Save customer's language preference
+        customer_email: formData.email || undefined,
+        customer_phone: `+1${cleanPhone}`,
+        customer_language: language,
         date_needed: formData.dateNeeded,
         time_needed: formData.timeNeeded,
-        cake_size: formData.size,
-        filling: formData.filling,
-        theme: formData.theme,
+        cake_size: selectedSize?.label || formData.cakeSize,
+        filling: selectedFillings.join(', ') || formData.breadType,
+        theme: formData.theme || 'Custom',
         dedication: formData.dedication || '',
-        reference_image_path: referenceImagePath,
-        delivery_option: formData.deliveryOption,
+        reference_image_path: uploadedImageUrl || '',
+        delivery_option: formData.pickupType,
         consent_given: true,
         consent_timestamp: new Date().toISOString(),
-        delivery_address: formData.deliveryOption === 'delivery' ? formData.address : '',
-        delivery_apartment: formData.deliveryOption === 'delivery' ? formData.apartment : '',
-        delivery_zone: formData.deliveryOption === 'delivery' ? deliveryZone : null,
-        total_amount: totalAmount,
-        promo_code: promoCode || null,
+        total_amount: getTotal(),
         user_id: user?.id || null,
-        save_address: saveAddress && formData.deliveryOption === 'delivery' && user,
-        address_label: saveAddress ? 'Last Used' : null,
       };
-      
-      // Store order data for payment checkout
+
       sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
       localStorage.removeItem(STORAGE_KEY);
-      
-      // Redirect to payment checkout page
       navigate('/payment-checkout');
-      
     } catch (error: any) {
       console.error('Error preparing payment:', error);
-      toast.error(
-        t(
-          'Error al preparar el pago. Por favor intente nuevamente.',
-          'Error preparing payment. Please try again.'
-        )
-      );
+      toast.error(t('Error del sistema', 'System error'));
       setIsSubmitting(false);
     }
   };
 
-  // Step 1: Customer Info
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="dateNeeded">{t('Fecha Necesaria', 'Date Needed')} *</Label>
-          <Input
-            id="dateNeeded"
-            type="date"
-            required
-            min={new Date().toISOString().split('T')[0]}
-            max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-            value={formData.dateNeeded}
-            onChange={(e) => {
-              setFormData({ ...formData, dateNeeded: e.target.value });
-              setValidationError(null);
-            }}
-            onBlur={async () => await validateStep(1)}
-            className={dateCapacity && dateCapacity.current >= dateCapacity.max ? 'border-red-500' : ''}
-          />
-          {dateCapacity && (
-            <div className="text-sm">
-              {dateCapacity.current >= dateCapacity.max ? (
-                <p className="text-red-500 font-semibold">
-                  {t('⚠️ Esta fecha está llena', '⚠️ This date is full')}
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  {t(
-                    `${dateCapacity.max - dateCapacity.current} de ${dateCapacity.max} espacios disponibles`,
-                    `${dateCapacity.max - dateCapacity.current} of ${dateCapacity.max} slots available`
-                  )}
-                </p>
-              )}
-            </div>
-          )}
-          {isCheckingCapacity && (
-            <p className="text-xs text-muted-foreground">
-              {t('Verificando disponibilidad...', 'Checking availability...')}
-            </p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="timeNeeded">{t('Hora', 'Time')} *</Label>
-          <Select
-            value={formData.timeNeeded}
-            onValueChange={(value) => {
-              setFormData({ ...formData, timeNeeded: value });
-              setValidationError(null);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t('Seleccionar hora', 'Select time')} />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {[
-                '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-                '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-                '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-                '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
-                '20:00', '20:30', '21:00', '21:30'
-              ].map((time) => (
-                <SelectItem key={time} value={time}>
-                  {time}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      
-      {formData.dateNeeded && formData.timeNeeded && !validationError && (
-        <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-          {(() => {
-            const leadTime = validateLeadTime(formData.dateNeeded, formData.timeNeeded);
-            if (leadTime.isValid && leadTime.hoursUntilEvent) {
-              return t(
-                `Su pedido será para ${formatHoursUntilEvent(leadTime.hoursUntilEvent, true)}`,
-                `Your order will be ready in ${formatHoursUntilEvent(leadTime.hoursUntilEvent, false)}`
-              );
-            }
-            return null;
-          })()}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <Label htmlFor="customerName">{t('Nombre Completo', 'Full Name')} *</Label>
-        <Input
-          id="customerName"
-          required
-          value={formData.customerName}
-          onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="phone">{t('Teléfono', 'Phone')} *</Label>
-        <Input
-          id="phone"
-          type="tel"
-          required
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email">{t('Email', 'Email')} *</Label>
-        <Input
-          id="email"
-          type="email"
-          required
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder={t('ejemplo@email.com', 'example@email.com')}
-        />
-      </div>
-    </div>
-  );
-
-  // Step 2: Cake Details
-  const renderStep2 = () => {
-    if (!configurator.attributes.length) return <div>{t('Cargando opciones...', 'Loading options...')}</div>;
-
-    return (
-      <div className="space-y-6">
-        {configurator.attributes.map((attr) => (
-          <div key={attr.id} className="space-y-2">
-            <Label htmlFor={attr.code}>{t(attr.name_es, attr.name_en)} *</Label>
-            <Select
-              value={formData[attr.code as keyof typeof formData] as string}
-              onValueChange={(value) => setFormData({ ...formData, [attr.code]: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t(`Seleccionar ${attr.name_es}`, `Select ${attr.name_en}`)} />
-              </SelectTrigger>
-              <SelectContent>
-                {attr.options.map((opt: any) => (
-                  <SelectItem 
-                    key={opt.id} 
-                    value={opt.value}
-                    disabled={isOptionDisabled(opt.id)}
-                  >
-                    {t(opt.label_es, opt.label_en)} 
-                    {opt.price_adjustment > 0 && ` (+$${opt.price_adjustment})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
-
-        {/* Preview Layer (Simplified) */}
-        <div className="relative h-64 w-full overflow-hidden rounded-lg border bg-muted/30">
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-            {t('Vista Previa', 'Preview')}
-          </div>
-          {configurator.attributes.map((attr) => {
-            if (!attr.is_visual) return null;
-            const selectedValue = formData[attr.code as keyof typeof formData];
-            const selectedOption = attr.options.find((o: any) => o.value === selectedValue);
-            if (selectedOption?.image_layer_path) {
-              return (
-                <img
-                  key={attr.id}
-                  src={selectedOption.image_layer_path}
-                  alt={attr.code}
-                  className="absolute inset-0 h-full w-full object-contain"
-                  style={{ zIndex: attr.sort_order }}
-                />
-              );
-            }
-            return null;
-          })}
-        </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="dedication">{t('Dedicatoria', 'Dedication Text')}</Label>
-        <Textarea
-          id="dedication"
-          placeholder={t('Ej: Feliz Cumpleaños María!', 'E.g: Happy Birthday Maria!')}
-          rows={3}
-          value={formData.dedication}
-          onChange={(e) => setFormData({ ...formData, dedication: e.target.value })}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="referenceImage">
-          {t('Imagen de Referencia', 'Reference Image')}
-          <span className="ml-2 text-sm text-muted-foreground">
-            {t('(Opcional)', '(Optional)')}
-          </span>
-        </Label>
-        <div className="flex flex-col gap-3">
-          {/* Mobile: Show camera button */}
-          {isMobile && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowCamera(true)}
-              className="w-full"
-            >
-              <Camera className="mr-2 h-4 w-4" />
-              {t('Tomar Foto', 'Take Photo')}
-            </Button>
-          )}
-          
-          <div className="relative">
-            <Input
-              id="referenceImage"
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp"
-              capture={isMobile ? 'environment' : undefined} // Use camera on mobile
-              onChange={handleImageChange}
-              disabled={isUploadingImage}
-              className="cursor-pointer file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-secondary hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-            />
-          </div>
-          
-          {/* Camera capture modal */}
-          {showCamera && (
-            <CameraCapture
-              onCapture={(file) => {
-                setShowCamera(false);
-                // Simulate file input change
-                const fakeEvent = {
-                  target: { files: [file], value: '' },
-                } as React.ChangeEvent<HTMLInputElement>;
-                handleImageChange(fakeEvent);
-              }}
-              onCancel={() => setShowCamera(false)}
-            />
-          )}
-
-          {/* Upload Progress */}
-          {isUploadingImage && (
-            <div className="rounded-lg border border-border bg-muted/50 p-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <div className="flex-1">
-                  <p className="font-sans text-sm font-medium text-foreground">
-                    {t('Subiendo imagen...', 'Uploading image...')}
-                  </p>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Image Preview */}
-          {(formData.referenceImage || uploadedImageUrl) && !isUploadingImage && (
-            <div className="rounded-lg border border-border bg-muted/50 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  {uploadedImageUrl ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <Upload className="h-5 w-5 text-primary" />
-                  )}
-                  <div>
-                    <p className="font-sans text-sm font-medium text-foreground">
-                      {formData.referenceImage?.name || 'Image'}
-                    </p>
-                    {formData.referenceImage && (
-                      <p className="font-sans text-xs text-muted-foreground">
-                        {(formData.referenceImage.size / 1024).toFixed(1)} KB
-                        {uploadedImageUrl && (
-                          <span className="ml-2 text-green-600">
-                            • {t('Subida', 'Uploaded')}
-                          </span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRemoveImage}
-                  className="h-8 w-8 p-0"
-                  disabled={isUploadingImage}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="mt-3">
-                <img
-                  src={uploadedImageUrl || imagePreviewUrl || ''}
-                  alt="Reference preview"
-                  className="max-h-48 w-full rounded-lg object-contain"
-                  onError={(e) => {
-                    console.error('Image preview error');
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          <p className="font-sans text-xs text-muted-foreground">
-            {t(
-              'Sube una imagen de referencia para ayudarnos a crear tu pastel perfecto (JPG, PNG o WebP, máximo 5MB)',
-              'Upload a reference image to help us create your perfect cake (JPG, PNG or WebP, max 5MB)'
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-  };
-
-  // Step 3: Pickup Information
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      {/* Pickup Only - Delivery coming soon */}
-      <div className="rounded-lg bg-primary/10 border border-primary/30 p-6 text-center">
-        <h3 className="font-display text-xl font-bold mb-2">
-          {t('📍 Recoger en Tienda', '📍 Store Pickup')}
-        </h3>
-        <p className="text-muted-foreground mb-4">
-          {t(
-            'Le notificaremos cuando su pedido esté listo para recoger.',
-            'We will notify you when your order is ready for pickup.'
-          )}
-        </p>
-        <div className="bg-card rounded-lg p-4 inline-block">
-          <p className="font-semibold">{t('Dirección', 'Address')}:</p>
-          <p className="text-muted-foreground">324 W Marshall St, Norristown, PA 19401</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            {t('Horario de recogida', 'Pickup hours')}: 5:00 AM - 10:00 PM
-          </p>
-        </div>
-      </div>
-
-      {/* Hidden delivery option for future use */}
-      <input type="hidden" value="pickup" />
-
-      {/* Delivery coming soon notice */}
-      <div className="rounded-lg bg-muted/50 border border-dashed p-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          🚗 {t('Entrega a domicilio próximamente', 'Home delivery coming soon')}
-        </p>
-      </div>
-    </div>
-  );
-
-  // Keep delivery code for future - just hide the UI
-  const renderStep3_delivery_future = () => (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>{t('Entrega', 'Delivery Option')} *</Label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-          <label className="flex flex-1 cursor-pointer items-center gap-3 rounded-lg border-2 border-border p-4 transition-smooth hover:border-primary active:scale-[0.98]">
-            <input
-              type="radio"
-              name="delivery"
-              value="pickup"
-              checked={formData.deliveryOption === 'pickup'}
-              onChange={(e) => setFormData({ ...formData, deliveryOption: e.target.value })}
-              className="h-4 w-4 text-primary"
-            />
-            <span className="font-sans font-semibold">{t('Recoger', 'Pickup')}</span>
-          </label>
-          <label className="flex flex-1 cursor-pointer items-center gap-3 rounded-lg border-2 border-border p-4 transition-smooth hover:border-primary active:scale-[0.98]">
-            <input
-              type="radio"
-              name="delivery"
-              value="delivery"
-              checked={formData.deliveryOption === 'delivery'}
-              onChange={(e) => setFormData({ ...formData, deliveryOption: e.target.value })}
-              className="h-4 w-4 text-primary"
-            />
-            <span className="font-sans font-semibold">{t('Entrega a Domicilio', 'Delivery')}</span>
-          </label>
-        </div>
-      </div>
-
-      {formData.deliveryOption === 'delivery' && (
-        <>
-          <div className="rounded-lg bg-accent/10 border border-accent/30 p-4 mb-4">
-            <p className="text-sm font-semibold text-accent mb-2">
-              🚗 {t('Área de Entrega', 'Delivery Area')}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                'Actualmente entregamos en Norristown y áreas cercanas (15 millas)',
-                'We currently deliver to Norristown and surrounding areas (15 miles)'
-              )}
-            </p>
-          </div>
-
-          {/* Saved Addresses (if logged in) */}
-          {user && savedAddresses.length > 0 && (
-            <div className="space-y-2 mb-4">
-              <Label>{t('Direcciones Guardadas', 'Saved Addresses')}</Label>
-              <Select
-                value={selectedAddressId?.toString() || ''}
-                onValueChange={(value) => {
-                  if (value === '') {
-                    setSelectedAddressId(null);
-                    setFormData(prev => ({
-                      ...prev,
-                      address: '',
-                      apartment: '',
-                      zipCode: '',
-                    }));
-                    return;
-                  }
-                  const addressId = parseInt(value);
-                  const address = savedAddresses.find((a: any) => a.id === addressId);
-                  if (address) {
-                    setFormData(prev => ({
-                      ...prev,
-                      address: address.address,
-                      apartment: address.apartment || '',
-                      zipCode: address.zip_code || '',
-                    }));
-                    setSelectedAddressId(addressId);
-                    setDeliveryZone(null); // Will be recalculated when address changes
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t('Seleccionar dirección guardada', 'Select saved address')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">{t('Nueva dirección', 'New address')}</SelectItem>
-                  {savedAddresses.map((address: any) => (
-                    <SelectItem key={address.id} value={address.id.toString()}>
-                      {address.label} {address.is_default && `(${t('Predeterminada', 'Default')})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="address">{t('Dirección de Entrega', 'Delivery Address')} *</Label>
-            <AddressAutocomplete
-              value={formData.address}
-              showDeliveryInfo={true}
-              onChange={(value, isValid, placeDetails, deliveryInfo) => {
-                let zipCode = formData.zipCode;
-                if (isValid && placeDetails) {
-                  // Extract zip code from place details
-                  const zipComponent = placeDetails.address_components?.find(
-                    (comp: any) => comp.types.includes('postal_code')
-                  );
-                  if (zipComponent) {
-                    zipCode = zipComponent.long_name;
-                  }
-                  console.log('✅ Valid address selected:', placeDetails);
-                  
-                  if (deliveryInfo?.serviceable) {
-                    setDeliveryZone(deliveryInfo.zone?.name || null);
-                    toast.success(
-                      t(
-                        `✅ Dirección validada - ${deliveryInfo.zone?.name || 'Zona de entrega'}`,
-                        `✅ Address validated - ${deliveryInfo.zone?.name || 'Delivery zone'}`
-                      )
-                    );
-                  } else if (deliveryInfo && !deliveryInfo.serviceable) {
-                    setDeliveryZone(null);
-                    toast.error(
-                      t(
-                        '⚠️ Dirección fuera del área de entrega',
-                        '⚠️ Address outside delivery area'
-                      )
-                    );
-                  } else {
-                    setDeliveryZone(null);
-                    toast.success(
-                      t(
-                        '✅ Dirección validada con Google Maps',
-                        '✅ Address validated with Google Maps'
-                      )
-                    );
-                  }
-                }
-                setFormData({ ...formData, address: value, zipCode });
-              }}
-              placeholder={t(
-                'Ej: 123 Main St, Philadelphia, PA 19020',
-                'E.g: 123 Main St, Philadelphia, PA 19020'
-              )}
-              required={formData.deliveryOption === 'delivery'}
-              className={
-                formData.address && formData.address.length > 10 && !new RegExp(/^\d+.*[A-Za-z]+.*[A-Za-z]{2}/).test(formData.address)
-                  ? 'border-red-500'
-                  : ''
-              }
-            />
-            {formData.address && formData.address.length > 10 && !new RegExp(/^\d+.*[A-Za-z]+.*[A-Za-z]{2}/).test(formData.address) && (
-              <p className="text-xs text-red-500">
-                {t(
-                  'Por favor incluya: número, calle, ciudad, estado y código postal',
-                  'Please include: number, street, city, state and zip code'
-                )}
-              </p>
-            )}
-          </div>
-
-            <div className="space-y-2">
-            <Label htmlFor="apartment">
-              {t('Apartamento/Unidad', 'Apartment/Unit')} ({t('Opcional', 'Optional')})
-            </Label>
-            <Input
-              id="apartment"
-              value={formData.apartment}
-              onChange={(e) => setFormData({ ...formData, apartment: e.target.value })}
-              placeholder={t('Apt 4B, Unit 12, etc.', 'Apt 4B, Unit 12, etc.')}
-            />
-          </div>
-
-          {/* Save Address Option (for logged-in users) */}
-          {user && !selectedAddressId && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="saveAddress"
-                checked={saveAddress}
-                onChange={(e) => setSaveAddress(e.target.checked)}
-                className="h-4 w-4"
-              />
-              <Label htmlFor="saveAddress" className="cursor-pointer text-sm">
-                {t('Guardar esta dirección para futuros pedidos', 'Save this address for future orders')}
-              </Label>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-
-  // Step 4: Review & Payment
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-        <h3 className="font-display text-xl font-bold">{t('Resumen del Pedido', 'Order Summary')}</h3>
-        
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between items-start">
-            <span className="text-muted-foreground whitespace-nowrap mr-4">{t('Cliente', 'Customer')}:</span>
-            <span className="font-semibold text-right">{formData.customerName}</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-muted-foreground whitespace-nowrap mr-4">{t('Fecha', 'Date')}:</span>
-            <span className="font-semibold text-right">{formData.dateNeeded} {formData.timeNeeded}</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-muted-foreground whitespace-nowrap mr-4">{t('Tamaño', 'Size')}:</span>
-            <span className="font-semibold text-right">{formData.size}</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-muted-foreground whitespace-nowrap mr-4">{t('Relleno', 'Filling')}:</span>
-            <span className="font-semibold text-right">{formData.filling}</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-muted-foreground whitespace-nowrap mr-4">{t('Tema', 'Theme')}:</span>
-            <span className="font-semibold text-right">{formData.theme}</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <span className="text-muted-foreground whitespace-nowrap mr-4">{t('Entrega', 'Delivery')}:</span>
-            <span className="font-semibold text-right">
-              {formData.deliveryOption === 'delivery' ? t('Entrega a Domicilio', 'Delivery') : t('Recoger', 'Pickup')}
-            </span>
-          </div>
-        </div>
-
-        {/* Promo Code */}
-        <div className="pt-4 border-t">
-          <Label htmlFor="promoCode">{t('Código Promocional', 'Promo Code')} ({t('Opcional', 'Optional')})</Label>
-          <div className="flex gap-2 mt-2">
-            <Input
-              id="promoCode"
-              value={promoCode}
-              onChange={(e) => {
-                setPromoCode(e.target.value.toUpperCase());
-                setPromoCodeError(null);
-              }}
-              placeholder={t('Ingrese código', 'Enter code')}
-              className="flex-1"
-            />
-            {promoCode && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setPromoCode('');
-                  setPromoCodeError(null);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          {promoCodeError && (
-            <p className="mt-1 text-sm text-red-500">{promoCodeError}</p>
-          )}
-          {pricingBreakdown?.discount > 0 && (
-            <p className="mt-1 text-sm text-green-600">
-              {t('Descuento aplicado', 'Discount applied')}!
-            </p>
-          )}
-        </div>
-
-        {/* Price Breakdown */}
-        {pricingBreakdown && (
-          <div className="pt-4 border-t space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('Base', 'Base')}:</span>
-              <span>{formatPrice(pricingBreakdown.basePrice)}</span>
-            </div>
-            {pricingBreakdown.fillingCost > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t('Relleno', 'Filling')}:</span>
-                <span>+{formatPrice(pricingBreakdown.fillingCost)}</span>
-              </div>
-            )}
-            {pricingBreakdown.themeCost > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t('Tema', 'Theme')}:</span>
-                <span>+{formatPrice(pricingBreakdown.themeCost)}</span>
-              </div>
-            )}
-            {pricingBreakdown.deliveryFee > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t('Entrega', 'Delivery')}:</span>
-                <span>+{formatPrice(pricingBreakdown.deliveryFee)}</span>
-              </div>
-            )}
-            {pricingBreakdown.tax > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t('Impuestos', 'Tax')}:</span>
-                <span>+{formatPrice(pricingBreakdown.tax)}</span>
-              </div>
-            )}
-            {pricingBreakdown.discount > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
-                <span>{t('Descuento', 'Discount')}:</span>
-                <span>-{formatPrice(pricingBreakdown.discount)}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between pt-2 border-t">
-              <span className="font-sans text-lg font-semibold">
-                {t('Total', 'Total')}:
-              </span>
-              <span className="font-display text-2xl font-bold text-primary">
-                {isCalculatingPrice ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  formatPrice(pricingBreakdown.total)
-                )}
-              </span>
-            </div>
-          </div>
-        )}
-        
-        {!pricingBreakdown && (
-          <div className="pt-4 border-t">
-            <div className="flex items-center justify-between">
-              <span className="font-sans text-lg font-semibold">
-                {t('Total Estimado', 'Estimated Total')}:
-              </span>
-              <span className="font-display text-2xl font-bold text-primary">
-                {isCalculatingPrice ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  formatPrice(getCurrentTotal())
-                )}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center">
-        <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-        <p className="font-sans text-sm text-muted-foreground">
-          {t(
-            'Puede enviar su foto de referencia directamente por WhatsApp',
-            'You can send your reference photo directly via WhatsApp'
-          )}
-        </p>
-        <p className="mt-2 font-sans text-lg font-bold text-primary">📱 (610) 279-6200</p>
-      </div>
-
-      {/* Terms and Privacy Consent */}
-      <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="consent"
-            checked={consentGiven}
-            onCheckedChange={(checked) => setConsentGiven(checked === true)}
-            className="mt-1 min-h-[44px] min-w-[44px]"
-            aria-required="true"
-          />
-          <Label
-            htmlFor="consent"
-            className="text-sm leading-relaxed cursor-pointer flex-1"
-          >
-            {isSpanish ? (
-              <>
-                Acepto los{' '}
-                <a
-                  href="/legal/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-semibold"
-                >
-                  Términos de Servicio
-                </a>{' '}
-                y la{' '}
-                <a
-                  href="/legal/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-semibold"
-                >
-                  Política de Privacidad
-                </a>
-                . Entiendo que mi información será procesada según se describe en estas políticas.
-              </>
-            ) : (
-              <>
-                I agree to the{' '}
-                <a
-                  href="/legal/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-semibold"
-                >
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a
-                  href="/legal/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-semibold"
-                >
-                  Privacy Policy
-                </a>
-                . I understand that my information will be processed as described in these policies.
-              </>
-            )}
-          </Label>
-        </div>
-        {!consentGiven && currentStep === 4 && (
-          <p className="text-sm text-destructive ml-11">
-            {isSpanish
-              ? 'Debe aceptar los términos para continuar'
-              : 'You must agree to the terms to continue'}
-          </p>
-        )}
-      </div>
-
-      {/* Food Safety Disclaimer */}
-      <FoodSafetyDisclaimer variant="compact" />
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-background relative">
-      <Confetti
-        ref={confettiRef}
-        className="fixed top-0 left-0 w-full h-full pointer-events-none z-50"
-      />
-      <Navbar />
-      
-      <main className="pt-32 pb-24">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-8 md:mb-12 text-center">
-              <h1 className="mb-4 font-display text-3xl font-bold text-gradient-gold md:text-5xl">
-                {t('Orden de Pastel Personalizado', 'Custom Cake Order')}
-              </h1>
-              <div className="mx-auto mb-6 h-1 w-24 rounded-full bg-gradient-to-r from-primary to-accent" />
-            </div>
+    <div className="min-h-screen font-sans pb-32 relative bg-[#FDFBF7] flex flex-col">
 
-            <OrderProgress currentStep={currentStep} totalSteps={4} />
+      {/* --- BACKGROUND ANIMATION --- */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <motion.div
+          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(251,191,36,0.08),transparent_70%)]"
+        />
+        <motion.div
+          animate={{ y: [0, -50, 0], x: [0, 30, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(255,165,0,0.05),transparent_60%)] filter blur-3xl opacity-60"
+        />
+      </div>
 
-            <ShineBorder
-              borderRadius={16}
-              borderWidth={2}
-              duration={10}
-              color={['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3']}
-              className="bg-transparent p-0"
+      {/* --- TOP BAR --- */}
+      <div className="h-1.5 w-full flex sticky top-0 z-50 shadow-sm opacity-90">
+        <div className="h-full w-1/3 bg-green-600/90 backdrop-blur-sm"></div>
+        <div className="h-full w-1/3 bg-white/90 backdrop-blur-sm"></div>
+        <div className="h-full w-1/3 bg-red-600/90 backdrop-blur-sm"></div>
+      </div>
+
+      {/* --- HEADER --- */}
+      <header className="bg-white/80 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.03)] p-4 sticky top-1.5 z-40 border-b border-white/50">
+        <div className="max-w-md mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
             >
-              <div className="relative z-10 space-y-6 rounded-2xl bg-card p-4 md:p-8">
-                {validationError && (
-                  <div className="flex items-center gap-2 rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-                    <AlertCircle className="h-5 w-5" />
-                    <p className="text-sm font-medium">{validationError}</p>
-                  </div>
-                )}
+              <ChevronLeft size={20} strokeWidth={3} />
+            </button>
+            <button className="cursor-pointer group text-left" onClick={() => navigate('/')}>
+              <h1 className="text-lg font-black tracking-tight text-gray-900 group-hover:text-amber-600 transition-colors flex items-center gap-2">
+                ELI'S BAKERY <Sparkles size={14} className="text-amber-400 fill-amber-400" />
+              </h1>
+            </button>
+          </div>
 
-                {currentStep === 1 && renderStep1()}
-                {currentStep === 2 && renderStep2()}
-                {currentStep === 3 && renderStep3()}
-                {currentStep === 4 && renderStep4()}
-
-                <div className="flex flex-col-reverse gap-3 pt-6 border-t md:flex-row md:gap-4">
-                  {currentStep > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleBack}
-                      className="flex-1 w-full md:w-auto"
-                    >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      {t('Atrás', 'Back')}
-                    </Button>
-                  )}
-                  {currentStep < 4 ? (
-                    <Button
-                      type="button"
-                      onClick={handleNext}
-                      className="flex-1 w-full md:w-auto"
-                    >
-                      {t('Siguiente', 'Next')}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting || isUploadingImage || !consentGiven}
-                      className="flex-1 w-full md:w-auto bg-primary text-secondary"
-                    >
-                      {isSubmitting || isUploadingImage ? (
-                        <>
-                          <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-secondary border-t-transparent" />
-                          {isUploadingImage
-                            ? t('Subiendo imagen...', 'Uploading image...')
-                            : t('Procesando...', 'Processing...')}
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="mr-2 h-5 w-5" />
-                          {t('Continuar al Pago', 'Continue to Payment')}
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </ShineBorder>
+          {/* Progress Indicator */}
+          <div className="flex gap-1">
+            {STEPS.map((_, i) => (
+              <div key={i} className={`h-1.5 w-3 sm:w-6 rounded-full transition-all duration-300 ${i <= currentStep ? 'bg-amber-500' : 'bg-gray-200'}`} />
+            ))}
           </div>
         </div>
+      </header>
+
+      {/* --- CONTENT WIZARD --- */}
+      <main className="flex-1 flex flex-col justify-center items-center p-5 relative z-10 w-full max-w-md mx-auto min-h-[60vh]">
+
+        {/* Step Title */}
+        <div className="w-full mb-8 text-center">
+          <motion.div
+            key={currentStep}
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="inline-block"
+          >
+            <h2 className="text-3xl font-black text-gray-900 tracking-tight">{STEPS[currentStep].title}</h2>
+            <p className="text-gray-500 font-medium">{STEPS[currentStep].subtitle}</p>
+          </motion.div>
+        </div>
+
+        {/* Validation Error */}
+        <AnimatePresence>
+          {validationError && (
+            <motion.div
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: 20 }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              className="w-full flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 backdrop-blur-md"
+            >
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-bold">{validationError}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence custom={direction} mode="wait">
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="w-full bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 min-h-[300px] flex flex-col justify-center"
+          >
+            {/* --- STEP 1: DATE --- */}
+            {STEPS[currentStep].id === 'date' && (
+              <div className="space-y-6">
+                <div className="relative">
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    value={formData.dateNeeded}
+                    onChange={(e) => setFormData({ ...formData, dateNeeded: e.target.value })}
+                    className="w-full bg-white/50 border-2 border-transparent focus:border-amber-400 hover:bg-white transition-all rounded-2xl p-4 text-center text-lg font-bold text-gray-800 outline-none shadow-inner"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500">
+                    <Calendar size={20} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block text-center">{t('Hora de Entrega', 'Pickup Time')}</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TIME_OPTIONS.map(time => (
+                      <button
+                        key={time}
+                        onClick={() => setFormData({ ...formData, timeNeeded: time })}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all border ${formData.timeNeeded === time
+                          ? 'bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-500/30'
+                          : 'bg-white border-gray-100 text-gray-600 hover:border-amber-200 hover:bg-amber-50'
+                          }`}
+                      >
+                        {formatTimeDisplay(time)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lead Time Display */}
+                {formData.dateNeeded && formData.timeNeeded && (
+                  <div className="flex justify-center">
+                    {(() => {
+                      const leadTime = validateLeadTime(formData.dateNeeded, formData.timeNeeded);
+                      if (leadTime.isValid && leadTime.hoursUntilEvent) {
+                        const days = Math.floor(leadTime.hoursUntilEvent / 24);
+                        return (
+                          <div className="flex items-center gap-2 text-green-600 text-xs font-bold bg-green-50 px-3 py-1 rounded-full">
+                            <Check size={12} strokeWidth={3} /> {days} {t('días para preparar', 'days to prepare')}
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="flex items-center gap-2 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-1 rounded-full">
+                          <Clock size={12} strokeWidth={3} /> {t('Mínimo 48h requerido', 'Min 48h required')}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- STEP 2: SIZE --- */}
+            {STEPS[currentStep].id === 'size' && (
+              <div className="grid grid-cols-2 gap-3">
+                {CAKE_SIZES.map(s => (
+                  <button
+                    key={s.value}
+                    onClick={() => setFormData({ ...formData, cakeSize: s.value })}
+                    className={`relative p-4 rounded-2xl text-left transition-all border-2 overflow-hidden ${formData.cakeSize === s.value
+                      ? 'bg-gradient-to-br from-amber-50 to-white border-amber-400 shadow-lg shadow-amber-200/50'
+                      : 'bg-white border-transparent hover:border-gray-200 hover:bg-gray-50 shadow-sm'
+                      }`}
+                  >
+                    {s.featured && (
+                      <div className="absolute top-0 right-0 bg-amber-400 text-[9px] font-black text-white px-2 py-0.5 rounded-bl-lg uppercase tracking-wide">
+                        Popular
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-400 font-bold mb-1">{s.serves} {t('pers', 'ppl')}</div>
+                    <div className="font-black text-gray-800 text-sm mb-2 leading-tight">{isSpanish ? s.labelEs : s.label}</div>
+                    <div className={`text-lg font-black ${formData.cakeSize === s.value ? 'text-amber-600' : 'text-gray-900'}`}>${s.price}</div>
+
+                    {formData.cakeSize === s.value && (
+                      <div className="absolute bottom-3 right-3 text-amber-500">
+                        <Check size={20} strokeWidth={4} />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* --- STEP 3: FLAVOR --- */}
+            {STEPS[currentStep].id === 'flavor' && (
+              <div className="space-y-6">
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">{t('Tipo de Pan', 'Bread Type')}</label>
+                  <div className="flex flex-col gap-2">
+                    {BREAD_TYPES.map(type => (
+                      <button
+                        key={type.value}
+                        onClick={() => setFormData({ ...formData, breadType: type.value })}
+                        className={`p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${formData.breadType === type.value
+                          ? 'bg-gray-800 border-gray-800 text-white shadow-lg shadow-gray-400/30'
+                          : 'bg-white border-transparent text-gray-600 hover:bg-gray-50'
+                          }`}
+                      >
+                        <div className="text-left">
+                          <div className="font-bold">{type.label}</div>
+                          <div className={`text-xs ${formData.breadType === type.value ? 'text-gray-400' : 'text-gray-400'}`}>{type.desc}</div>
+                        </div>
+                        {formData.breadType === type.value && <Check size={18} className="text-amber-400" strokeWidth={3} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">{t('Relleno', 'Filling')} <span className="text-gray-300 font-normal">(Optional)</span></label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {FILLINGS.map(f => {
+                      const isSelected = selectedFillings.includes(f.value);
+                      return (
+                        <button
+                          key={f.value}
+                          onClick={() => toggleFilling(f.value)}
+                          className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden ${isSelected
+                            ? 'bg-amber-50 border-amber-400 text-amber-900'
+                            : 'bg-white border-gray-100 text-gray-600 hover:border-gray-200'
+                            }`}
+                        >
+                          <div className="relative z-10">
+                            <div className="text-xs font-bold mb-0.5">{f.label}</div>
+                            <div className="text-[10px] opacity-70 leading-none">{f.sub}</div>
+                          </div>
+                          {isSelected && <div className="absolute inset-0 bg-amber-100/50 z-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- STEP 4: DETAILS --- */}
+            {STEPS[currentStep].id === 'details' && (
+              <div className="space-y-4">
+                <FloatingInput
+                  label={t('Tema', 'Theme')}
+                  value={formData.theme}
+                  onChange={(e: any) => setFormData({ ...formData, theme: e.target.value })}
+                  icon={Sparkles}
+                  placeholder="e.g. Birthday, Wedding..."
+                />
+                <FloatingInput
+                  label={t('Dedicatoria', 'Message')}
+                  value={formData.dedication}
+                  onChange={(e: any) => setFormData({ ...formData, dedication: e.target.value })}
+                  icon={Star}
+                  placeholder="e.g. Happy Birthday!"
+                />
+
+                {/* Photo Upload */}
+                <div className="relative mt-4">
+                  {!imagePreviewUrl ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {isMobile && (
+                        <button
+                          onClick={() => setShowCamera(true)}
+                          className="bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-amber-100/50 transition-colors"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center">
+                            <Camera size={24} />
+                          </div>
+                          <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">{t('Cámara', 'Camera')}</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors ${!isMobile ? 'col-span-2' : ''
+                          }`}
+                      >
+                        <div className="w-12 h-12 rounded-full bg-white border border-gray-200 text-gray-400 flex items-center justify-center">
+                          <Upload size={24} />
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide block">{t('Subir Foto', 'Upload')}</span>
+                          <span className="text-[9px] text-gray-400 uppercase tracking-wider">JPG, PNG</span>
+                        </div>
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    </div>
+                  ) : (
+                    <div className="relative rounded-2xl overflow-hidden shadow-lg group h-48">
+                      <img src={imagePreviewUrl} className="w-full h-full object-cover" alt="Preview" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={handleRemoveImage} className="bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-red-500/80 transition-all">
+                          <X size={24} />
+                        </button>
+                      </div>
+                      {isUploadingImage && (
+                        <div className="absolute inset-0 bg-white/90 flex items-center justify-center">
+                          <Loader2 className="animate-spin text-amber-500" size={32} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {showCamera && (
+                  <CameraCapture
+                    onCapture={(file) => {
+                      const fake = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                      handleImageChange(fake);
+                      setShowCamera(false);
+                    }}
+                    onCancel={() => setShowCamera(false)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* --- STEP 5: CONTACT INFO --- */}
+            {STEPS[currentStep].id === 'info' && (
+              <div className="space-y-4">
+                <FloatingInput
+                  label={t('Nombre', 'Name')}
+                  icon={User}
+                  value={formData.customerName}
+                  onChange={(e: any) => setFormData({ ...formData, customerName: e.target.value })}
+                />
+                <FloatingInput
+                  label={t('Teléfono', 'Phone')}
+                  type="tel"
+                  icon={null}
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  maxLength={14}
+                  placeholder="(555) 555-5555"
+                />
+
+                <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-sm flex gap-2">
+                  <button
+                    onClick={() => setFormData({ ...formData, pickupType: 'pickup' })}
+                    className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${formData.pickupType === 'pickup'
+                      ? 'bg-green-100 text-green-700 shadow-none'
+                      : 'text-gray-400 hover:bg-gray-50'
+                      }`}
+                  >
+                    <ShoppingBag size={16} /> Pickup
+                  </button>
+                  <div className="w-px bg-gray-100 my-2"></div>
+                  <button
+                    disabled
+                    className="flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 text-gray-300 cursor-not-allowed"
+                  >
+                    <MapPin size={16} /> Delivery
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-4 cursor-pointer group p-2">
+                  <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${consentGiven ? 'bg-amber-500 border-amber-500 text-white' : 'border-gray-300 group-hover:border-amber-400'
+                    }`}>
+                    <Check size={14} strokeWidth={4} />
+                  </div>
+                  <input type="checkbox" checked={consentGiven} onChange={e => setConsentGiven(e.target.checked)} className="hidden" />
+                  <div className="text-xs text-gray-500 font-medium">
+                    {t('Acepto los términos y confirmo que los detalles son correctos.', 'I accept terms and confirm details are correct.')}
+                  </div>
+                </label>
+              </div>
+            )}
+
+          </motion.div>
+        </AnimatePresence>
       </main>
 
-      <Footer />
-      
-      {/* Confetti celebration animation */}
-      <Confetti ref={confettiRef} />
+      {/* --- WIZARD NAVIGATION --- */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-white via-white to-transparent">
+        <div className="max-w-md mx-auto bg-gray-900 rounded-3xl p-4 shadow-2xl shadow-gray-900/40 flex justify-between items-center pr-3">
+          <div className="flex flex-col pl-2">
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t('Total', 'Total')}</span>
+            <span className="text-xl font-black text-white tracking-tight">
+              {isCalculatingPrice ? <Loader2 className="inline animate-spin text-amber-400" size={16} /> : formatPrice(getTotal())}
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            {currentStep > 0 && (
+              <button
+                onClick={prevStep}
+                className="w-12 h-12 rounded-2xl bg-gray-800 text-gray-400 flex items-center justify-center hover:bg-gray-700 transition-colors"
+              >
+                <ChevronLeft size={20} strokeWidth={3} />
+              </button>
+            )}
+
+            <button
+              onClick={nextStep}
+              disabled={isSubmitting || isUploadingImage}
+              className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all min-w-[120px] justify-center"
+            >
+              {isSubmitting ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                currentStep === STEPS.length - 1 ? (
+                  <>{t('Ordenar', 'Order')} <Check size={16} strokeWidth={4} /></>
+                ) : (
+                  <>{t('Siguiente', 'Next')} <ChevronRight size={16} strokeWidth={4} /></>
+                )
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

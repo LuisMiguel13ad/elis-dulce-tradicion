@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const dummyUser = DUMMY_USERS[role];
     setUser(dummyUser);
     localStorage.setItem('dev_user_role', role);
-    toast.success(`Dev login as ${role}`);
+    // toast.success(`Dev login as ${role}`); // Removed to avoid confusion with Front Desk (which uses baker role)
   };
 
   // Load user session on mount
@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const profile = await getUserProfile(authUser.id);
-      
+
       if (profile) {
         setUser({
           id: authUser.id,

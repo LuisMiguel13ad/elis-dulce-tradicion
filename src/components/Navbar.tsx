@@ -27,11 +27,10 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className={`fixed top-0 z-50 w-full border-b backdrop-blur-md transition-all duration-300 ${
-      isScrolled 
-        ? 'bg-background/80 border-border/50' 
+    <nav className={`fixed top-0 z-50 w-full border-b transition-all duration-300 ${isScrolled
+        ? 'bg-background/80 border-border/50 backdrop-blur-md'
         : 'bg-transparent border-transparent'
-    }`}>
+      }`}>
       <div className="container relative mx-auto flex h-28 items-center justify-between px-4">
         {/* Mobile menu button - visible on small screens */}
         <div className="md:hidden">
@@ -84,9 +83,9 @@ const Navbar = () => {
         </div>
 
         <Link to="/" className="flex items-center transition-smooth hover:opacity-80">
-          <img 
-            src={logoImage} 
-            alt={t('Logo de Eli\'s Bakery', 'Eli\'s Bakery Logo')} 
+          <img
+            src={logoImage}
+            alt={t('Logo de Eli\'s Bakery', 'Eli\'s Bakery Logo')}
             className="h-20 w-20 object-contain md:h-32 md:w-32"
           />
         </Link>

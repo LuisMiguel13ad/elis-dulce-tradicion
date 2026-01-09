@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, ChefHat, Crown, UtensilsCrossed } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, ChefHat, Crown, UtensilsCrossed, Store } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -44,7 +44,7 @@ const Login = () => {
         if (role === 'owner') {
           navigate('/owner-dashboard');
         } else if (role === 'baker') {
-          navigate('/kitchen-display');
+          navigate('/baker-station');
         } else {
           navigate('/');
         }
@@ -67,7 +67,7 @@ const Login = () => {
       } else if (role === 'owner') {
         navigate('/owner-dashboard');
       } else {
-        navigate('/kitchen-display');
+        navigate('/baker-station');
       }
     }, 100);
   };
@@ -83,7 +83,7 @@ const Login = () => {
   // If already logged in, show options to go to dashboard or logout
   if (isAuthenticated && user) {
     const role = user.profile?.role;
-    const dashboardPath = role === 'owner' ? '/owner-dashboard' : '/kitchen-display';
+    const dashboardPath = role === 'owner' ? '/owner-dashboard' : '/baker-station';
 
     return (
       <div className="min-h-screen bg-background">
@@ -136,20 +136,20 @@ const Login = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDevLogin('baker', '/kitchen-display')}
-                      className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
+                      onClick={() => handleDevLogin('baker', '/baker-station')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-purple-300 hover:bg-purple-50 hover:border-purple-400"
                     >
-                      <UtensilsCrossed className="h-5 w-5 text-blue-600" />
-                      <span className="text-xs">Kitchen</span>
+                      <ChefHat className="h-5 w-5 text-purple-600" />
+                      <span className="text-xs">Baker St.</span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDevLogin('baker', '/bakery-dashboard')}
-                      className="flex flex-col items-center gap-1 h-auto py-3 border-orange-300 hover:bg-orange-50 hover:border-orange-400"
+                      onClick={() => handleDevLogin('baker', '/front-desk')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
                     >
-                      <ChefHat className="h-5 w-5 text-orange-600" />
-                      <span className="text-xs">Baker</span>
+                      <Store className="h-5 w-5 text-blue-600" />
+                      <span className="text-xs">Front Desk</span>
                     </Button>
                   </div>
                 </>
@@ -158,7 +158,7 @@ const Login = () => {
           </Card>
         </main>
         <Footer />
-      </div>
+      </div >
     );
   }
 
@@ -290,20 +290,20 @@ const Login = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDevLogin('baker', '/kitchen-display')}
-                      className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
+                      onClick={() => handleDevLogin('baker', '/baker-station')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-purple-300 hover:bg-purple-50 hover:border-purple-400"
                     >
-                      <UtensilsCrossed className="h-5 w-5 text-blue-600" />
-                      <span className="text-xs">Kitchen</span>
+                      <ChefHat className="h-5 w-5 text-purple-600" />
+                      <span className="text-xs">Baker St.</span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDevLogin('baker', '/bakery-dashboard')}
-                      className="flex flex-col items-center gap-1 h-auto py-3 border-orange-300 hover:bg-orange-50 hover:border-orange-400"
+                      onClick={() => handleDevLogin('baker', '/front-desk')}
+                      className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
                     >
-                      <ChefHat className="h-5 w-5 text-orange-600" />
-                      <span className="text-xs">Baker</span>
+                      <Store className="h-5 w-5 text-blue-600" />
+                      <span className="text-xs">Front Desk</span>
                     </Button>
                   </div>
                 </div>

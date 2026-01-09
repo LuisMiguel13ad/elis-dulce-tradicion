@@ -463,7 +463,7 @@ const Contact = () => {
                       {t('Horario', 'Hours')}
                     </p>
                     <p className="font-sans">
-                      {t('Lun - Dom: 9:00 AM - 8:00 PM', 'Mon - Sun: 9:00 AM - 8:00 PM')}
+                      {t('Abierto Diario: 5:00 AM - 10:00 PM', 'Open Daily: 5:00 AM - 10:00 PM')}
                     </p>
                   </div>
                 </div>

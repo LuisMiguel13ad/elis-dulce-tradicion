@@ -35,12 +35,15 @@ class ApiClient {
       ...options.headers,
     };
 
-    // Add auth token for customer/analytics/search endpoints, API key for admin endpoints
+    // Add auth token for specific endpoints or if available for general API calls
+    // PRIORITIZE Bearer token for /orders to ensure user context is passed
     if (authToken && (
       endpoint.startsWith('/customers') ||
       endpoint.startsWith('/analytics') ||
       endpoint.startsWith('/reports') ||
-      endpoint.startsWith('/orders/search')
+      endpoint.startsWith('/orders') || // Include all orders endpoints
+      endpoint.startsWith('/products') ||
+      endpoint.startsWith('/inventory')
     )) {
       headers['Authorization'] = `Bearer ${authToken}`;
     } else {
@@ -53,8 +56,14 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`API Error: ${response.status} ${response.statusText}`, errorText);
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      } catch (e) {
+        throw new Error(`HTTP error! status: ${response.status}. Details: ${errorText}`);
+      }
     }
 
     return response.json();

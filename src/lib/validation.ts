@@ -1,3 +1,5 @@
+import { api } from './api';
+
 /**
  * Validates that the order date/time is more than 24 hours in the future
  */
@@ -101,8 +103,9 @@ export async function validateOrderDate(date: string): Promise<{
       error: response.available ? undefined : response.reason || 'Date not available',
     };
   } catch (error) {
-    console.error('Error validating order date:', error);
-    return { isValid: false, error: 'Error checking date availability' };
+    console.warn('Capacity check unavailable:', error);
+    // Return valid if API is unavailable - don't block orders
+    return { isValid: true, available: true };
   }
 }
 
@@ -167,7 +170,8 @@ export async function validateBusinessHours(date: string, time: string): Promise
     const businessHours = response.find((bh: any) => bh.day_of_week === dayOfWeek);
 
     if (!businessHours) {
-      return { isValid: false, error: 'Business hours not found for this day' };
+      // No business hours configured - allow order
+      return { isValid: true };
     }
 
     if (businessHours.is_closed) {
@@ -202,8 +206,9 @@ export async function validateBusinessHours(date: string, time: string): Promise
       closeTime: businessHours.close_time,
     };
   } catch (error) {
-    console.error('Error validating business hours:', error);
-    return { isValid: false, error: 'Error checking business hours' };
+    console.warn('Business hours check unavailable:', error);
+    // Return valid if API is unavailable - don't block orders
+    return { isValid: true };
   }
 }
 
@@ -232,7 +237,7 @@ export async function validateHolidays(date: string): Promise<{
 
     return { isValid: true };
   } catch (error) {
-    console.error('Error validating holidays:', error);
+    console.warn('Holiday check unavailable:', error);
     // Don't block if holiday check fails
     return { isValid: true };
   }
@@ -240,6 +245,8 @@ export async function validateHolidays(date: string): Promise<{
 
 /**
  * Comprehensive order date/time validation
+ * Note: API-dependent checks (business hours, holidays, capacity) are optional
+ * and will be skipped if the backend is unavailable
  */
 export async function validateOrderDateTimeComplete(
   date: string,
@@ -257,28 +264,47 @@ export async function validateOrderDateTimeComplete(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 1. Validate lead time (48 hours minimum)
+  // 1. Validate lead time (48 hours minimum) - REQUIRED
   const leadTimeValidation = validateLeadTime(date, time);
   if (!leadTimeValidation.isValid) {
     errors.push(leadTimeValidation.error || 'Invalid lead time');
   }
 
-  // 2. Validate business hours
-  const businessHoursValidation = await validateBusinessHours(date, time);
-  if (!businessHoursValidation.isValid) {
-    errors.push(businessHoursValidation.error || 'Invalid business hours');
+  // The following checks are optional - if API fails, we skip them
+  // This allows orders to proceed when backend is unavailable
+
+  // 2. Validate business hours (optional - skip if API fails)
+  try {
+    const businessHoursValidation = await validateBusinessHours(date, time);
+    if (!businessHoursValidation.isValid && businessHoursValidation.error && !businessHoursValidation.error.includes('Error')) {
+      errors.push(businessHoursValidation.error);
+    }
+  } catch (err) {
+    // API unavailable - skip this check
+    console.warn('Business hours check skipped - API unavailable');
   }
 
-  // 3. Validate holidays
-  const holidayValidation = await validateHolidays(date);
-  if (!holidayValidation.isValid) {
-    errors.push(holidayValidation.error || 'Date is a holiday');
+  // 3. Validate holidays (optional - skip if API fails)
+  try {
+    const holidayValidation = await validateHolidays(date);
+    if (!holidayValidation.isValid && holidayValidation.error && !holidayValidation.error.includes('Error')) {
+      errors.push(holidayValidation.error);
+    }
+  } catch (err) {
+    // API unavailable - skip this check
+    console.warn('Holiday check skipped - API unavailable');
   }
 
-  // 4. Validate capacity
-  const capacityValidation = await validateOrderDate(date);
-  if (!capacityValidation.isValid) {
-    errors.push(capacityValidation.error || 'Date not available');
+  // 4. Validate capacity (optional - skip if API fails)
+  let capacityValidation: any = { isValid: true, available: true };
+  try {
+    capacityValidation = await validateOrderDate(date);
+    if (!capacityValidation.isValid && capacityValidation.error && !capacityValidation.error.includes('Error')) {
+      errors.push(capacityValidation.error);
+    }
+  } catch (err) {
+    // API unavailable - skip this check
+    console.warn('Capacity check skipped - API unavailable');
   }
 
   return {

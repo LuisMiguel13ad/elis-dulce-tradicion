@@ -21,9 +21,9 @@ const Index = lazy(() => import("./pages/Index"));
 const Order = lazy(() => import("./pages/Order"));
 const PaymentCheckout = lazy(() => import("./pages/PaymentCheckout"));
 const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
-const BakeryDashboard = lazy(() => import("./pages/BakeryDashboard"));
+const FrontDesk = lazy(() => import("./pages/FrontDesk"));
 const OwnerDashboard = lazy(() => import("./pages/OwnerDashboard"));
-const KitchenDisplay = lazy(() => import("./pages/KitchenDisplay"));
+const BakerStation = lazy(() => import("./pages/BakerStation"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Gallery = lazy(() => import("./pages/Gallery"));
@@ -59,76 +59,76 @@ const App = () => {
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <LanguageProvider>
           <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <OfflineIndicator />
-            <InstallPrompt />
-            <AnnouncementBanner />
-            <BrowserRouter>
-              <ScrollToTop />
-              <Suspense fallback={<PageLoader />}>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Index />} />
-                <Route path="/order" element={<Order />} />
-                <Route path="/payment-checkout" element={<PaymentCheckout />} />
-                <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/gallery" element={<Gallery />} />
-                <Route path="/menu" element={<Menu />} />
-                <Route path="/faq" element={<FAQ />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/terms" element={<Terms />} />
-                {/* Legal Pages */}
-                <Route path="/legal/terms" element={<TermsOfService />} />
-                <Route path="/legal/privacy" element={<PrivacyPolicy />} />
-                <Route path="/legal/refund" element={<RefundPolicy />} />
-                <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
-                <Route path="/order-tracking" element={<OrderTracking />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/order-issue" element={<OrderIssue />} />
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <OfflineIndicator />
+              <InstallPrompt />
+              <AnnouncementBanner />
+              <BrowserRouter>
+                <ScrollToTop />
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    {/* Public Routes */}
+                    <Route path="/" element={<Index />} />
+                    <Route path="/order" element={<Order />} />
+                    <Route path="/payment-checkout" element={<PaymentCheckout />} />
+                    <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/gallery" element={<Gallery />} />
+                    <Route path="/menu" element={<Menu />} />
+                    <Route path="/faq" element={<FAQ />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route path="/terms" element={<Terms />} />
+                    {/* Legal Pages */}
+                    <Route path="/legal/terms" element={<TermsOfService />} />
+                    <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+                    <Route path="/legal/refund" element={<RefundPolicy />} />
+                    <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
+                    <Route path="/order-tracking" element={<OrderTracking />} />
+                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/order-issue" element={<OrderIssue />} />
 
-                {/* Protected Routes - Require Authentication */}
-                <Route
-                  path="/bakery-dashboard"
-                  element={
-                    <ProtectedRoute requiredRole={['baker', 'owner']}>
-                      <Suspense fallback={<PageLoader />}>
-                        <BakeryDashboard />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/owner-dashboard"
-                  element={
-                    <ProtectedRoute requiredRole="owner">
-                      <Suspense fallback={<PageLoader />}>
-                        <OwnerDashboard />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kitchen-display"
-                  element={
-                    <ProtectedRoute requiredRole={['baker', 'owner']}>
-                      <Suspense fallback={<PageLoader />}>
-                        <KitchenDisplay />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
+                    {/* Protected Routes - Require Authentication */}
+                    <Route
+                      path="/front-desk"
+                      element={
+                        <ProtectedRoute requiredRole={['baker', 'owner']}>
+                          <Suspense fallback={<PageLoader />}>
+                            <FrontDesk />
+                          </Suspense>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/owner-dashboard"
+                      element={
+                        <ProtectedRoute requiredRole="owner">
+                          <Suspense fallback={<PageLoader />}>
+                            <OwnerDashboard />
+                          </Suspense>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/baker-station"
+                      element={
+                        <ProtectedRoute requiredRole={['baker', 'owner']}>
+                          <Suspense fallback={<PageLoader />}>
+                            <BakerStation />
+                          </Suspense>
+                        </ProtectedRoute>
+                      }
+                    />
 
-                {/* 404 Route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </TooltipProvider>
+                    {/* 404 Route */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </TooltipProvider>
           </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>
