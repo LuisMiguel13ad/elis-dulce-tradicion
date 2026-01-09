@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, CheckCircle2, History, LogOut, Ticket } from "lucide-react";
+import TransparentLogo from '@/assets/TransparentLogo.png';
 
 interface FrontDeskSidebarProps {
     activeView: 'ready' | 'active' | 'history';
@@ -42,11 +43,12 @@ export function FrontDeskSidebar({
     return (
         <div className="flex flex-col h-screen w-64 bg-[#1a1b26] border-r border-slate-800 text-slate-300">
             {/* Logo area */}
-            <div className="p-6 flex items-center gap-3">
-                <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-900/20">
-                    <span className="text-white font-bold text-xl">{title.charAt(0)}</span>
-                </div>
-                <h1 className="text-white font-bold text-lg tracking-tight">{title}</h1>
+            <div className="p-6 flex justify-center">
+                <img
+                    src={TransparentLogo}
+                    alt="Eli's Logo"
+                    className="h-32 w-auto object-contain drop-shadow-lg"
+                />
             </div>
 
             {/* Navigation */}

@@ -9,6 +9,7 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
+    lng: 'en', // Force English on startup
     resources: {
       en: {
         translation: enTranslation,
@@ -17,7 +18,7 @@ i18n
         translation: esTranslation,
       },
     },
-    fallbackLng: 'es',
+    fallbackLng: 'en',
     defaultNS: 'translation',
     interpolation: {
       escapeValue: false, // React already escapes values

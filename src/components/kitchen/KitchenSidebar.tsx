@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LayoutGrid, ClipboardList, MessageSquare, LogOut, Search, CalendarDays } from "lucide-react";
+import TransparentLogo from '@/assets/TransparentLogo.png';
 
 interface KitchenSidebarProps {
     activeView: 'queue' | 'upcoming' | 'calendar';
@@ -45,10 +46,12 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
             compact ? "w-20 items-center py-6" : "w-64"
         )}>
             {/* Logo Area */}
-            <div className={cn("mb-8", compact ? "px-0" : "px-6")}>
-                <div className="h-10 w-10 rounded-xl bg-green-600 flex items-center justify-center shadow-lg shadow-green-600/20">
-                    <span className="text-white font-bold text-lg">E</span>
-                </div>
+            <div className={cn("mb-8 flex justify-center", compact ? "px-0" : "px-6")}>
+                <img
+                    src={TransparentLogo}
+                    alt="Eli's Logo"
+                    className={cn("object-contain drop-shadow-md", compact ? "h-14 w-14" : "h-24 w-auto")}
+                />
             </div>
 
             {/* Navigation */}

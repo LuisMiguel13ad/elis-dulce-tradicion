@@ -17,7 +17,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { i18n: i18nInstance } = useTranslation();
-  const [language, setLanguageState] = useState<Language>((i18nInstance.language as Language) || 'es');
+  const [language, setLanguageState] = useState<Language>((i18nInstance.language as Language) || 'en');
   const [isRTL, setIsRTL] = useState(false);
 
   // Update document language and direction

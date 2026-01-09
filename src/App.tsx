@@ -41,6 +41,14 @@ const RefundPolicy = lazy(() => import("./pages/Legal/RefundPolicy"));
 const CookiePolicy = lazy(() => import("./pages/Legal/CookiePolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+import { useWebsiteTracker } from "@/hooks/useWebsiteTracker";
+
+// Tracker component to use inside Router
+const Tracker = () => {
+  useWebsiteTracker();
+  return null;
+};
+
 // Loading component
 const PageLoader = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -66,6 +74,7 @@ const App = () => {
               <InstallPrompt />
               <AnnouncementBanner />
               <BrowserRouter>
+                <Tracker />
                 <ScrollToTop />
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
