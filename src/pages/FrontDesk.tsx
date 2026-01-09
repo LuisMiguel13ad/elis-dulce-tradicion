@@ -6,7 +6,6 @@ import { useOrdersFeed } from '@/hooks/useOrdersFeed';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Order } from '@/types/order';
-import { printOrderTicket } from '@/utils/printTicket';
 
 // Components
 import { KitchenRedesignedLayout } from '@/components/kitchen/KitchenRedesignedLayout';
@@ -14,6 +13,9 @@ import { KitchenNavTabs, KitchenTab } from '@/components/kitchen/KitchenNavTabs'
 import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
 import { OrderCalendarView } from '@/components/dashboard/OrderCalendarView';
 import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
+import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
+import { PrintPreviewModal } from '@/components/print/PrintPreviewModal'; // New Import
+import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Bell, Package, Search } from 'lucide-react';
@@ -36,18 +38,43 @@ const FrontDesk = () => {
   } = useOrdersFeed();
 
   // State
-  const [activeTab, setActiveTab] = useState<KitchenTab>('active'); // Default to Active for Front Desk
+  const [activeTab, setActiveTab] = useState<KitchenTab>('active');
   const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'calendar'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isTestOpen, setIsTestOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
 
-  // Auth Guard
+  // Dummy Order for Testing
+  const testOrder: Order = {
+    id: 9999,
+    order_number: 'ORD-TEST-001',
+    customer_name: 'Maria Garcia',
+    status: 'pending',
+    cake_size: '8" Round',
+    filling: 'Tres Leches',
+    time_needed: '14:00',
+    date_needed: '2026-01-12',
+    delivery_option: 'pickup',
+    created_at: new Date().toISOString(),
+    reference_image_path: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'
+  };
+
+  // Auth Guard - Skip in dev mode for testing
+  const isDev = import.meta.env.DEV;
   useEffect(() => {
+    if (isDev) {
+      console.log('[FrontDesk] Dev mode - skipping auth check');
+      return;
+    }
     if (authLoading) return;
     if (!user || !user.profile || (user.profile.role !== 'baker' && user.profile.role !== 'owner')) {
       toast.error('Unauthorized access');
       navigate('/login');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isDev]);
+
+  // ... (handleOrderAction logic is correct)
 
   const handleOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete') => {
     let status = '';
@@ -63,8 +90,16 @@ const FrontDesk = () => {
         successMsg = t('Orden completada', 'Order completed');
         break;
       case 'confirm':
-        status = 'confirmed';
-        successMsg = t('Orden confirmada', 'Order confirmed');
+        status = 'in_progress';
+        successMsg = t('Orden aceptada y en preparación', 'Order accepted & preparing');
+        break;
+      case 'start':
+        status = 'in_progress';
+        successMsg = t('Comenzando preparación', 'Started preparing');
+        break;
+      case 'ready':
+        status = 'ready';
+        successMsg = t('Orden lista', 'Order marked ready');
         break;
     }
 
@@ -89,16 +124,15 @@ const FrontDesk = () => {
     }
   };
 
-  // Filter Logic
+  // Filter Logic logic...
   const filteredOrders = orders.filter((order: Order) => {
     // 1. Tab Filter
     if (activeTab === 'active' && !['pending', 'confirmed', 'in_progress', 'ready'].includes(order.status)) return false;
-    if (activeTab === 'ready' && order.status !== 'ready') return false;
     if (activeTab === 'pickup' && (order.status !== 'ready' || order.delivery_option !== 'pickup')) return false;
     if (activeTab === 'delivery' && (order.status !== 'ready' || order.delivery_option !== 'delivery')) return false;
     if (activeTab === 'done' && !['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
     if (activeTab === 'new' && order.status !== 'pending') return false;
-    // 'all' passes everything (or logically active ones? User said "All" in tabs)
+    if (activeTab === 'preparing' && !['confirmed', 'in_progress'].includes(order.status)) return false;
 
     // 2. Search Filter
     if (searchQuery.trim()) {
@@ -111,28 +145,25 @@ const FrontDesk = () => {
     return true;
   });
 
-  // Calculate counts for tabs
   const getCount = (statusCheck: (o: Order) => boolean) => orders.filter(statusCheck).length;
   const counts = {
     all: orders.length,
     active: getCount(o => ['pending', 'confirmed', 'in_progress', 'ready'].includes(o.status)),
     new: getCount(o => o.status === 'pending'),
     preparing: getCount(o => ['confirmed', 'in_progress'].includes(o.status)),
-    ready: getCount(o => o.status === 'ready'),
     pickup: getCount(o => o.status === 'ready' && o.delivery_option === 'pickup'),
     delivery: getCount(o => o.status === 'ready' && o.delivery_option === 'delivery'),
     done: getCount(o => ['delivered', 'completed'].includes(o.status)),
   };
 
   const renderContent = () => {
-    // Logic for Calendar or Grid view could go here
-    // For now, focusing on Grid view as per "Club Grub" style
     if (activeView === 'upcoming') {
       return (
         <div className="flex flex-col h-full overflow-hidden">
           <OrderScheduler
             orders={orders}
-            onOrderClick={(order) => printOrderTicket(order)}
+            onOrderClick={(order) => setSelectedOrder(order)}
+            darkMode={isDarkMode}
           />
         </div>
       );
@@ -140,12 +171,46 @@ const FrontDesk = () => {
 
     return (
       <div className="flex flex-col h-full">
+        {/* Helper Buttons for Testing */}
+        <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-2">
+          <Button
+            variant="destructive"
+            onClick={() => setIsTestOpen(true)}
+            className="shadow-xl border-2 border-white bg-red-600 hover:bg-red-700"
+          >
+            🚨 Test Full Alert
+          </Button>
+          <Button
+            variant="default"
+            onClick={() => toast.success('🔔 New Order Notification', { description: '#ORD-TEST-002 - Simple notification test' })}
+            className="shadow-xl border-2 border-white bg-blue-600 hover:bg-blue-700"
+          >
+            💬 Test Toast
+          </Button>
+        </div>
+
+        {/* FullScreen Alert */}
+        <FullScreenOrderAlert
+          isOpen={newOrderAlert || isTestOpen}
+          order={isTestOpen ? testOrder : latestOrder}
+          onClose={() => {
+            dismissAlert();
+            setIsTestOpen(false);
+          }}
+          onViewOrder={(order) => {
+            setSelectedOrder(order);
+            dismissAlert();
+            setIsTestOpen(false);
+          }}
+        />
+
         {/* Tabs & Filters */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <KitchenNavTabs
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            counts={counts}
+            counts={counts as any}
+            darkMode={isDarkMode}
           />
         </div>
 
@@ -162,9 +227,9 @@ const FrontDesk = () => {
                 key={order.id}
                 order={order}
                 onAction={handleOrderAction}
-                onShowDetails={(o) => printOrderTicket(o)}
+                onShowDetails={(o) => setSelectedOrder(o)}
                 isFrontDesk={true}
-                variant="default" // Explicitly Light
+                variant={isDarkMode ? 'dark' : 'default'}
               />
             ))
           )}
@@ -187,33 +252,14 @@ const FrontDesk = () => {
       onChangeView={setActiveView}
       onLogout={handleLogout}
       title="Front Desk"
+      darkMode={isDarkMode}
+      onToggleTheme={() => setIsDarkMode(!isDarkMode)}
     >
-      {/* New Order Alert Overlay */}
-      <AnimatePresence>
-        {newOrderAlert && latestOrder && (
-          <motion.div
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            className="fixed top-24 right-8 z-50 w-96 p-4"
-          >
-            <Card className="bg-green-600 border-none shadow-2xl text-white">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                  <Bell className="h-6 w-6" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-lg">New Order #{latestOrder.order_number}</h4>
-                  <p className="text-green-100 text-sm">{latestOrder.cake_size}</p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={dismissAlert}>
-                  View
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <PrintPreviewModal
+        isOpen={!!selectedOrder}
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+      />
 
       {renderContent()}
 

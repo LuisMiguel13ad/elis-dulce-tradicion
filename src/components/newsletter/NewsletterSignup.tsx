@@ -10,9 +10,11 @@ import tieredCakeImage from '@/assets/4_RIAkf447HPcV0cv8RJFJ7u_1767033400718_na1
 interface NewsletterSignupProps {
   variant?: 'default' | 'compact';
   className?: string;
+  inputClassName?: string;
+  buttonClassName?: string;
 }
 
-const NewsletterSignup = ({ variant = 'default', className = '' }: NewsletterSignupProps) => {
+const NewsletterSignup = ({ variant = 'default', className = '', inputClassName = '', buttonClassName = '' }: NewsletterSignupProps) => {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,13 +64,14 @@ const NewsletterSignup = ({ variant = 'default', className = '' }: NewsletterSig
           placeholder={t('Tu email', 'Your email')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="flex-1"
+          className={`flex-1 ${inputClassName}`}
           disabled={isSubmitting || isSuccess}
         />
         <Button
           type="submit"
           disabled={isSubmitting || isSuccess}
           size="default"
+          className={buttonClassName}
         >
           {isSuccess ? (
             <CheckCircle2 className="h-4 w-4" />

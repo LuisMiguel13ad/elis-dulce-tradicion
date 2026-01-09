@@ -66,6 +66,7 @@ import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
+import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -95,6 +96,7 @@ const OwnerDashboard = () => {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [printOrder, setPrintOrder] = useState<any | null>(null);
 
   // Real-time subscription for dashboard updates
   const { isConnected } = useRealtimeOrders({
@@ -113,63 +115,78 @@ const OwnerDashboard = () => {
     },
   });
 
+  // Skip auth in dev mode for testing
+  const isDev = import.meta.env.DEV;
   useEffect(() => {
+    if (isDev) {
+      console.log('[OwnerDashboard] Dev mode - skipping auth check');
+      loadDashboardData();
+      return;
+    }
     if (authLoading) return;
     if (!user || !user.profile || user.profile.role !== 'owner') {
       navigate('/login');
       return;
     }
     loadDashboardData();
-  }, [user, authLoading, navigate, dateRange, revenuePeriod]);
+  }, [user, authLoading, navigate, dateRange, revenuePeriod, isDev]);
 
   const loadDashboardData = async (silent = false) => {
     if (!silent) setIsLoading(true);
     setLastUpdate(new Date());
-    try {
-      // Load all dashboard data in parallel
-      const [
-        metricsData,
-        revenueDataRes,
-        popularItemsRes,
-        statusBreakdownRes,
-        peakTimesRes,
-        capacityDataRes,
-        ordersRes,
-        lowStockRes,
-        deliveriesRes
-      ] = await Promise.all([
-        getDashboardMetrics(dateRange),
-        getRevenueByPeriod(
-          format(subDays(new Date(), revenuePeriod === 'day' ? 7 : revenuePeriod === 'week' ? 30 : 90), 'yyyy-MM-dd'),
-          format(new Date(), 'yyyy-MM-dd'),
-          revenuePeriod
-        ),
-        getPopularItems('month'),
-        getOrdersByStatus(),
-        getPeakOrderingTimes(30),
-        getCapacityUtilization(30),
-        api.getAllOrders(),
-        getLowStockItems(),
-        getTodayDeliveries()
-      ]);
 
-      setMetrics(metricsData);
-      setRevenueData(revenueDataRes);
-      setPopularItems(popularItemsRes);
-      setStatusBreakdown(statusBreakdownRes);
-      setPeakTimes(peakTimesRes);
-      setCapacityData(capacityDataRes);
-      setRecentOrders((ordersRes as any[]).slice(0, 10));
-      setAllOrders(ordersRes as any[]);
-      setLowStockItems(lowStockRes);
-      setTodayDeliveries(deliveriesRes);
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      toast.error(t('Error al cargar datos del dashboard', 'Error loading dashboard data'));
-    } finally {
-      setIsLoading(false);
+    // Use Promise.allSettled so failures don't block other data
+    const results = await Promise.allSettled([
+      getDashboardMetrics(dateRange),
+      getRevenueByPeriod(
+        format(subDays(new Date(), revenuePeriod === 'day' ? 7 : revenuePeriod === 'week' ? 30 : 90), 'yyyy-MM-dd'),
+        format(new Date(), 'yyyy-MM-dd'),
+        revenuePeriod
+      ),
+      getPopularItems('month'),
+      getOrdersByStatus(),
+      getPeakOrderingTimes(30),
+      getCapacityUtilization(30),
+      api.getAllOrders(),
+      getLowStockItems(),
+      getTodayDeliveries()
+    ]);
+
+    // Extract values, using defaults for failed calls
+    const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T => {
+      return result.status === 'fulfilled' ? result.value : defaultValue;
+    };
+
+    const metricsData = getValue(results[0], null);
+    const revenueDataRes = getValue(results[1], []);
+    const popularItemsRes = getValue(results[2], []);
+    const statusBreakdownRes = getValue(results[3], []);
+    const peakTimesRes = getValue(results[4], []);
+    const capacityDataRes = getValue(results[5], []);
+    const ordersRes = getValue(results[6], []);
+    const lowStockRes = getValue(results[7], []);
+    const deliveriesRes = getValue(results[8], []);
+
+    // Set state with available data
+    if (metricsData) setMetrics(metricsData as DashboardMetrics);
+    setRevenueData(revenueDataRes as RevenueDataPoint[]);
+    setPopularItems(popularItemsRes as PopularItem[]);
+    setStatusBreakdown(statusBreakdownRes as OrderStatusBreakdown[]);
+    setPeakTimes(peakTimesRes as PeakOrderingTime[]);
+    setCapacityData(capacityDataRes as CapacityUtilization[]);
+    setRecentOrders((ordersRes as any[]).slice(0, 10));
+    setAllOrders(ordersRes as any[]);
+    setLowStockItems(lowStockRes as any[]);
+    setTodayDeliveries(deliveriesRes as any[]);
+    setLastUpdate(new Date());
+
+    // Log any errors for debugging
+    const failedCalls = results.filter(r => r.status === 'rejected');
+    if (failedCalls.length > 0) {
+      console.warn('[OwnerDashboard] Some API calls failed:', failedCalls.length);
     }
+
+    setIsLoading(false);
   };
 
   const handleExportReport = async (type: 'daily' | 'inventory' | 'customer', date?: string) => {
@@ -218,13 +235,18 @@ const OwnerDashboard = () => {
     );
   }
 
-  if (!user || !user.profile || user.profile.role !== 'owner') {
+  if (!isDev && (!user || !user.profile || user.profile.role !== 'owner')) {
     return null;
   }
 
   // --- Main Render: App Layout ---
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] overflow-hidden">
+      <PrintPreviewModal
+        order={printOrder}
+        isOpen={!!printOrder}
+        onClose={() => setPrintOrder(null)}
+      />
       {/* Sidebar */}
       <OwnerSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -589,12 +611,7 @@ const OwnerDashboard = () => {
               <div className="animate-in fade-in zoom-in-95 duration-300">
                 <OrderListWithSearch
                   userRole="owner"
-                  onOrderClick={(order) => {
-                    toast.info(
-                      `${t('Orden', 'Order')} #${order.order_number}: ${order.cake_size} - ${order.filling}`,
-                      { description: `${order.customer_name} • ${order.date_needed} @ ${order.time_needed}` }
-                    );
-                  }}
+                  onOrderClick={(order) => setPrintOrder(order)}
                   showExport={true}
                 />
               </div>
@@ -602,7 +619,13 @@ const OwnerDashboard = () => {
 
             <TabsContent value="calendar" className="space-y-4">
               <div className="animate-in fade-in zoom-in-95 duration-300 h-[calc(100vh-140px)]">
-                <OwnerCalendar orders={allOrders} />
+                <OwnerCalendar
+                  orders={allOrders}
+                  onOrderClick={(order) => {
+                    console.log('OwnerCalendar clicked:', order);
+                    setPrintOrder(order);
+                  }}
+                />
               </div>
             </TabsContent>
 

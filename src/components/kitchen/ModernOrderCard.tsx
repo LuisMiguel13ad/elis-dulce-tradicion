@@ -67,35 +67,47 @@ export function ModernOrderCard({
     const statusLabel = getStatusLabel(order.status);
 
     const renderActions = () => {
+        const viewButton = (
+            <Button
+                variant="outline"
+                onClick={() => onShowDetails?.(order)}
+                className="flex-1 bg-white text-black border-gray-200 hover:bg-gray-50 rounded-xl h-10"
+            >
+                View Order
+            </Button>
+        );
+
+        let actionButton = null;
+
         if (order.status === 'pending') {
-            return (
-                <Button onClick={() => onAction(order.id, 'confirm')} className="w-full bg-black text-white hover:bg-gray-800 rounded-xl h-10">
+            actionButton = (
+                <Button onClick={() => onAction(order.id, 'confirm')} className="flex-1 bg-red-600 text-white hover:bg-red-700 rounded-xl h-10">
                     Accept Order
                 </Button>
             );
-        }
-        if (order.status === 'confirmed') {
-            return (
-                <Button onClick={() => onAction(order.id, 'start')} className="w-full bg-yellow-500 text-white hover:bg-yellow-600 rounded-xl h-10">
-                    Start Baking
-                </Button>
-            );
-        }
-        if (order.status === 'in_progress') {
-            return (
-                <Button onClick={() => onAction(order.id, 'ready')} className="w-full bg-green-600 text-white hover:bg-green-700 rounded-xl h-10">
+        } else if (order.status === 'confirmed' || order.status === 'in_progress') {
+            // Combined "Preparing" state
+            actionButton = (
+                <Button onClick={() => onAction(order.id, 'ready')} className="flex-1 bg-green-600 text-white hover:bg-green-700 rounded-xl h-10">
                     Mark Ready
                 </Button>
             );
-        }
-        if (order.status === 'ready') {
-            return (
-                <Button onClick={() => onAction(order.id, order.delivery_option === 'delivery' ? 'delivery' : 'complete')} className="w-full bg-orange-500 text-white hover:bg-orange-600 rounded-xl h-10">
+        } else if (order.status === 'ready') {
+            actionButton = (
+                <Button onClick={() => onAction(order.id, order.delivery_option === 'delivery' ? 'delivery' : 'complete')} className="flex-1 bg-orange-500 text-white hover:bg-orange-600 rounded-xl h-10">
                     {order.delivery_option === 'delivery' ? 'Dispatch Driver' : 'Complete Pickup'}
                 </Button>
             );
         }
-        return null;
+
+        if (!actionButton && isReadOnly) return null;
+
+        return (
+            <div className="flex gap-3 w-full">
+                {viewButton}
+                {actionButton}
+            </div>
+        );
     };
 
 
@@ -117,9 +129,18 @@ export function ModernOrderCard({
                     )}>
                         {order.reference_image_path ? (
                             <img
-                                src={`https://vrjamzkgpmyfqjqtozya.supabase.co/storage/v1/object/public/orders/${order.reference_image_path}`}
+                                src={order.reference_image_path.startsWith('http')
+                                    ? order.reference_image_path
+                                    : order.reference_image_path.startsWith('/')
+                                        ? order.reference_image_path
+                                        : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/orders/${order.reference_image_path}`
+                                }
                                 alt="Ref"
                                 className="h-full w-full object-cover"
+                                onError={(e) => {
+                                    // Fallback to avatar on image error
+                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${order.customer_name}`;
+                                }}
                             />
                         ) : (
                             <img
@@ -165,33 +186,63 @@ export function ModernOrderCard({
                 )}
             </div>
 
-            {/* Items List */}
-            <div className="flex-1 space-y-3">
-                {order.items.map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-3 text-sm">
-                        <span className={cn(
-                            "font-bold min-w-[20px]",
-                            variant === 'dark' ? "text-green-400" : "text-green-600"
-                        )}>
-                            {item.quantity}x
-                        </span>
-                        <div className="flex-1">
-                            <p className={cn("font-medium", variant === 'dark' ? "text-slate-200" : "text-gray-800")}>
-                                {item.name}
-                            </p>
-                            {item.selected_modifiers && item.selected_modifiers.length > 0 && (
-                                <p className={cn("text-xs mt-0.5", variant === 'dark' ? "text-slate-500" : "text-gray-500")}>
-                                    {item.selected_modifiers.map(m => m.name).join(', ')}
+            {/* Cake/Order Details */}
+            <div className="flex-1 space-y-2">
+                {/* Handle custom cake orders (no items array) */}
+                {!order.items || order.items.length === 0 ? (
+                    <div className="text-sm space-y-1">
+                        <div className="flex items-start gap-2">
+                            <span className={cn("font-bold", variant === 'dark' ? "text-green-400" : "text-green-600")}>1x</span>
+                            <div className="flex-1">
+                                <p className={cn("font-medium", variant === 'dark' ? "text-slate-200" : "text-gray-800")}>
+                                    {order.cake_size || 'Custom Cake'}
                                 </p>
-                            )}
-                            {item.special_instructions && (
-                                <p className="text-xs text-amber-500 italic mt-0.5">
-                                    "{item.special_instructions}"
-                                </p>
-                            )}
+                                {order.filling && (
+                                    <p className={cn("text-xs", variant === 'dark' ? "text-slate-500" : "text-gray-500")}>
+                                        {order.filling}
+                                    </p>
+                                )}
+                            </div>
                         </div>
+                        {order.theme && (
+                            <p className={cn("text-xs pl-6", variant === 'dark' ? "text-slate-400" : "text-gray-500")}>
+                                Theme: {order.theme}
+                            </p>
+                        )}
+                        {order.dedication && (
+                            <p className="text-xs text-amber-500 italic pl-6">
+                                "{order.dedication}"
+                            </p>
+                        )}
                     </div>
-                ))}
+                ) : (
+                    /* Original items display for menu orders */
+                    order.items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3 text-sm">
+                            <span className={cn(
+                                "font-bold min-w-[20px]",
+                                variant === 'dark' ? "text-green-400" : "text-green-600"
+                            )}>
+                                {item.quantity}x
+                            </span>
+                            <div className="flex-1">
+                                <p className={cn("font-medium", variant === 'dark' ? "text-slate-200" : "text-gray-800")}>
+                                    {item.name}
+                                </p>
+                                {item.selected_modifiers && item.selected_modifiers.length > 0 && (
+                                    <p className={cn("text-xs mt-0.5", variant === 'dark' ? "text-slate-500" : "text-gray-500")}>
+                                        {item.selected_modifiers.map((m: any) => m.name).join(', ')}
+                                    </p>
+                                )}
+                                {item.special_instructions && (
+                                    <p className="text-xs text-amber-500 italic mt-0.5">
+                                        "{item.special_instructions}"
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Actions */}

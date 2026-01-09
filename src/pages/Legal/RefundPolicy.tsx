@@ -55,7 +55,7 @@ const RefundPolicy = () => {
                     <h2 className="text-2xl font-bold mb-4">
                       {isSpanish ? '2. Política de Cancelación' : '2. Cancellation Policy'}
                     </h2>
-                    
+
                     <h3 className="text-xl font-semibold mt-4 mb-2">
                       {isSpanish ? '2.1 Cancelación por el Cliente' : '2.1 Customer Cancellation'}
                     </h3>
@@ -122,7 +122,7 @@ const RefundPolicy = () => {
                     <h2 className="text-2xl font-bold mb-4">
                       {isSpanish ? '3. Proceso de Reembolso' : '3. Refund Process'}
                     </h2>
-                    
+
                     <h3 className="text-xl font-semibold mt-4 mb-2">
                       {isSpanish ? '3.1 Cómo Solicitar un Reembolso' : '3.1 How to Request a Refund'}
                     </h3>
@@ -290,10 +290,10 @@ const RefundPolicy = () => {
                     </p>
                     <div className="mt-4 space-y-2">
                       <p>
-                        <strong>Email:</strong> {/* TODO: Add email */}
+                        <strong>Email:</strong> admin@elisbakery.com
                       </p>
                       <p>
-                        <strong>{isSpanish ? 'Teléfono:' : 'Phone:'}</strong> {/* TODO: Add phone */}
+                        <strong>{isSpanish ? 'Teléfono:' : 'Phone:'}</strong> (610) 279-6200
                       </p>
                       <p>
                         <strong>{isSpanish ? 'Horario de Atención:' : 'Business Hours:'}</strong>{' '}

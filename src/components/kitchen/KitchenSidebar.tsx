@@ -8,9 +8,10 @@ interface KitchenSidebarProps {
     onChangeView: (view: 'queue' | 'upcoming' | 'calendar') => void;
     onLogout: () => void;
     compact?: boolean;
+    darkMode?: boolean;
 }
 
-export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false }: KitchenSidebarProps) {
+export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false, darkMode = false }: KitchenSidebarProps) {
     // Reference image items: Menu (Grid), Orders (Clipboard), Chat, Analytics (Hidden per request), Search
     // We map 'queue' -> Orders, 'upcoming' -> Menu/Dashboard
     const menuItems = [
@@ -42,8 +43,9 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
 
     return (
         <div className={cn(
-            "flex flex-col h-screen bg-white border-r border-gray-100 transition-all duration-300",
-            compact ? "w-20 items-center py-6" : "w-64"
+            "flex flex-col h-screen border-r transition-all duration-300",
+            compact ? "w-20 items-center py-6" : "w-64",
+            darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
         )}>
             {/* Logo Area */}
             <div className={cn("mb-8 flex justify-center", compact ? "px-0" : "px-6")}>
@@ -64,8 +66,8 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
                             "w-full transition-all duration-200 relative group",
                             compact ? "h-12 w-12 p-0 justify-center rounded-xl" : "justify-start gap-3 h-12 text-md font-medium",
                             activeView === item.view
-                                ? "bg-green-50 text-green-600"
-                                : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                                ? (darkMode ? "bg-green-500/20 text-green-400" : "bg-green-50 text-green-600")
+                                : (darkMode ? "text-slate-400 hover:bg-slate-700 hover:text-white" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600")
                         )}
                         onClick={() => item.view !== 'chat' && item.view !== 'search' && onChangeView(item.view)}
                     >
@@ -81,12 +83,13 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
             </div>
 
             {/* Footer Actions */}
-            <div className={cn("mt-auto space-y-2", compact ? "w-full px-3 pb-6" : "p-6 border-t border-gray-100")}>
+            <div className={cn("mt-auto space-y-2", compact ? "w-full px-3 pb-6" : "p-6 border-t", darkMode ? "border-slate-700" : "border-gray-100")}>
                 <Button
                     variant="ghost"
                     className={cn(
-                        "w-full text-red-400 hover:text-red-500 hover:bg-red-50",
-                        compact ? "h-12 w-12 p-0 justify-center rounded-xl" : "justify-start gap-3"
+                        "w-full text-red-400 hover:text-red-500",
+                        compact ? "h-12 w-12 p-0 justify-center rounded-xl" : "justify-start gap-3",
+                        darkMode ? "hover:bg-red-900/20" : "hover:bg-red-50"
                     )}
                     onClick={onLogout}
                 >
@@ -96,7 +99,7 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
 
                 {/* User Avatar if compact */}
                 {compact && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center">
+                    <div className={cn("mt-4 pt-4 border-t flex justify-center", darkMode ? "border-slate-700" : "border-gray-100")}>
                         <div className="h-10 w-10 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
                             <img src="/placeholder-avatar.jpg" alt="User" className="h-full w-full object-cover opacity-0" />
                         </div>

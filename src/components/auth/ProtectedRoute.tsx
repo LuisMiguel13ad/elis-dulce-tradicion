@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
 
+const isDev = import.meta.env.DEV;
+
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: UserRole | UserRole[];
@@ -19,6 +21,12 @@ export const ProtectedRoute = ({
   redirectTo = '/login',
 }: ProtectedRouteProps) => {
   const { user, isLoading } = useAuth();
+
+  // Skip auth in dev mode for testing
+  if (isDev) {
+    console.log('[ProtectedRoute] Dev mode - bypassing auth');
+    return <>{children}</>;
+  }
 
   // Show loading state while checking auth
   if (isLoading) {

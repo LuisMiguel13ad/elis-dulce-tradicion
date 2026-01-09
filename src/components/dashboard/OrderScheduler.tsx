@@ -13,11 +13,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface OrderSchedulerProps {
     orders: Order[];
     onOrderClick?: (order: Order) => void;
+    darkMode?: boolean;
 }
 
 type ViewMode = 'Month' | 'Week' | 'Day';
 
-export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
+export function OrderScheduler({ orders, onOrderClick, darkMode = false }: OrderSchedulerProps) {
     const { t, language } = useLanguage();
     const locale = language === 'es' ? es : enUS;
 
@@ -91,15 +92,24 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden font-sans">
+        <div className={cn(
+            "flex flex-col h-full rounded-2xl shadow-sm border overflow-hidden font-sans transition-colors",
+            darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
+        )}>
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white sticky top-0 z-20">
+            <div className={cn(
+                "flex items-center justify-between p-6 border-b sticky top-0 z-20",
+                darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
+            )}>
                 <div className="flex items-center gap-6">
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight first-letter:capitalize">
+                    <h2 className={cn(
+                        "text-2xl font-bold tracking-tight first-letter:capitalize",
+                        darkMode ? "text-white" : "text-gray-900"
+                    )}>
                         {format(currentDate, 'MMMM, yyyy', { locale })}
                     </h2>
 
-                    <div className="flex bg-gray-100 rounded-lg p-1">
+                    <div className={cn("flex rounded-lg p-1", darkMode ? "bg-slate-800" : "bg-gray-100")}>
                         {(['Month', 'Week', 'Day'] as ViewMode[]).map(mode => (
                             <button
                                 key={mode}
@@ -107,8 +117,8 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
                                 className={cn(
                                     "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
                                     viewMode === mode
-                                        ? "bg-white text-gray-900 shadow-sm"
-                                        : "text-gray-500 hover:text-gray-900"
+                                        ? (darkMode ? "bg-slate-700 text-white shadow-sm" : "bg-white text-gray-900 shadow-sm")
+                                        : (darkMode ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900")
                                 )}
                             >
                                 {t(mode === 'Month' ? 'Mes' : mode === 'Week' ? 'Semana' : 'Día', mode)}
@@ -118,14 +128,26 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
-                        <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="hover:bg-white rounded-l-lg text-gray-600">
+                    <div className={cn(
+                        "flex items-center rounded-lg border",
+                        darkMode ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"
+                    )}>
+                        <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className={cn(
+                            "rounded-l-lg",
+                            darkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-white text-gray-600"
+                        )}>
                             <ChevronLeft className="h-5 w-5" />
                         </Button>
-                        <Button variant="ghost" onClick={() => setCurrentDate(new Date())} className="px-4 font-medium text-gray-700 hover:bg-white border-x border-gray-200 rounded-none h-9">
+                        <Button variant="ghost" onClick={() => setCurrentDate(new Date())} className={cn(
+                            "px-4 font-medium border-x rounded-none h-9",
+                            darkMode ? "text-slate-300 hover:bg-slate-700 border-slate-700" : "text-gray-700 hover:bg-white border-gray-200"
+                        )}>
                             {t('Hoy', 'Today')}
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('next')} className="hover:bg-white rounded-r-lg text-gray-600">
+                        <Button variant="ghost" size="icon" onClick={() => navigate('next')} className={cn(
+                            "rounded-r-lg",
+                            darkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-white text-gray-600"
+                        )}>
                             <ChevronRight className="h-5 w-5" />
                         </Button>
                     </div>
@@ -137,14 +159,20 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
             </div>
 
             {/* Grid Container */}
-            <div className="flex-1 overflow-auto bg-[#FAFAFA]">
+            <div className={cn("flex-1 overflow-auto", darkMode ? "bg-[#13141f]" : "bg-[#FAFAFA]")}>
                 <div className="flex min-w-[800px]">
                     {/* Time Axis (Left) */}
-                    <div className="w-16 flex-shrink-0 bg-white border-r border-gray-100 sticky left-0 z-10">
-                        <div className="h-20 border-b border-gray-100" /> {/* Header spacer */}
+                    <div className={cn(
+                        "w-16 flex-shrink-0 border-r sticky left-0 z-10",
+                        darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
+                    )}>
+                        <div className={cn("h-20 border-b", darkMode ? "border-slate-700" : "border-gray-100")} /> {/* Header spacer */}
                         {timeSlots.map(hour => (
                             <div key={hour} className="h-20 border-b border-transparent relative flex justify-center">
-                                <span className="text-xs font-medium text-gray-400 absolute -top-2 bg-[#FAFAFA] px-1">
+                                <span className={cn(
+                                    "text-xs font-medium absolute -top-2 px-1",
+                                    darkMode ? "text-slate-500 bg-[#13141f]" : "text-gray-400 bg-[#FAFAFA]"
+                                )}>
                                     {format(set(new Date(), { hours: hour }), 'h aa')}
                                 </span>
                             </div>
@@ -152,21 +180,22 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
                     </div>
 
                     {/* Columns (Days) */}
-                    <div className="flex-1 grid grid-cols-7 divide-x divide-gray-100">
+                    <div className={cn("flex-1 grid grid-cols-7 divide-x", darkMode ? "divide-slate-700" : "divide-gray-100")}>
                         {weekDays.map(day => {
                             const isToday = isSameDay(day, new Date());
                             const dayOrders = getDayOrders(day);
 
                             return (
-                                <div key={day.toISOString()} className="flex flex-col min-w-[120px] bg-white group">
+                                <div key={day.toISOString()} className={cn("flex flex-col min-w-[120px] group", darkMode ? "bg-[#1f2937]" : "bg-white")}>
                                     {/* Column Header */}
                                     <div className={cn(
-                                        "h-20 p-3 flex flex-col items-center justify-center border-b border-gray-100 sticky top-0 bg-white z-10",
-                                        isToday && "bg-green-50/50"
+                                        "h-20 p-3 flex flex-col items-center justify-center border-b sticky top-0 z-10",
+                                        darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100",
+                                        isToday && (darkMode ? "bg-green-900/10" : "bg-green-50/50")
                                     )}>
                                         <span className={cn(
                                             "text-xs font-medium mb-1",
-                                            isToday ? "text-green-600" : "text-gray-500"
+                                            isToday ? "text-green-500" : (darkMode ? "text-slate-500" : "text-gray-500")
                                         )}>
                                             {format(day, 'EEEE', { locale })}
                                         </span>
@@ -174,17 +203,17 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
                                             "h-10 w-10 flex items-center justify-center rounded-full text-xl font-bold transition-all",
                                             isToday
                                                 ? "bg-green-600 text-white shadow-md shadow-green-600/20"
-                                                : "text-gray-900 group-hover:bg-gray-50"
+                                                : (darkMode ? "text-white group-hover:bg-slate-800" : "text-gray-900 group-hover:bg-gray-50")
                                         )}>
                                             {format(day, 'd')}
                                         </div>
                                     </div>
 
                                     {/* Order Blocks Grid */}
-                                    <div className="flex-1 relative bg-white">
+                                    <div className={cn("flex-1 relative", darkMode ? "bg-[#1f2937]" : "bg-white")}>
                                         {/* Grid Lines */}
                                         {timeSlots.map(hour => (
-                                            <div key={hour} className="h-20 border-b border-gray-50" />
+                                            <div key={hour} className={cn("h-20 border-b", darkMode ? "border-slate-800" : "border-gray-50")} />
                                         ))}
 
                                         {/* Events */}
@@ -194,11 +223,11 @@ export function OrderScheduler({ orders, onOrderClick }: OrderSchedulerProps) {
                                                 initial={{ opacity: 0, scale: 0.9 }}
                                                 animate={{ opacity: 1, scale: 1 }}
                                                 className={cn(
-                                                    "absolute left-1 right-1 rounded-lg p-3 text-xs border cursor-pointer hover:brightness-95 transition-all shadow-sm flex flex-col gap-1 overflow-hidden",
+                                                    "absolute left-1 right-1 rounded-lg p-3 text-xs border cursor-pointer hover:brightness-110 transition-all shadow-sm flex flex-col gap-1 overflow-hidden",
                                                     // Assign colors based on status/theme roughly matching reference variety
-                                                    order.status === 'confirmed' ? "bg-purple-100 border-purple-200 text-purple-900" :
-                                                        order.status === 'ready' ? "bg-green-100 border-green-200 text-green-900" :
-                                                            "bg-blue-100 border-blue-200 text-blue-900"
+                                                    order.status === 'confirmed' ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-300" :
+                                                        order.status === 'ready' ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-300" :
+                                                            "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-300"
                                                 )}
                                                 style={{ top: top, height: height - 4 }} // -4 for gap
                                                 onClick={() => onOrderClick?.(order)}

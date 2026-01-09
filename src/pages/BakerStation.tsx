@@ -1,3 +1,8 @@
+/**
+ * Baker Station - Kitchen ticket view for bakers
+ * Shows only confirmed/in_progress orders (not pending - those need Front Desk approval)
+ * Bakers can: Start Baking, Mark Ready
+ */
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,16 +11,15 @@ import { useOrdersFeed } from '@/hooks/useOrdersFeed';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Order } from '@/types/order';
-import { printOrderTicket } from '@/utils/printTicket';
 
 // Components
-import FrontDeskLayout from '@/components/dashboard/FrontDeskLayout'; // Recycled Dark Layout
-import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
+import FrontDeskLayout from '@/components/dashboard/FrontDeskLayout';
+import { BakerTicketCard } from '@/components/kitchen/BakerTicketCard';
+import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
-import { Bell, Package, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Bell, Package, Search, ChefHat, Clock, CheckCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const BakerStation = () => {
   const { t } = useLanguage();
@@ -37,39 +41,25 @@ const BakerStation = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Auth Guard
+  // Auth Guard - Skip in dev mode for testing
+  const isDev = import.meta.env.DEV;
   useEffect(() => {
+    if (isDev) {
+      console.log('[BakerStation] Dev mode - skipping auth check');
+      return;
+    }
     if (authLoading) return;
     if (!user || !user.profile || (user.profile.role !== 'baker' && user.profile.role !== 'owner')) {
       toast.error('Unauthorized access');
       navigate('/login');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isDev]);
 
-  const handleOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete') => {
-    let status = '';
-    let successMsg = '';
-
-    switch (action) {
-      case 'confirm':
-        status = 'confirmed';
-        successMsg = t('Orden aceptada', 'Order accepted');
-        break;
-      case 'start':
-        status = 'in_progress';
-        successMsg = t('Preparación iniciada', 'Baking started');
-        break;
-      case 'ready':
-        status = 'ready';
-        successMsg = t('Orden lista', 'Order ready');
-        break;
-    }
-
-    if (!status) return;
-
+  // Mark order as ready - simple action
+  const handleMarkReady = async (orderId: number) => {
     try {
-      await api.updateOrderStatus(orderId, status);
-      toast.success(successMsg);
+      await api.updateOrderStatus(orderId, 'ready');
+      toast.success(t('¡Orden lista para recoger!', 'Order ready for pickup!'));
       refreshOrders();
     } catch (error) {
       console.error(error);
@@ -86,22 +76,42 @@ const BakerStation = () => {
     }
   };
 
-  // Filter Logic
+  // Filter Logic - Bakers only see confirmed and in_progress orders (not pending!)
   const filteredOrders = orders.filter((order: Order) => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       return (
         order.customer_name?.toLowerCase().includes(query) ||
-        order.order_number?.toLowerCase().includes(query)
+        order.order_number?.toLowerCase().includes(query) ||
+        order.cake_size?.toLowerCase().includes(query) ||
+        order.theme?.toLowerCase().includes(query)
       );
     }
     return true;
   });
 
-  const activeOrders = filteredOrders.filter(o => ['pending', 'confirmed', 'in_progress'].includes(o.status));
-  const readyOrders = filteredOrders.filter(o => o.status === 'ready'); // Or history? 
-  // Baker mostly cares about active. Let's map 'ready' view to Completed/History for checking
-  const historyOrders = filteredOrders.filter(o => ['delivered', 'completed', 'ready'].includes(o.status));
+  // Active = confirmed + in_progress (work to do)
+  const activeOrders = filteredOrders.filter(o => ['confirmed', 'in_progress'].includes(o.status));
+  // Ready for pickup
+  const readyOrders = filteredOrders.filter(o => o.status === 'ready');
+  // History
+  const historyOrders = filteredOrders.filter(o => ['delivered', 'completed'].includes(o.status));
+
+  // Sort by due time (most urgent first)
+  const sortByUrgency = (orders: Order[]) => {
+    return [...orders].sort((a, b) => {
+      const dateA = new Date(`${a.date_needed}T${a.time_needed}`);
+      const dateB = new Date(`${b.date_needed}T${b.time_needed}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+  };
+
+  // Stats
+  const stats = {
+    toDo: filteredOrders.filter(o => o.status === 'confirmed').length,
+    inProgress: filteredOrders.filter(o => o.status === 'in_progress').length,
+    ready: readyOrders.length
+  };
 
   const renderContent = () => {
     let currentOrders: Order[] = [];
@@ -111,56 +121,87 @@ const BakerStation = () => {
 
     switch (activeView) {
       case 'active':
-        currentOrders = activeOrders;
-        emptyTitle = t("Todo listo por ahora", "All caught up!");
-        emptyMessage = t("No hay tickets de cocina pendientes.", "No pending kitchen tickets.");
-        EmptyIcon = Package; // Or a Check icon
+        currentOrders = sortByUrgency(activeOrders);
+        emptyTitle = t("¡Todo listo!", "All caught up!");
+        emptyMessage = t("No hay órdenes pendientes. El Front Desk te enviará nuevas órdenes cuando lleguen.",
+                        "No pending orders. Front Desk will send new orders when they come in.");
+        EmptyIcon = ChefHat;
         break;
       case 'ready':
-        currentOrders = readyOrders;
-        emptyTitle = t("Zona de recogida vacía", "Pickup zone clear");
-        emptyMessage = t("No hay órdenes listas para recoger.", "No orders currently waiting for pickup.");
-        EmptyIcon = Bell;
+        currentOrders = sortByUrgency(readyOrders);
+        emptyTitle = t("Sin órdenes listas", "No orders ready");
+        emptyMessage = t("Las órdenes aparecerán aquí cuando estén listas para entregar.",
+                        "Orders will appear here when they're ready for pickup.");
+        EmptyIcon = Clock;
         break;
       case 'history':
-        currentOrders = historyOrders;
-        emptyTitle = t("Sin historial reciente", "No recent history");
-        emptyMessage = t("No se encontraron órdenes pasadas.", "No past orders found.");
-        EmptyIcon = Search;
+        currentOrders = historyOrders.slice(0, 20); // Last 20
+        emptyTitle = t("Sin historial", "No history");
+        emptyMessage = t("Las órdenes completadas aparecerán aquí.", "Completed orders will appear here.");
+        EmptyIcon = CheckCircle;
         break;
     }
 
     return (
       <div className="space-y-6">
-        {/* Search Bar - Dark Themed - Only show if we have orders or searching */}
+        {/* Urgent Orders Banner */}
+        <UrgentOrdersBanner
+          orders={orders}
+          urgentThresholdHours={4}
+          onOrderClick={(order) => {
+            // Could navigate to order or highlight it
+          }}
+          variant="dark"
+        />
+
+        {/* Stats Banner */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2 bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-xl border border-yellow-500/30">
+            <ChefHat className="h-5 w-5" />
+            <span className="font-bold">{stats.toDo}</span>
+            <span className="text-yellow-300/70 text-sm">{t('Por hacer', 'To Do')}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-blue-500/20 text-blue-400 px-4 py-2 rounded-xl border border-blue-500/30">
+            <Clock className="h-5 w-5" />
+            <span className="font-bold">{stats.inProgress}</span>
+            <span className="text-blue-300/70 text-sm">{t('En proceso', 'In Progress')}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-xl border border-green-500/30">
+            <CheckCircle className="h-5 w-5" />
+            <span className="font-bold">{stats.ready}</span>
+            <span className="text-green-300/70 text-sm">{t('Listos', 'Ready')}</span>
+          </div>
+        </div>
+
+        {/* Search Bar */}
         {(orders.length > 0 || searchQuery) && (
-          <div className="flex items-center gap-4 bg-[#1f2937] p-4 rounded-xl border border-slate-700/50">
+          <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
             <Search className="text-slate-400 h-5 w-5" />
             <Input
               className="bg-transparent border-none text-white placeholder:text-slate-500 focus-visible:ring-0"
-              placeholder={t('Buscar órdenes...', 'Search orders...')}
+              placeholder={t('Buscar por orden, tamaño, tema...', 'Search by order, size, theme...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* Order Grid - Consistent sizing with auto-rows */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-fr">
           {currentOrders.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-32 text-slate-500">
               <div className="bg-slate-800/50 p-6 rounded-full mb-4 ring-1 ring-slate-700">
-                <EmptyIcon className="h-10 w-10 opacity-50 text-slate-400" /> {/* Dynamic Icon */}
+                <EmptyIcon className="h-12 w-12 opacity-50 text-slate-400" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">{emptyTitle}</h3>
-              <p className="text-slate-400 text-center max-w-sm">{emptyMessage}</p>
+              <p className="text-slate-400 text-center max-w-md">{emptyMessage}</p>
             </div>
           ) : (
             currentOrders.map((order) => (
-              <ModernOrderCard
+              <BakerTicketCard
                 key={order.id}
                 order={order}
-                onAction={handleOrderAction}
-                variant="dark"
+                onMarkReady={handleMarkReady}
               />
             ))
           )}
@@ -184,38 +225,42 @@ const BakerStation = () => {
       onLogout={handleLogout}
       soundEnabled={soundEnabled}
       onToggleSound={() => setSoundEnabled(!soundEnabled)}
-      title="Baker Station"
+      title={t("Estación de Panadero", "Baker Station")}
     >
-      {/* New Order Alert Overlay */}
+      {/* New Order Alert */}
       <AnimatePresence>
-        {newOrderAlert && latestOrder && (
+        {newOrderAlert && latestOrder && latestOrder.status === 'confirmed' && (
           <motion.div
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="fixed top-24 right-8 z-50 w-96 p-4"
+            className="fixed top-24 right-8 z-50"
           >
-            <div className="bg-green-100 p-2 rounded-full">
-              <Package className="h-6 w-6 text-green-600" />
+            <div className="bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl p-4 shadow-2xl flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-full">
+                <ChefHat className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white">New Order Ready!</h4>
+                <p className="text-sm text-white/80">
+                  #{latestOrder.order_number} • {latestOrder.cake_size}
+                </p>
+              </div>
+              <button
+                onClick={dismissAlert}
+                className="ml-4 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium text-white transition-colors"
+              >
+                View
+              </button>
             </div>
-            <div>
-              <h4 className="font-bold text-gray-900">New Order Received!</h4>
-              <p className="text-sm text-gray-600">
-                #{latestOrder.order_number} • {latestOrder.customer_name}
-              </p>
-            </div>
-            <button
-              onClick={dismissAlert}
-              className="ml-auto text-sm font-medium text-green-600 hover:text-green-700"
-            >
-              Dismiss
-            </button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Order Content */}
+      {renderContent()}
     </FrontDeskLayout>
   );
 };
 
 export default BakerStation;
-
