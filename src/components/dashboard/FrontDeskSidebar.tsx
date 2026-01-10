@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, CheckCircle2, History, LogOut, Ticket } from "lucide-react";
-import TransparentLogo from '@/assets/TransparentLogo.png';
+import TransparentLogo from '@/assets/brand/logo.png';
 
 interface FrontDeskSidebarProps {
     activeView: 'ready' | 'active' | 'history';

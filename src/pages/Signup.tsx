@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Phone, AlertCircle, Store } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -27,7 +27,6 @@ const Signup = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect if already authenticated
   if (isAuthenticated) {
     navigate('/');
     return null;
@@ -37,7 +36,6 @@ const Signup = () => {
     e.preventDefault();
     setError(null);
 
-    // Validation
     if (!formData.email || !formData.password || !formData.fullName) {
       setError(t('Por favor complete todos los campos requeridos', 'Please fill in all required fields'));
       return;
@@ -64,7 +62,6 @@ const Signup = () => {
       );
 
       if (result.success) {
-        // Redirect to login or home page
         navigate('/login', { state: { message: t('¡Cuenta creada! Por favor inicia sesión.', 'Account created! Please sign in.') } });
       } else {
         setError(result.error || t('Error al crear la cuenta', 'Error creating account'));
@@ -77,36 +74,45 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">
-              {t('Crear Cuenta', 'Create Account')}
-            </CardTitle>
-            <CardDescription>
-              {t(
-                'Regístrate para hacer pedidos personalizados',
-                'Sign up to place custom orders'
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+    <div className="min-h-screen w-full bg-black text-white flex items-center justify-center relative overflow-hidden px-4 py-20 selection:bg-[#C6A649]/30">
+      {/* Background Elements */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[#C6A649]/5 rounded-full blur-[180px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-20%] h-[600px] w-[600px] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none" />
 
+      <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-white/40 hover:text-[#C6A649] transition-all z-20 group">
+        <Store className="h-5 w-5 group-hover:scale-110 transition-transform" />
+        <span className="text-sm font-black uppercase tracking-widest">{t('Volver al Inicio', 'Back to Home')}</span>
+      </Link>
+
+      <Card className="w-full max-w-lg border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] relative z-10 transition-all duration-500 rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="space-y-4 text-center pb-8 pt-12">
+          <span className="text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-2">{t('Dulce Tradición', 'Sweet Tradition')}</span>
+          <CardTitle className="text-4xl font-black text-white uppercase tracking-tighter leading-none">
+            {t('Crear Cuenta', 'Join the Tradition')}
+          </CardTitle>
+          <CardDescription className="text-gray-400 text-lg font-light italic font-serif">
+            {t(
+              'Regístrate para hacer pedidos personalizados',
+              'Sign up to place custom orders'
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-10 pb-12">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <Alert variant="destructive" className="bg-red-500/10 border-red-500/30 text-red-200 rounded-2xl">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="font-bold uppercase tracking-wide text-xs">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-2">
-                <Label htmlFor="fullName">
-                  {t('Nombre Completo', 'Full Name')} *
+                <Label htmlFor="fullName" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-4">
+                  {t('Nombre Completo', 'Full Name')}
                 </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative group">
+                  <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
                   <Input
                     id="fullName"
                     type="text"
@@ -115,18 +121,37 @@ const Signup = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, fullName: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">
-                  {t('Email', 'Email')} *
+                <Label htmlFor="phone" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-4">
+                  {t('Teléfono', 'Phone')} <span className="text-[10px] opacity-40">({t('Opcional', 'Opt')})</span>
                 </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative group">
+                  <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+1 (555) 000-0000"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-4">
+                  {t('Email', 'Email Address')}
+                </Label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
                   <Input
                     id="email"
                     type="email"
@@ -135,49 +160,27 @@ const Signup = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">
-                  {t('Teléfono', 'Phone')}
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    ({t('Opcional', 'Optional')})
-                  </span>
+                <Label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-4">
+                  {t('Contraseña', 'Password')}
                 </Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder={t('+1 (555) 123-4567', '+1 (555) 123-4567')}
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">
-                  {t('Contraseña', 'Password')} *
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder={t('Mínimo 6 caracteres', 'Minimum 6 characters')}
+                    placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
                     required
                     minLength={6}
                   />
@@ -185,55 +188,58 @@ const Signup = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">
-                  {t('Confirmar Contraseña', 'Confirm Password')} *
+                <Label htmlFor="confirmPassword" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-4">
+                  {t('Confirmar', 'Confirm')}
                 </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
                   <Input
                     id="confirmPassword"
                     type="password"
-                    placeholder={t('Confirma tu contraseña', 'Confirm your password')}
+                    placeholder="••••••••"
                     value={formData.confirmPassword}
                     onChange={(e) =>
                       setFormData({ ...formData, confirmPassword: e.target.value })
                     }
-                    className="pl-10"
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
                     required
                     minLength={6}
                   />
                 </div>
               </div>
+            </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
+            <Button
+              type="submit"
+              className="w-full bg-[#C6A649] text-black hover:bg-white font-black uppercase tracking-widest h-16 text-base shadow-[0_10px_30px_rgba(198,166,73,0.3)] hover:shadow-[0_15px_40px_rgba(198,166,73,0.4)] transition-all rounded-2xl hover:scale-[1.02] mt-4"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                  {t('Procesando...', 'Processing...')}
+                </>
+              ) : (
+                t('Crear Cuenta', 'Join the Family')
+              )}
+            </Button>
+
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-gray-500">
+              {t('¿Ya tienes una cuenta?', 'Already have an account?')}{' '}
+              <Link
+                to="/login"
+                className="text-[#C6A649] hover:text-white transition-colors"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('Creando cuenta...', 'Creating account...')}
-                  </>
-                ) : (
-                  t('Crear Cuenta', 'Create Account')
-                )}
-              </Button>
+                {t('Iniciar Sesión', 'Sign In')}
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-              <div className="text-center text-sm text-muted-foreground">
-                {t('¿Ya tienes una cuenta?', 'Already have an account?')}{' '}
-                <Link
-                  to="/login"
-                  className="font-medium text-primary hover:underline"
-                >
-                  {t('Iniciar Sesión', 'Sign In')}
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </main>
-      <Footer />
+      <div className="absolute bottom-10 w-full text-center text-white/10 text-[10px] font-black tracking-[0.5em] uppercase pointer-events-none">
+        Eli's Dulce Tradición • Crafted with Passion
+      </div>
     </div>
   );
 };

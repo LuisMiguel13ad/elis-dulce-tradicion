@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-import TransparentLogo from '@/assets/TransparentLogo.png';
+import TransparentLogo from '@/assets/brand/logo.png';
 
 interface OwnerSidebarProps {
     activeTab: string;

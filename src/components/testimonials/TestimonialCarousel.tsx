@@ -62,72 +62,77 @@ const TestimonialCarousel = () => {
   const [isHovering, setIsHovering] = useState(false);
 
   return (
-    <section className="relative bg-muted/30 py-24">
-      <div className="container mx-auto px-4">
+    <section className="relative bg-black py-32 overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#C6A649]/5 rounded-full blur-[150px] pointer-events-none" />
+
+      <div className="container mx-auto px-4 relative z-10">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-12 text-center">
-            <h2 className="mb-4 font-display text-4xl font-bold text-gradient-gold md:text-5xl">
-              {t('Lo Que Dicen Nuestros Clientes', 'What Our Customers Say')}
+          <div className="mb-20 text-center animate-fade-in">
+            <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase mb-4 block">
+              {t('Testimonios', 'Testimonials')}
+            </span>
+            <h2 className="text-5xl md:text-7xl font-black text-white mb-6 uppercase tracking-tight">
+              {t('Lo Que Dicen', 'What Our')} <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">{t('Nuestros Clientes', 'Customers Say')}</span>
             </h2>
-            <div className="mx-auto h-1 w-24 rounded-full bg-gradient-to-r from-primary to-accent" />
+            <div className="h-1.5 w-32 bg-gradient-to-r from-transparent via-[#C6A649] to-transparent mx-auto rounded-full shadow-[0_0_10px_rgba(198,166,73,0.5)]"></div>
           </div>
 
           <div
-            className="relative flex items-center justify-center px-4 sm:px-8"
+            className="relative flex items-center justify-center px-4 sm:px-8 min-h-[500px]"
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
           >
-            <div className="flex flex-col items-center gap-8 md:flex-row md:gap-0 md:justify-center">
+            <div className="flex flex-col items-center gap-12 md:flex-row md:gap-0 md:justify-center">
               {testimonials.map((testimonial, index) => {
                 const layer = layers[index % layers.length];
                 const rotation = isHovering ? 0 : layer.rotation;
-                const margin = isHovering ? 0 : -40;
+                const margin = isHovering ? 0 : -60;
 
                 return (
                   <div
                     key={testimonial.author}
-                    className="relative flex h-[340px] w-[320px] items-center justify-center rounded-2xl border border-white/10 shadow-2xl backdrop-blur transition-all duration-500 ease-out"
+                    className="relative flex h-[420px] w-[350px] items-center justify-center rounded-[2.5rem] border border-white/10 shadow-2xl backdrop-blur-3xl transition-all duration-700 ease-out group"
                     style={{
-                      background: `linear-gradient(rgba(255,255,255,${layer.gradientOpacity}), transparent)`,
-                      boxShadow: '0 25px 25px rgba(0, 0, 0, 0.25)',
-                      transform: `rotate(${rotation}deg) translateY(${isHovering ? 10 : 0}px)`,
+                      background: isHovering
+                        ? 'rgba(255,255,255,0.08)'
+                        : `linear-gradient(rgba(255,255,255,${layer.gradientOpacity}), rgba(0,0,0,0.5))`,
+                      transform: `rotate(${rotation}deg) translateY(${isHovering ? 20 : 0}px) scale(${isHovering ? 1.05 : 1})`,
                       marginLeft: margin,
                       marginRight: margin,
+                      zIndex: isHovering ? 50 : 10 + index,
                     }}
                   >
-                    <div
-                      className="absolute inset-4 rounded-xl shadow-xl ring-1 ring-black/5 overflow-hidden"
-                      style={{ backgroundColor: `rgba(255,255,255,${layer.panelOpacity})` }}
-                    >
-                      <div className="flex h-full flex-col p-6">
-                        <div className="mb-4 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 ring-1 ring-black/5">
-                          <Quote className="h-4 w-4 text-neutral-700" />
+                    <div className="flex h-full flex-col p-10 justify-between">
+                      <div>
+                        <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C6A649]/10 border border-[#C6A649]/20 transition-all group-hover:bg-[#C6A649] group-hover:text-black">
+                          <Quote className="h-6 w-6 text-[#C6A649] group-hover:text-black" />
                         </div>
 
-                        <p className="mb-4 flex-1 text-sm leading-relaxed text-neutral-900">
+                        <p className="mb-6 text-xl leading-relaxed text-gray-300 font-light italic font-serif">
                           “{t(testimonial.quoteES, testimonial.quoteEN)}”
                         </p>
+                      </div>
 
-                        <div className="flex items-center justify-between border-t border-neutral-200 pt-3">
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={testimonial.avatar}
-                              alt={`${testimonial.author} avatar`}
-                              className="h-8 w-8 rounded-full object-cover"
-                            />
-                            <div>
-                              <div className="text-sm font-medium text-neutral-900">
-                                {testimonial.author}
-                              </div>
-                              <div className="text-xs text-neutral-500">
-                                {t(testimonial.roleES, testimonial.roleEN)}
-                              </div>
+                      <div className="flex items-center justify-between border-t border-white/10 pt-6">
+                        <div className="flex items-center gap-4">
+                          <img
+                            src={testimonial.avatar}
+                            alt={`${testimonial.author} avatar`}
+                            className="h-10 w-10 rounded-full object-cover border border-[#C6A649]/30"
+                          />
+                          <div>
+                            <div className="text-base font-bold text-white uppercase tracking-wider">
+                              {testimonial.author}
+                            </div>
+                            <div className="text-xs text-[#C6A649] font-bold uppercase tracking-widest">
+                              {t(testimonial.roleES, testimonial.roleEN)}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                            <span className="text-xs font-medium">{testimonial.rating}</span>
-                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-[#C6A649]/10 px-3 py-1 rounded-full border border-[#C6A649]/20">
+                          <Star className="h-3 w-3 text-[#C6A649] fill-[#C6A649]" />
+                          <span className="text-xs font-black text-[#C6A649]">{testimonial.rating}</span>
                         </div>
                       </div>
                     </div>

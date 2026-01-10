@@ -1,33 +1,41 @@
-import { MapPin, Clock, Phone, MessageCircle } from 'lucide-react';
+import { MapPin, Clock, Phone, MessageCircle, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import storefrontImage from '@/assets/2_M3wfgx3WZRpTbrc5cQDbCM_1767033935219_na1fn_L2hvbWUvdWJ1bnR1L2VsaXNfYmFrZXJ5X2ZpbmFsL2ludGVyaW9yL2ludGVyaW9yXzAxX2Jha2VyeV9zdG9yZWZyb250X2V4dGVyaW9yX2VuaGFuY2Vk.png';
+import { useLanguage } from '@/contexts/LanguageContext';
+import storefrontImage from '@/assets/gallery/2_M3wfgx3WZRpTbrc5cQDbCM_1767033935219_na1fn_L2hvbWUvdWJ1bnR1L2VsaXNfYmFrZXJ5X2ZpbmFsL2ludGVyaW9yL2ludGVyaW9yXzAxX2Jha2VyeV9zdG9yZWZyb250X2V4dGVyaW9yX2VuaGFuY2Vk.png';
 
 export const VisitUs = () => {
+    const { t } = useLanguage();
     return (
-        <section className="py-20 bg-white">
-            <div className="container mx-auto px-4 max-w-7xl">
+        <section className="py-32 bg-black relative overflow-hidden">
+            {/* Background Glows */}
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-[#C6A649]/5 rounded-full blur-[120px] pointer-events-none" />
+
+            <div className="container mx-auto px-4 max-w-7xl relative z-10">
 
                 {/* Header */}
-                <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl font-black text-[#C6A649] mb-4 font-serif italic">
-                        Visit Us
+                <div className="text-center mb-20 animate-fade-in">
+                    <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase mb-4 block">
+                        {t('Ubicación', 'Location')}
+                    </span>
+                    <h2 className="text-5xl md:text-7xl font-black text-white mb-6 uppercase tracking-tight">
+                        {t('Ven a', 'Come')} <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">{t('Visitarnos', 'Visit Us')}</span>
                     </h2>
-                    <div className="h-1 w-24 bg-gradient-to-r from-[#C6A649] to-amber-300 mx-auto rounded-full"></div>
+                    <div className="h-1.5 w-32 bg-gradient-to-r from-transparent via-[#C6A649] to-transparent mx-auto rounded-full shadow-[0_0_10px_rgba(198,166,73,0.5)]"></div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-12 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-stretch">
 
                     {/* Left Column: Contact Info & Map */}
-                    <div className="space-y-6 flex flex-col h-full animate-in slide-in-from-left duration-700">
+                    <div className="space-y-8 flex flex-col h-full animate-fade-in">
 
                         {/* Address Card */}
-                        <div className="flex items-start gap-5 p-5 rounded-2xl border border-amber-100 hover:border-[#C6A649]/30 hover:shadow-md transition-all duration-300 group bg-white">
-                            <div className="bg-[#FFF0F5] p-3 rounded-full group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-                                <MapPin className="w-5 h-5 text-[#C6A649]" />
+                        <div className="flex items-start gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl">
+                            <div className="bg-[#C6A649]/10 p-4 rounded-2xl group-hover:scale-110 group-hover:bg-[#C6A649]/20 transition-all duration-500 flex-shrink-0 border border-[#C6A649]/20">
+                                <MapPin className="w-6 h-6 text-[#C6A649]" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-1 font-serif">Address</h3>
-                                <p className="text-gray-600 leading-relaxed text-sm">
+                                <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">{t('Dirección', 'Address')}</h3>
+                                <p className="text-gray-400 leading-relaxed text-lg font-light">
                                     324 W Marshall St<br />
                                     Norristown, PA 19401
                                 </p>
@@ -35,25 +43,25 @@ export const VisitUs = () => {
                                     href="https://maps.google.com/?q=324+W+Marshall+St,+Norristown,+PA+19401"
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-block mt-1 text-xs text-[#C6A649] font-bold hover:underline"
+                                    className="inline-flex items-center gap-2 mt-4 text-sm text-[#C6A649] font-black uppercase tracking-widest hover:text-white transition-colors"
                                 >
-                                    Get Directions
+                                    {t('Cómo Llegar', 'Get Directions')} <ChevronRight className="w-4 h-4" />
                                 </a>
                             </div>
                         </div>
 
                         {/* Hours Card */}
-                        <div className="flex items-start gap-5 p-5 rounded-2xl border border-amber-100 hover:border-[#C6A649]/30 hover:shadow-md transition-all duration-300 group bg-white">
-                            <div className="bg-[#FDF5E6] p-3 rounded-full group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-                                <Clock className="w-5 h-5 text-[#C6A649]" />
+                        <div className="flex items-start gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl">
+                            <div className="bg-[#C6A649]/10 p-4 rounded-2xl group-hover:scale-110 group-hover:bg-[#C6A649]/20 transition-all duration-500 flex-shrink-0 border border-[#C6A649]/20">
+                                <Clock className="w-6 h-6 text-[#C6A649]" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-1 font-serif">Hours</h3>
-                                <div className="space-y-1 text-gray-600 text-sm">
+                                <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">{t('Horario', 'Hours')}</h3>
+                                <div className="space-y-2 text-gray-400 text-lg font-light">
                                     <div className="flex justify-between w-full max-w-[200px]">
-                                        <span>Monday – Sunday</span>
+                                        <span>{t('Lunes – Domingo', 'Monday – Sunday')}</span>
                                     </div>
-                                    <div className="font-medium text-gray-800">
+                                    <div className="font-bold text-[#C6A649]">
                                         5:00 AM – 10:00 PM
                                     </div>
                                 </div>
@@ -61,34 +69,37 @@ export const VisitUs = () => {
                         </div>
 
                         {/* Phone Card */}
-                        <div className="flex items-start gap-5 p-5 rounded-2xl border border-amber-100 hover:border-[#C6A649]/30 hover:shadow-md transition-all duration-300 group bg-white">
-                            <div className="bg-[#E6F3FF] p-3 rounded-full group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-                                <Phone className="w-5 h-5 text-[#C6A649]" />
+                        <div className="flex items-start gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl relative overflow-hidden">
+                            <div className="absolute -right-10 -bottom-10 h-40 w-40 bg-[#C6A649]/5 rounded-full blur-3xl" />
+
+                            <div className="bg-[#C6A649]/10 p-4 rounded-2xl group-hover:scale-110 group-hover:bg-[#C6A649]/20 transition-all duration-500 flex-shrink-0 border border-[#C6A649]/20 relative z-10">
+                                <Phone className="w-6 h-6 text-[#C6A649]" />
                             </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-2 font-serif">Phone</h3>
-                                <p className="text-gray-600 mb-3 text-sm">(610) 279-6200</p>
-                                <div className="flex flex-wrap gap-3">
+                            <div className="relative z-10">
+                                <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">{t('Teléfono', 'Phone')}</h3>
+                                <p className="text-gray-400 mb-6 text-lg font-light">(610) 279-6200</p>
+                                <div className="flex flex-wrap gap-4">
                                     <Button
-                                        className="bg-[#C6A649] hover:bg-[#B5953F] text-white rounded-full px-5 h-8 text-xs shadow-md hover:shadow-lg transition-all"
+                                        className="bg-[#C6A649] hover:bg-white text-black font-black rounded-full px-8 h-12 text-sm uppercase tracking-widest transition-all hover:scale-105 shadow-[0_0_20px_rgba(198,166,73,0.3)]"
                                         asChild
                                     >
                                         <a href="tel:+16102796200">
-                                            <Phone className="w-3 h-3 mr-2" /> Call
+                                            <Phone className="w-4 h-4 mr-2" /> {t('Llamar', 'Call')}
                                         </a>
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        className="border-[#C6A649] text-[#C6A649] hover:bg-[#FFF0F5] hover:text-[#B5953F] rounded-full px-5 h-8 text-xs"
+                                        className="border-white/20 text-white hover:bg-white hover:text-black font-black rounded-full px-8 h-12 text-sm uppercase tracking-widest"
                                     >
-                                        <MessageCircle className="w-3 h-3 mr-2" /> WhatsApp
+                                        <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Map (Moved to Left Column) */}
-                        <div className="w-full flex-grow min-h-[250px] rounded-2xl overflow-hidden shadow-lg border-2 border-white ring-1 ring-gray-100 mt-2">
+                        {/* Map Integration */}
+                        <div className="w-full flex-grow min-h-[300px] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 relative group">
+                            <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-all duration-700 pointer-events-none z-10" />
                             <iframe
                                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3053.468785873215!2d-75.34586432431644!3d40.1156847714894!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c69637c3855555%3A0x6345634563456345!2s324%20W%20Marshall%20St%2C%20Norristown%2C%20PA%2019401!5e0!3m2!1sen!2sus!4v1709920000000!5m2!1sen!2sus"
                                 width="100%"
@@ -98,28 +109,35 @@ export const VisitUs = () => {
                                 loading="lazy"
                                 referrerPolicy="no-referrer-when-downgrade"
                                 title="Eli's Bakery Location"
-                                className="grayscale-[20%] hover:grayscale-0 transition-all duration-500 h-full w-full object-cover"
+                                className="grayscale hover:grayscale-0 transition-all duration-1000 h-full w-full object-cover"
                             ></iframe>
                         </div>
 
                     </div>
 
                     {/* Right Column: Storefront Image (Dominant Visual) */}
-                    <div className="relative h-full min-h-[500px] animate-in slide-in-from-right duration-700 delay-200">
-                        <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl border-4 border-white ring-1 ring-gray-100 group">
-                            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-10"></div>
+                    <div className="relative h-full min-h-[600px] group animate-fade-in">
+                        <div className="absolute -inset-4 bg-[#C6A649]/20 blur-3xl rounded-[3rem] opacity-0 group-hover:opacity-30 transition-opacity duration-1000" />
+                        <div className="relative w-full h-full rounded-[3rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80 z-10 transition-opacity group-hover:opacity-60"></div>
                             <img
                                 src={storefrontImage}
                                 alt="Eli's Bakery Storefront"
-                                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                                className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
                             />
 
                             {/* Overlay Text */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-8 z-20">
-                                <p className="text-[#C6A649] font-black tracking-widest uppercase text-sm mb-1">Welcome To</p>
-                                <h3 className="text-white text-3xl font-serif italic">Eli's Bakery Cafe</h3>
-                                <p className="text-gray-300 text-sm mt-2 max-w-sm">
-                                    Look for our brick storefront on West Marshall Street. A place where tradition invites you in.
+                            <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
+                                <span className="text-[#C6A649] font-black tracking-[0.3em] uppercase text-sm mb-4 block animate-fade-in">
+                                    {t('Bienvenido a', 'Welcome To')}
+                                </span>
+                                <h3 className="text-white text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none mb-6">Eli's Bakery Cafe</h3>
+                                <div className="h-1 w-20 bg-[#C6A649] mb-6" />
+                                <p className="text-gray-300 text-xl font-light leading-relaxed max-w-md">
+                                    {t(
+                                        'Busca nuestro edificio de ladrillos en West Marshall Street. Un lugar donde la tradición te invita a entrar.',
+                                        'Look for our brick storefront on West Marshall Street. A place where tradition invites you in.'
+                                    )}
                                 </p>
                             </div>
                         </div>

@@ -16,21 +16,14 @@ interface GalleryImage {
 
 const Gallery = () => {
   const { t } = useLanguage();
-  const { categories, loading } = useGalleryItems();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { items, loading } = useGalleryItems();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Flatten all images for lightbox navigation
   const allImages = useMemo(() => {
-    return categories.flatMap(cat => cat.images.map(img => img.src));
-  }, [categories]);
-
-  // Filter categories based on selection
-  const filteredCategories = useMemo(() => {
-    if (!selectedCategory) return categories;
-    return categories.filter(cat => cat.id === selectedCategory);
-  }, [categories, selectedCategory]);
+    return items.map(item => item.image_url);
+  }, [items]);
 
   const handleImageClick = useCallback((imageSrc: string) => {
     const index = allImages.indexOf(imageSrc);
@@ -44,23 +37,30 @@ const Gallery = () => {
     setLightboxIndex(index);
   }, []);
 
-  const showVideos = selectedCategory === null || selectedCategory === 'videos';
+
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black text-white selection:bg-[#C6A649]/30">
       <Navbar />
 
-      <main className="pt-32 pb-24">
-        <div className="container mx-auto px-4">
-          <div className="mb-16 text-center">
-            <h1 className="mb-4 font-display text-4xl font-bold text-gradient-gold md:text-5xl lg:text-6xl">
+      <main className="pt-32 pb-24 relative overflow-hidden">
+        {/* Background Glows */}
+        <div className="absolute top-1/4 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-[#C6A649]/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="mb-20 text-center relative z-10">
+            <span className="inline-block px-4 py-1 rounded-full border border-[#C6A649]/30 bg-[#C6A649]/10 text-[#C6A649] text-sm font-bold tracking-[0.2em] uppercase mb-8 animate-fade-in shadow-[0_0_20px_rgba(198,166,73,0.15)]">
+              {t('Nuestro Trabajo', 'Our Work')}
+            </span>
+            <h1 className="mb-6 font-display text-5xl font-black text-white md:text-7xl lg:text-8xl animate-fade-in uppercase tracking-tighter">
               {t('Galería', 'Gallery')}
             </h1>
-            <div className="mx-auto mb-6 h-1 w-24 rounded-full bg-gradient-to-r from-primary to-accent" />
-            <p className="mx-auto max-w-2xl font-sans text-lg text-muted-foreground md:text-xl">
+            <div className="mx-auto mb-8 h-1.5 w-32 rounded-full bg-gradient-to-r from-transparent via-[#C6A649] to-transparent shadow-[0_0_15px_rgba(198,166,73,0.5)]" />
+            <p className="mx-auto max-w-2xl font-sans text-xl text-gray-400 font-light leading-relaxed animate-fade-in animation-delay-300">
               {t(
-                'Momentos hermosos. Sonrisas reales. Celebraciones inolvidables. Explore nuestra colección de pasteles y panadería fresca.',
-                'Beautiful moments. Real smiles. Unforgettable celebrations. Browse our collection of cakes and fresh bakery items.'
+                'Momentos hermosos. Sonrisas reales. Celebraciones inolvidables. Explore nuestra colección de obras maestras.',
+                'Beautiful moments. Real smiles. Unforgettable celebrations. Browse our collection of masterpieces.'
               )}
             </p>
           </div>
@@ -68,119 +68,54 @@ const Gallery = () => {
 
           {loading ? (
             <div className="space-y-12">
-              <div className="flex justify-center gap-4">
-                <Skeleton className="h-10 w-24 rounded-md" />
-                <Skeleton className="h-10 w-32 rounded-md" />
-                <Skeleton className="h-10 w-32 rounded-md" />
-                <Skeleton className="h-10 w-32 rounded-md" />
-              </div>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {[...Array(6)].map((_, i) => (
-                  <Skeleton key={i} className="aspect-[9/16] w-full rounded-2xl" />
+                  <Skeleton key={i} className="aspect-[9/16] w-full rounded-2xl bg-white/5" />
                 ))}
               </div>
             </div>
           ) : (
             <>
-              {/* Category Filters */}
-              <div className="mb-12 flex flex-wrap justify-center gap-2">
-                <Button
-                  variant={selectedCategory === null ? 'default' : 'outline'}
-                  onClick={() => setSelectedCategory(null)}
-                  size="sm"
-                >
-                  {t('Todos', 'All')}
-                </Button>
-                {categories.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant={selectedCategory === category.id ? 'default' : 'outline'}
-                    onClick={() => setSelectedCategory(category.id)}
-                    size="sm"
+              {/* Unified Masonry Grid - Dark Mode */}
+              <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 px-1 animate-fade-in">
+                {items.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    onClick={() => handleImageClick(item.image_url)}
+                    className="break-inside-avoid group cursor-pointer relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-500 hover:shadow-[0_0_40px_rgba(198,166,73,0.25)] hover:-translate-y-2 hover:border-[#C6A649]/30"
                   >
-                    {t(category.titleES, category.titleEN)}
-                  </Button>
-                ))}
-                <Button
-                  variant={selectedCategory === 'videos' ? 'default' : 'outline'}
-                  onClick={() => setSelectedCategory('videos')}
-                  size="sm"
-                >
-                  {t('Videos', 'Videos')}
-                </Button>
-              </div>
+                    <div className="relative">
+                      <LazyImage
+                        src={item.image_url}
+                        alt="Eli's Bakery Masterpiece"
+                        className="w-full h-auto object-cover transition-transform duration-1000 group-hover:scale-110"
+                        effect="blur"
+                      />
 
-              <div className="space-y-16">
-                {filteredCategories.map((category, idx) => (
-                  <div key={idx} className="animate-fade-in">
-                    <h2 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
-                      {t(category.titleES, category.titleEN)}
-                    </h2>
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      {category.images.map((image, imgIdx) => (
-                        <div
-                          key={imgIdx}
-                          onClick={() => handleImageClick(image.src)}
-                          className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-smooth hover:scale-105 hover:border-primary/50 hover:shadow-elegant"
-                        >
-                          <div className="relative aspect-[9/16] overflow-hidden">
-                            <LazyImage
-                              src={image.src}
-                              alt={`${t(category.titleES, category.titleEN)} ${imgIdx + 1}`}
-                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                              effect="blur"
+                      {/* Premium Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+                      {/* Hover UI */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-8 group-hover:translate-y-0">
+                        <div className="rounded-full bg-[#C6A649] p-5 shadow-[0_0_30px_rgba(198,166,73,0.5)] text-black">
+                          <svg
+                            className="h-10 w-10"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                              <div className="rounded-full bg-white/20 backdrop-blur-sm p-4">
-                                <svg
-                                  className="h-8 w-8 text-white"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                                  />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Videos Section */}
-                {showVideos && (
-                  <div className="animate-fade-in">
-                    <h2 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
-                      {t('Videos', 'Videos')}
-                    </h2>
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-                        <div className="relative aspect-[9/16] w-full">
-                          <iframe
-                            src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F751834970733497&show_text=false&width=340"
-                            width="100%"
-                            height="100%"
-                            style={{ border: 'none', overflow: 'hidden' }}
-                            scrolling="no"
-                            frameBorder="0"
-                            allowFullScreen={true}
-                            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                            title="Eli's Bakery Facebook Reel"
-                            className="absolute inset-0 h-full w-full"
-                          />
+                          </svg>
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
             </>
           )}

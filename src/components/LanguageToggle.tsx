@@ -5,25 +5,28 @@ const LanguageToggle = () => {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div className="flex items-center gap-3 backdrop-blur-sm">
+    <div className="flex items-center bg-black/40 border border-white/10 rounded-full p-1 backdrop-blur-md">
       <button
         onClick={() => setLanguage('es')}
         className={cn(
-          "text-sm font-medium tracking-widest transition-all duration-300 hover:text-[#C6A649]",
-          language === 'es' ? "text-[#C6A649] font-bold" : "text-white/70"
+          "px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300",
+          language === 'es'
+            ? "bg-[#C6A649] text-black shadow-[0_0_10px_rgba(198,166,73,0.4)]"
+            : "text-white/60 hover:text-white hover:bg-white/5"
         )}
+        aria-label="Cambiar idioma a Español"
       >
         ES
       </button>
-
-      <span className="text-white/40 font-light">|</span>
-
       <button
         onClick={() => setLanguage('en')}
         className={cn(
-          "text-sm font-medium tracking-widest transition-all duration-300 hover:text-[#C6A649]",
-          language === 'en' ? "text-[#C6A649] font-bold" : "text-white/70"
+          "px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300",
+          language === 'en'
+            ? "bg-[#C6A649] text-black shadow-[0_0_10px_rgba(198,166,73,0.4)]"
+            : "text-white/60 hover:text-white hover:bg-white/5"
         )}
+        aria-label="Switch language to English"
       >
         EN
       </button>

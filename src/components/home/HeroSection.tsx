@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import heroVideo from '@/assets/HeroVideo.mp4';
-import heroLogo from '@/assets/TransparentLogo.png';
+import heroLogo from '@/assets/brand/logo.png';
 
 const HeroSection = () => {
   const { t } = useLanguage();
@@ -29,7 +29,10 @@ const HeroSection = () => {
 
       <div className="container relative z-10 mx-auto px-4 text-center">
         <div className="mx-auto flex max-w-4xl flex-col items-center space-y-6 animate-fade-in-up">
-          <div className="w-full max-w-[480px] md:max-w-[700px] transition-transform duration-700 hover:scale-[1.02]">
+          <div className="w-full max-w-[480px] md:max-w-[700px] transition-transform duration-700 hover:scale-[1.02] relative group/logo">
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full border border-[#C6A649]/30 bg-[#C6A649]/10 backdrop-blur-md opacity-0 group-hover/logo:opacity-100 transition-all duration-500 transform translate-y-4 group-hover/logo:translate-y-0">
+              <span className="text-[10px] font-black text-[#C6A649] uppercase tracking-[0.4em]">Est. 1990 Norristown</span>
+            </div>
             <img
               src={heroLogo}
               alt={t('home.logoAlt')}

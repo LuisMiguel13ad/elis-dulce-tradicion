@@ -2,7 +2,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Facebook, Instagram, MapPin, Phone, Clock, ArrowUp, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import NewsletterSignup from '@/components/newsletter/NewsletterSignup';
-import logoImage from '@/assets/TransparentLogo.png';
+import logoImage from '@/assets/brand/logo.png';
 import { Button } from '@/components/ui/button';
 
 const Footer = () => {

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star } from 'lucide-react';
+import logoImage from '@/assets/brand/logo.png';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { validateLeadTime, validateOrderDateTimeComplete } from '@/lib/validation';
@@ -13,6 +14,7 @@ import { CameraCapture } from '@/components/mobile/CameraCapture';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 import { motion, AnimatePresence } from 'framer-motion';
+import LanguageToggle from '@/components/LanguageToggle';
 
 const STORAGE_KEY = 'bakery_order_draft';
 
@@ -89,13 +91,13 @@ const FloatingInput = ({ label, value, onChange, type = "text", placeholder, ico
 
   return (
     <div className={`relative group ${className}`}>
-      <div className={`absolute inset-0 bg-gradient-to-r from-amber-200/20 to-orange-100/20 rounded-2xl transition-all duration-300 ${focused ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} />
-      <div className={`relative bg-white/60 backdrop-blur-xl border border-white/40 shadow-sm rounded-2xl overflow-hidden transition-all duration-300 group-hover:shadow-md ${focused ? 'ring-2 ring-amber-400/50 shadow-lg shadow-amber-100' : 'hover:border-amber-200/50'}`}>
-        <label className={`absolute left-10 transition-all duration-200 pointer-events-none text-gray-500 font-medium ${focused || value ? 'top-2 text-[10px] text-amber-600 font-bold tracking-wider uppercase' : 'top-4 text-sm'}`}>
+      <div className={`absolute inset-0 bg-[#C6A649]/10 rounded-2xl transition-all duration-300 pointer-events-none ${focused ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} />
+      <div className={`relative bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-[#C6A649]/30 ${focused ? 'ring-[3px] ring-[#C6A649]/40 border-[#C6A649]/50' : ''}`}>
+        <label className={`absolute left-10 transition-all duration-200 pointer-events-none ${focused || value ? 'top-2 text-[10px] text-[#C6A649] font-black tracking-widest uppercase' : 'top-4 text-sm text-gray-400 font-medium'}`}>
           {label}
         </label>
         {Icon && (
-          <div className={`absolute left-3 top-4 transition-colors duration-300 ${focused ? 'text-amber-500' : 'text-gray-400'}`}>
+          <div className={`absolute left-3 top-4 transition-colors duration-300 ${focused ? 'text-[#C6A649]' : 'text-gray-500'}`}>
             <Icon size={18} />
           </div>
         )}
@@ -106,7 +108,7 @@ const FloatingInput = ({ label, value, onChange, type = "text", placeholder, ico
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           maxLength={maxLength}
-          className="w-full bg-transparent p-4 pl-10 pt-5 text-gray-800 font-semibold placeholder-transparent focus:outline-none min-h-[60px]"
+          className="w-full bg-transparent p-4 pl-10 pt-5 text-white font-bold placeholder-transparent focus:outline-none min-h-[60px]"
           placeholder={placeholder}
         />
       </div>
@@ -170,24 +172,48 @@ const Order = () => {
     }
   }, [user]);
 
+  // Load draft with expiration
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setFormData(prev => ({ ...prev, ...parsed }));
+
+        // Check if draft is older than 30 minutes
+        const now = Date.now();
+        const draftTime = parsed._timestamp || 0;
+        const thirtyMinutes = 30 * 60 * 1000;
+
+        if (now - draftTime > thirtyMinutes) {
+          // Draft expired, clear it
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+
+        // Restore valid draft
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _timestamp, ...rest } = parsed; // Remove timestamp from form data
+        setFormData(prev => ({ ...prev, ...rest }));
         if (parsed.selectedFillings) setSelectedFillings(parsed.selectedFillings);
-        // Note: We don't restore currentStep to avoid confusion, user starts fresh or at beginning
       } catch (e) {
         console.error('Error loading draft:', e);
+        localStorage.removeItem(STORAGE_KEY);
       }
     }
   }, []);
 
+  // Save draft with timestamp
   useEffect(() => {
     const timer = setTimeout(() => {
-      const dataToSave = { ...formData, selectedFillings };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      // Only save if we have some data
+      if (formData.cakeSize || formData.dateNeeded) {
+        const dataToSave = {
+          ...formData,
+          selectedFillings,
+          _timestamp: Date.now()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      }
     }, 1000);
     return () => clearTimeout(timer);
   }, [formData, selectedFillings]);
@@ -373,51 +399,66 @@ const Order = () => {
   };
 
   return (
-    <div className="min-h-screen font-sans pb-32 relative bg-[#FDFBF7] flex flex-col">
+    <div className="min-h-screen font-sans pb-32 relative bg-black flex flex-col selection:bg-[#C6A649]/30">
 
       {/* --- BACKGROUND ANIMATION --- */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <motion.div
           animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
           transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(251,191,36,0.08),transparent_70%)]"
+          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.08),transparent_70%)]"
         />
         <motion.div
           animate={{ y: [0, -50, 0], x: [0, 30, 0] }}
           transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(255,165,0,0.05),transparent_60%)] filter blur-3xl opacity-60"
+          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_60%)] filter blur-3xl opacity-60"
         />
       </div>
 
       {/* --- TOP BAR --- */}
       <div className="h-1.5 w-full flex sticky top-0 z-50 shadow-sm opacity-90">
-        <div className="h-full w-1/3 bg-green-600/90 backdrop-blur-sm"></div>
-        <div className="h-full w-1/3 bg-white/90 backdrop-blur-sm"></div>
-        <div className="h-full w-1/3 bg-red-600/90 backdrop-blur-sm"></div>
+        <div className="h-full w-1/3 bg-[#C6A649]"></div>
+        <div className="h-full w-1/3 bg-white"></div>
+        <div className="h-full w-1/3 bg-[#C6A649]"></div>
       </div>
 
       {/* --- HEADER --- */}
-      <header className="bg-white/80 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.03)] p-4 sticky top-1.5 z-40 border-b border-white/50">
-        <div className="max-w-md mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
-              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
-            >
-              <ChevronLeft size={20} strokeWidth={3} />
-            </button>
-            <button className="cursor-pointer group text-left" onClick={() => navigate('/')}>
-              <h1 className="text-lg font-black tracking-tight text-gray-900 group-hover:text-amber-600 transition-colors flex items-center gap-2">
-                ELI'S BAKERY <Sparkles size={14} className="text-amber-400 fill-amber-400" />
-              </h1>
-            </button>
-          </div>
+      <header className="bg-black/80 backdrop-blur-xl shadow-2xl sticky top-1.5 z-40 border-b border-white/10">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
 
-          {/* Progress Indicator */}
-          <div className="flex gap-1">
-            {STEPS.map((_, i) => (
-              <div key={i} className={`h-1.5 w-3 sm:w-6 rounded-full transition-all duration-300 ${i <= currentStep ? 'bg-amber-500' : 'bg-gray-200'}`} />
-            ))}
+            {/* Left: Back & Logo */}
+            <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-start">
+              <button
+                onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
+                className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#C6A649] hover:text-black transition-all flex-shrink-0 group"
+              >
+                <ChevronLeft size={20} strokeWidth={3} className="group-hover:-translate-x-0.5 transition-transform" />
+              </button>
+
+              <button className="cursor-pointer group hover:scale-110 transition-transform duration-500" onClick={() => navigate('/')}>
+                <img src={logoImage} alt="Eli's Bakery" className="h-14 w-auto object-contain filter drop-shadow-[0_0_10px_rgba(198,166,73,0.3)]" />
+              </button>
+
+              {/* Mobile spacer to balance back button */}
+              <div className="w-12 md:hidden" />
+            </div>
+
+            {/* Right: Progress & Language */}
+            <div className="flex items-center gap-8 w-full md:w-auto justify-center md:justify-end">
+              {/* Progress Indicator */}
+              <div className="flex gap-2">
+                {STEPS.map((_, i) => (
+                  <div key={i} className={`h-2 w-10 rounded-full transition-all duration-500 ${i <= currentStep ? 'bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]' : 'bg-white/10'}`} />
+                ))}
+              </div>
+
+              {/* Language Toggle - Custom Styles handled in component */}
+              <div className="scale-95">
+                <LanguageToggle />
+              </div>
+            </div>
+
           </div>
         </div>
       </header>
@@ -426,15 +467,16 @@ const Order = () => {
       <main className="flex-1 flex flex-col justify-center items-center p-5 relative z-10 w-full max-w-md mx-auto min-h-[60vh]">
 
         {/* Step Title */}
-        <div className="w-full mb-8 text-center">
+        <div className="w-full mb-12 text-center">
           <motion.div
             key={currentStep}
-            initial={{ y: 10, opacity: 0 }}
+            initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="inline-block"
+            className="inline-block space-y-2"
           >
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight">{STEPS[currentStep].title}</h2>
-            <p className="text-gray-500 font-medium">{STEPS[currentStep].subtitle}</p>
+            <span className="text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-2">Eli's Tradition</span>
+            <h2 className="text-5xl font-black text-white uppercase tracking-tighter leading-tight">{STEPS[currentStep].title}</h2>
+            <p className="text-gray-400 font-medium italic font-serif text-lg">{STEPS[currentStep].subtitle}</p>
           </motion.div>
         </div>
 
@@ -443,12 +485,12 @@ const Order = () => {
           {validationError && (
             <motion.div
               initial={{ height: 0, opacity: 0, marginBottom: 0 }}
-              animate={{ height: 'auto', opacity: 1, marginBottom: 20 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
               exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-              className="w-full flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-700 backdrop-blur-md"
+              className="w-full flex items-center gap-4 rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 backdrop-blur-3xl shadow-2xl"
             >
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <p className="text-sm font-bold">{validationError}</p>
+              <AlertCircle className="h-6 w-6 flex-shrink-0 text-red-400" />
+              <p className="text-sm font-black uppercase tracking-wide">{validationError}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -462,35 +504,36 @@ const Order = () => {
             animate="center"
             exit="exit"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="w-full bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 min-h-[300px] flex flex-col justify-center"
+            className="w-full bg-white/5 backdrop-blur-3xl p-8 sm:p-10 rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 min-h-[400px] flex flex-col justify-center relative overflow-hidden group"
           >
+            <div className="absolute top-0 right-0 w-40 h-40 bg-[#C6A649]/5 rounded-full blur-3xl pointer-events-none" />
             {/* --- STEP 1: DATE --- */}
             {STEPS[currentStep].id === 'date' && (
               <div className="space-y-6">
-                <div className="relative">
+                <div className="relative group/date">
                   <input
                     type="date"
                     min={new Date().toISOString().split('T')[0]}
                     max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                     value={formData.dateNeeded}
                     onChange={(e) => setFormData({ ...formData, dateNeeded: e.target.value })}
-                    className="w-full bg-white/50 border-2 border-transparent focus:border-amber-400 hover:bg-white transition-all rounded-2xl p-4 text-center text-lg font-bold text-gray-800 outline-none shadow-inner"
+                    className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-3xl p-6 text-center text-2xl font-black text-white outline-none cursor-pointer"
                   />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500">
-                    <Calendar size={20} />
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-[#C6A649] group-hover/date:scale-110 transition-transform">
+                    <Calendar size={24} />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block text-center">{t('Hora de Entrega', 'Pickup Time')}</label>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block text-center opacity-70">{t('Hora de Entrega', 'Pickup Time')}</label>
+                  <div className="grid grid-cols-3 gap-3">
                     {TIME_OPTIONS.map(time => (
                       <button
                         key={time}
                         onClick={() => setFormData({ ...formData, timeNeeded: time })}
-                        className={`py-2 rounded-xl text-xs font-bold transition-all border ${formData.timeNeeded === time
-                          ? 'bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-500/30'
-                          : 'bg-white border-gray-100 text-gray-600 hover:border-amber-200 hover:bg-amber-50'
+                        className={`py-4 rounded-2xl text-xs font-black transition-all border uppercase tracking-widest ${formData.timeNeeded === time
+                          ? 'bg-[#C6A649] text-black border-[#C6A649] shadow-[0_0_20px_rgba(198,166,73,0.4)] scale-105'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/10'
                           }`}
                       >
                         {formatTimeDisplay(time)}
@@ -507,14 +550,14 @@ const Order = () => {
                       if (leadTime.isValid && leadTime.hoursUntilEvent) {
                         const days = Math.floor(leadTime.hoursUntilEvent / 24);
                         return (
-                          <div className="flex items-center gap-2 text-green-600 text-xs font-bold bg-green-50 px-3 py-1 rounded-full">
-                            <Check size={12} strokeWidth={3} /> {days} {t('días para preparar', 'days to prepare')}
+                          <div className="flex items-center gap-2 text-[#C6A649] text-xs font-black uppercase tracking-widest bg-[#C6A649]/10 px-6 py-2 rounded-full border border-[#C6A649]/20 animate-fade-in">
+                            <Check size={14} strokeWidth={4} /> {days} {t('días para preparar', 'days to prepare')}
                           </div>
                         )
                       }
                       return (
-                        <div className="flex items-center gap-2 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-1 rounded-full">
-                          <Clock size={12} strokeWidth={3} /> {t('Mínimo 48h requerido', 'Min 48h required')}
+                        <div className="flex items-center gap-2 text-amber-500 text-xs font-black uppercase tracking-widest bg-amber-500/10 px-6 py-2 rounded-full border border-amber-500/20">
+                          <Clock size={14} strokeWidth={4} /> {t('Mínimo 48h requerido', 'Min 48h required')}
                         </div>
                       )
                     })()}
@@ -525,28 +568,28 @@ const Order = () => {
 
             {/* --- STEP 2: SIZE --- */}
             {STEPS[currentStep].id === 'size' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 {CAKE_SIZES.map(s => (
                   <button
                     key={s.value}
                     onClick={() => setFormData({ ...formData, cakeSize: s.value })}
-                    className={`relative p-4 rounded-2xl text-left transition-all border-2 overflow-hidden ${formData.cakeSize === s.value
-                      ? 'bg-gradient-to-br from-amber-50 to-white border-amber-400 shadow-lg shadow-amber-200/50'
-                      : 'bg-white border-transparent hover:border-gray-200 hover:bg-gray-50 shadow-sm'
+                    className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
+                      ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
                       }`}
                   >
                     {s.featured && (
-                      <div className="absolute top-0 right-0 bg-amber-400 text-[9px] font-black text-white px-2 py-0.5 rounded-bl-lg uppercase tracking-wide">
+                      <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
                         Popular
                       </div>
                     )}
-                    <div className="text-xs text-gray-400 font-bold mb-1">{s.serves} {t('pers', 'ppl')}</div>
-                    <div className="font-black text-gray-800 text-sm mb-2 leading-tight">{isSpanish ? s.labelEs : s.label}</div>
-                    <div className={`text-lg font-black ${formData.cakeSize === s.value ? 'text-amber-600' : 'text-gray-900'}`}>${s.price}</div>
+                    <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
+                    <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
+                    <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
 
                     {formData.cakeSize === s.value && (
-                      <div className="absolute bottom-3 right-3 text-amber-500">
-                        <Check size={20} strokeWidth={4} />
+                      <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
+                        <Check size={28} strokeWidth={4} />
                       </div>
                     )}
                   </button>
@@ -557,47 +600,49 @@ const Order = () => {
             {/* --- STEP 3: FLAVOR --- */}
             {STEPS[currentStep].id === 'flavor' && (
               <div className="space-y-6">
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">{t('Tipo de Pan', 'Bread Type')}</label>
-                  <div className="flex flex-col gap-2">
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">{t('Tipo de Pan', 'Bread Type')}</label>
+                  <div className="flex flex-col gap-3">
                     {BREAD_TYPES.map(type => (
                       <button
                         key={type.value}
                         onClick={() => setFormData({ ...formData, breadType: type.value })}
-                        className={`p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${formData.breadType === type.value
-                          ? 'bg-gray-800 border-gray-800 text-white shadow-lg shadow-gray-400/30'
-                          : 'bg-white border-transparent text-gray-600 hover:bg-gray-50'
+                        className={`p-6 rounded-3xl flex items-center justify-between border transition-all duration-500 ${formData.breadType === type.value
+                          ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_15px_30px_rgba(198,166,73,0.3)] scale-[1.02]'
+                          : 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08] hover:border-[#C6A649]/30'
                           }`}
                       >
                         <div className="text-left">
-                          <div className="font-bold">{type.label}</div>
-                          <div className={`text-xs ${formData.breadType === type.value ? 'text-gray-400' : 'text-gray-400'}`}>{type.desc}</div>
+                          <div className="font-black uppercase tracking-tight text-lg">{type.label}</div>
+                          <div className={`text-sm font-medium italic ${formData.breadType === type.value ? 'text-black/60' : 'text-gray-400'}`}>{type.desc}</div>
                         </div>
-                        {formData.breadType === type.value && <Check size={18} className="text-amber-400" strokeWidth={3} />}
+                        {formData.breadType === type.value && <Check size={24} className="text-black" strokeWidth={4} />}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">{t('Relleno', 'Filling')} <span className="text-gray-300 font-normal">(Optional)</span></label>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">
+                    {t('Relleno', 'Filling')} <span className="opacity-50 font-medium">({t('Opcional', 'Optional')})</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
                     {FILLINGS.map(f => {
                       const isSelected = selectedFillings.includes(f.value);
                       return (
                         <button
                           key={f.value}
                           onClick={() => toggleFilling(f.value)}
-                          className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden ${isSelected
-                            ? 'bg-amber-50 border-amber-400 text-amber-900'
-                            : 'bg-white border-gray-100 text-gray-600 hover:border-gray-200'
+                          className={`p-4 rounded-2xl border text-left transition-all duration-500 relative overflow-hidden group/filling ${isSelected
+                            ? 'bg-[#C6A649]/20 border-[#C6A649] text-[#C6A649] shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.05]'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/[0.08]'
                             }`}
                         >
-                          <div className="relative z-10">
-                            <div className="text-xs font-bold mb-0.5">{f.label}</div>
-                            <div className="text-[10px] opacity-70 leading-none">{f.sub}</div>
+                          <div className="relative z-10 flex flex-col">
+                            <div className="text-sm font-black uppercase tracking-tight mb-1">{f.label}</div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest opacity-60 leading-none">{f.sub}</div>
                           </div>
-                          {isSelected && <div className="absolute inset-0 bg-amber-100/50 z-0" />}
+                          {isSelected && <div className="absolute inset-0 bg-[#C6A649]/5 z-0" />}
                         </button>
                       );
                     })}
@@ -625,48 +670,51 @@ const Order = () => {
                 />
 
                 {/* Photo Upload */}
-                <div className="relative mt-4">
+                <div className="relative mt-8">
                   {!imagePreviewUrl ? (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                       {isMobile && (
                         <button
                           onClick={() => setShowCamera(true)}
-                          className="bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-amber-100/50 transition-colors"
+                          className="bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn"
                         >
-                          <div className="w-12 h-12 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center">
-                            <Camera size={24} />
+                          <div className="w-16 h-16 rounded-2xl bg-[#C6A649]/10 border border-[#C6A649]/20 text-[#C6A649] flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:bg-[#C6A649] group-hover/btn:text-black transition-all">
+                            <Camera size={32} />
                           </div>
-                          <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">{t('Cámara', 'Camera')}</span>
+                          <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em]">{t('Cámara', 'Camera')}</span>
                         </button>
                       )}
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className={`bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors ${!isMobile ? 'col-span-2' : ''
+                        className={`bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn ${!isMobile ? 'col-span-2' : ''
                           }`}
                       >
-                        <div className="w-12 h-12 rounded-full bg-white border border-gray-200 text-gray-400 flex items-center justify-center">
-                          <Upload size={24} />
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 text-gray-500 flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:border-[#C6A649]/30 group-hover/btn:text-[#C6A649] transition-all">
+                          <Upload size={32} />
                         </div>
                         <div className="text-center">
-                          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide block">{t('Subir Foto', 'Upload')}</span>
-                          <span className="text-[9px] text-gray-400 uppercase tracking-wider">JPG, PNG</span>
+                          <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em] block mb-1">{t('Subir Foto', 'Upload')}</span>
+                          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">JPG, PNG, WEBP</span>
                         </div>
                       </button>
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                     </div>
                   ) : (
-                    <div className="relative rounded-2xl overflow-hidden shadow-lg group h-48">
-                      <img src={imagePreviewUrl} className="w-full h-full object-cover" alt="Preview" />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={handleRemoveImage} className="bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-red-500/80 transition-all">
-                          <X size={24} />
+                    <div className="relative rounded-[2rem] overflow-hidden shadow-2xl group h-64 border border-white/10 group">
+                      <img src={imagePreviewUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Preview" />
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button onClick={handleRemoveImage} className="bg-white/10 backdrop-blur-md p-5 rounded-full text-white hover:bg-red-500/80 transition-all scale-150 group-hover:scale-100 duration-500">
+                          <X size={32} />
                         </button>
                       </div>
                       {isUploadingImage && (
-                        <div className="absolute inset-0 bg-white/90 flex items-center justify-center">
-                          <Loader2 className="animate-spin text-amber-500" size={32} />
+                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-30">
+                          <Loader2 className="animate-spin text-[#C6A649]" size={48} />
                         </div>
                       )}
+                      <div className="absolute bottom-6 left-6 z-10 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                        <p className="text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -703,32 +751,32 @@ const Order = () => {
                   placeholder="(555) 555-5555"
                 />
 
-                <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-sm flex gap-2">
+                <div className="bg-white/5 p-3 rounded-[2rem] border border-white/10 flex gap-3 shadow-2xl">
                   <button
                     onClick={() => setFormData({ ...formData, pickupType: 'pickup' })}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${formData.pickupType === 'pickup'
-                      ? 'bg-green-100 text-green-700 shadow-none'
-                      : 'text-gray-400 hover:bg-gray-50'
+                    className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${formData.pickupType === 'pickup'
+                      ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
                       }`}
                   >
-                    <ShoppingBag size={16} /> Pickup
+                    <ShoppingBag size={18} /> Pickup
                   </button>
-                  <div className="w-px bg-gray-100 my-2"></div>
+                  <div className="w-px bg-white/10 my-3"></div>
                   <button
                     disabled
-                    className="flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 text-gray-300 cursor-not-allowed"
+                    className="flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 text-white/20 cursor-not-allowed"
                   >
-                    <MapPin size={16} /> Delivery
+                    <MapPin size={18} /> Delivery
                   </button>
                 </div>
 
-                <label className="flex items-center gap-4 cursor-pointer group p-2">
-                  <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${consentGiven ? 'bg-amber-500 border-amber-500 text-white' : 'border-gray-300 group-hover:border-amber-400'
+                <label className="flex items-center gap-5 cursor-pointer group p-4 rounded-3xl transition-colors hover:bg-white/5">
+                  <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-500 ${consentGiven ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]' : 'border-white/10 group-hover:border-[#C6A649]'
                     }`}>
-                    <Check size={14} strokeWidth={4} />
+                    <Check size={18} strokeWidth={4} />
                   </div>
                   <input type="checkbox" checked={consentGiven} onChange={e => setConsentGiven(e.target.checked)} className="hidden" />
-                  <div className="text-xs text-gray-500 font-medium">
+                  <div className="text-xs text-gray-400 font-bold leading-relaxed uppercase tracking-wider group-hover:text-white transition-colors">
                     {t('Acepto los términos y confirmo que los detalles son correctos.', 'I accept terms and confirm details are correct.')}
                   </div>
                 </label>
@@ -740,38 +788,38 @@ const Order = () => {
       </main>
 
       {/* --- WIZARD NAVIGATION --- */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-white via-white to-transparent">
-        <div className="max-w-md mx-auto bg-gray-900 rounded-3xl p-4 shadow-2xl shadow-gray-900/40 flex justify-between items-center pr-3">
-          <div className="flex flex-col pl-2">
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t('Total', 'Total')}</span>
-            <span className="text-xl font-black text-white tracking-tight">
-              {isCalculatingPrice ? <Loader2 className="inline animate-spin text-amber-400" size={16} /> : formatPrice(getTotal())}
+      <div className="fixed bottom-0 left-0 right-0 p-6 z-50 bg-gradient-to-t from-black via-black/80 to-transparent">
+        <div className="max-w-md mx-auto bg-black/40 backdrop-blur-3xl rounded-[2.5rem] p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center pr-3">
+          <div className="flex flex-col pl-6">
+            <span className="text-[10px] text-[#C6A649] font-black uppercase tracking-[0.3em] mb-1">{t('Total Estimado', 'Estimated Total')}</span>
+            <span className="text-3xl font-black text-white tracking-tighter leading-none">
+              {isCalculatingPrice ? <Loader2 className="inline animate-spin text-[#C6A649]" size={20} /> : formatPrice(getTotal())}
             </span>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             {currentStep > 0 && (
               <button
                 onClick={prevStep}
-                className="w-12 h-12 rounded-2xl bg-gray-800 text-gray-400 flex items-center justify-center hover:bg-gray-700 transition-colors"
+                className="w-14 h-14 rounded-[1.2rem] bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-500"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={24} strokeWidth={3} />
               </button>
             )}
 
             <button
               onClick={nextStep}
-              disabled={isSubmitting || isUploadingImage}
-              className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all min-w-[120px] justify-center"
+              disabled={isSubmitting}
+              className={`h-14 px-8 rounded-[1.2rem] flex items-center justify-center gap-3 font-black text-sm uppercase tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] ${isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105'
+                }`}
             >
               {isSubmitting ? (
-                <Loader2 className="animate-spin" size={18} />
+                <Loader2 className="animate-spin" size={20} />
               ) : (
-                currentStep === STEPS.length - 1 ? (
-                  <>{t('Ordenar', 'Order')} <Check size={16} strokeWidth={4} /></>
-                ) : (
-                  <>{t('Siguiente', 'Next')} <ChevronRight size={16} strokeWidth={4} /></>
-                )
+                <>
+                  {currentStep === STEPS.length - 1 ? t('Finalizar', 'Checkout') : t('Siguiente', 'Next')}
+                  <ChevronRight size={20} strokeWidth={4} />
+                </>
               )}
             </button>
           </div>

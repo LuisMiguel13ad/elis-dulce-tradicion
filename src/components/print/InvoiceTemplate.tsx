@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import { Order } from '@/types/order';
 import { format } from 'date-fns';
 import { Upload, MapPin, Phone, Mail, Globe, Crown } from 'lucide-react';
-import TransparentLogo from '@/assets/TransparentLogo.png';
+import TransparentLogo from '@/assets/brand/logo.png';
 
 interface InvoiceTemplateProps {
     order: Order;

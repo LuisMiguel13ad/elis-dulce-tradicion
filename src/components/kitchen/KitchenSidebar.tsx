@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LayoutGrid, ClipboardList, MessageSquare, LogOut, Search, CalendarDays } from "lucide-react";
-import TransparentLogo from '@/assets/TransparentLogo.png';
+import TransparentLogo from '@/assets/brand/logo.png';
 
 interface KitchenSidebarProps {
     activeView: 'queue' | 'upcoming' | 'calendar';

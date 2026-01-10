@@ -32,9 +32,9 @@ const FAQ = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [helpfulVotes, setHelpfulVotes] = useState<Set<number>>(new Set());
   const [notHelpfulVotes, setNotHelpfulVotes] = useState<Set<number>>(new Set());
-  
+
   const submitFeedback = useSubmitFAQFeedback();
-  
+
   // Fallback to hardcoded FAQs if CMS fails
   const fallbackFAQs = [
     {
@@ -110,15 +110,15 @@ const FAQ = () => {
       is_active: true,
     },
   ];
-  
+
   const allFAQs = error ? fallbackFAQs : (faqs.length > 0 ? faqs : fallbackFAQs);
-  
+
   // Add category mapping to FAQs (if not present)
   const faqsWithCategories = allFAQs.map((faq, index) => {
     // Try to infer category from question content
     const question = isSpanish ? faq.question_es : faq.question_en;
     const lowerQuestion = question.toLowerCase();
-    
+
     let category = 'general';
     if (lowerQuestion.includes('order') || lowerQuestion.includes('pedido') || lowerQuestion.includes('advance') || lowerQuestion.includes('anticipación')) {
       category = 'ordering';
@@ -129,10 +129,10 @@ const FAQ = () => {
     } else if (lowerQuestion.includes('custom') || lowerQuestion.includes('personalizado') || lowerQuestion.includes('design') || lowerQuestion.includes('diseño')) {
       category = 'custom';
     }
-    
+
     return { ...faq, category };
   });
-  
+
   // Filter FAQs by search and category
   const filteredFAQs = useMemo(() => {
     return faqsWithCategories.filter(faq => {
@@ -140,7 +140,7 @@ const FAQ = () => {
       if (selectedCategory !== 'all' && faq.category !== selectedCategory) {
         return false;
       }
-      
+
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -148,22 +148,22 @@ const FAQ = () => {
         const answer = isSpanish ? faq.answer_es : faq.answer_en;
         return question.toLowerCase().includes(query) || answer.toLowerCase().includes(query);
       }
-      
+
       return true;
     });
   }, [faqsWithCategories, searchQuery, selectedCategory, isSpanish]);
-  
+
   const handleFeedback = async (faqId: number, isHelpful: boolean) => {
     // Prevent duplicate votes
     if (isHelpful && helpfulVotes.has(faqId)) return;
     if (!isHelpful && notHelpfulVotes.has(faqId)) return;
-    
+
     try {
       await submitFeedback.mutateAsync({
         faq_id: faqId,
         is_helpful: isHelpful,
       });
-      
+
       if (isHelpful) {
         setHelpfulVotes(prev => new Set(prev).add(faqId));
         toast.success(t('¡Gracias por tu feedback!', 'Thanks for your feedback!'));
@@ -175,136 +175,95 @@ const FAQ = () => {
       console.error('Error submitting feedback:', error);
     }
   };
-  
+
   const displayFAQs = filteredFAQs;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black text-white selection:bg-[#C6A649]/30">
       <Navbar />
-      
-      <main className="pt-32 pb-24">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-12 text-center">
-              <div className="mb-4 flex justify-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <HelpCircle className="h-8 w-8 text-primary" />
-                </div>
-              </div>
-              <h1 className="mb-4 font-display text-4xl font-bold text-gradient-gold md:text-5xl">
-                {t('Preguntas Frecuentes', 'Frequently Asked Questions')}
-              </h1>
-              <div className="mx-auto mb-6 h-1 w-24 rounded-full bg-gradient-to-r from-primary to-accent" />
-              <p className="font-sans text-lg text-muted-foreground">
-                {t(
-                  'Encuentra respuestas a las preguntas más comunes sobre nuestros productos y servicios.',
-                  'Find answers to the most common questions about our products and services.'
-                )}
-              </p>
-            </div>
-            
-            {/* Search and Category Filters */}
-            <div className="mb-8 space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={t('Buscar preguntas...', 'Search questions...')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {FAQ_CATEGORIES.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant={selectedCategory === category.id ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category.id)}
-                  >
-                    {t(category.label_es, category.label_en)}
-                  </Button>
-                ))}
-              </div>
-              
-              {searchQuery && (
-                <p className="text-sm text-muted-foreground">
-                  {t(
-                    `Mostrando ${filteredFAQs.length} resultado(s)`,
-                    `Showing ${filteredFAQs.length} result(s)`
-                  )}
-                </p>
-              )}
-            </div>
 
+      <main className="pt-48 pb-32 overflow-hidden relative">
+        {/* Background Glows */}
+        <div className="absolute top-1/4 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-[#C6A649]/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="mx-auto max-w-4xl text-center mb-24">
+            <span className="inline-block px-4 py-1 rounded-full border border-[#C6A649]/30 bg-[#C6A649]/10 text-[#C6A649] text-sm font-bold tracking-[0.2em] uppercase mb-8 animate-fade-in shadow-[0_0_20px_rgba(198,166,73,0.15)]">
+              {t('Centro de Ayuda', 'Help Center')}
+            </span>
+            <h1 className="mb-8 font-display text-5xl md:text-7xl font-black tracking-tight animate-fade-in">
+              {t('Preguntas', 'Frequently')} <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">{t('Frecuentes', 'Asked Questions')}</span>
+            </h1>
+            <div className="mx-auto mb-10 h-1.5 w-32 rounded-full bg-gradient-to-r from-transparent via-[#C6A649] to-transparent shadow-[0_0_10px_rgba(198,166,73,0.5)]" />
+            <p className="mx-auto max-w-2xl font-sans text-xl text-gray-400 font-light leading-relaxed animate-fade-in animation-delay-300">
+              {t(
+                'Todo lo que necesitas saber sobre nuestras delicias, pedidos y entregas en un solo lugar.',
+                'Everything you need to know about our treats, ordering, and delivery in one place.'
+              )}
+            </p>
+          </div>
+
+          <div className="mx-auto max-w-3xl">
             {isLoading ? (
-              <div className="flex items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="flex flex-col items-center justify-center p-24 space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
+                <p className="text-[#C6A649] font-bold animate-pulse">{t('Cargando sabiendo...', 'Loading sweetness...')}</p>
               </div>
             ) : (
-              <Accordion type="single" collapsible className="w-full space-y-4">
-                {displayFAQs.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
+              <Accordion type="single" collapsible className="w-full space-y-6">
+                {allFAQs.length === 0 ? (
+                  <div className="text-center text-gray-400 py-12 border border-white/10 rounded-3xl bg-white/5">
                     {t('No hay preguntas frecuentes disponibles.', 'No FAQs available.')}
                   </div>
                 ) : (
-                  displayFAQs.map((faq) => (
+                  allFAQs.map((faq, idx) => (
                     <AccordionItem
-                      key={faq.id}
-                      value={`item-${faq.id}`}
-                      className="rounded-lg border border-border bg-card px-6 shadow-card"
+                      key={faq.id || idx}
+                      value={`item-${faq.id || idx}`}
+                      className="group relative rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl transition-all duration-300 hover:border-[#C6A649]/30 hover:bg-white/[0.08] overflow-hidden"
                     >
-                      <AccordionTrigger className="font-sans text-left font-semibold text-foreground hover:no-underline">
-                        <div className="flex items-center gap-3 flex-1">
+                      <AccordionTrigger className="px-8 py-8 font-sans text-left text-lg md:text-xl font-bold text-white hover:no-underline hover:text-[#C6A649] transition-colors group-data-[state=open]:text-[#C6A649] [&[data-state=open]>svg]:rotate-180">
+                        <div className="flex items-center gap-4">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#C6A649]/10 text-[#C6A649] text-xs font-black">
+                            {String(idx + 1).padStart(2, '0')}
+                          </span>
                           {t(faq.question_es, faq.question_en)}
-                          {faq.category && faq.category !== 'general' && (
-                            <Badge variant="outline" className="ml-auto">
-                              {t(
-                                FAQ_CATEGORIES.find(c => c.id === faq.category)?.label_es || '',
-                                FAQ_CATEGORIES.find(c => c.id === faq.category)?.label_en || ''
-                              )}
-                            </Badge>
-                          )}
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="font-sans text-muted-foreground leading-relaxed space-y-4">
-                        <p>{t(faq.answer_es, faq.answer_en)}</p>
-                        
-                        {/* Feedback Section */}
-                        <div className="pt-4 border-t border-border">
-                          <p className="text-sm font-semibold mb-2">
+                      <AccordionContent className="px-8 pb-8 pt-0 font-sans text-gray-300 text-lg leading-relaxed space-y-6 border-t border-white/5">
+                        <div className="pt-6">
+                          {t(faq.answer_es, faq.answer_en)}
+                        </div>
+
+                        {/* Feedback Section - Mini Glass Pack */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/5">
+                          <p className="text-sm font-semibold text-gray-400">
                             {t('¿Fue útil esta respuesta?', 'Was this helpful?')}
                           </p>
-                          <div className="flex gap-2">
-                            <Button
-                              variant={helpfulVotes.has(faq.id) ? 'default' : 'outline'}
-                              size="sm"
+                          <div className="flex gap-3">
+                            <button
                               onClick={() => handleFeedback(faq.id, true)}
                               disabled={helpfulVotes.has(faq.id) || notHelpfulVotes.has(faq.id)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${helpfulVotes.has(faq.id)
+                                  ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]'
+                                  : 'bg-white/5 border-white/10 text-white hover:border-[#C6A649] hover:text-[#C6A649]'
+                                }`}
                             >
-                              {helpfulVotes.has(faq.id) ? (
-                                <>
-                                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                                  {t('Útil', 'Helpful')}
-                                </>
-                              ) : (
-                                <>
-                                  <ThumbsUp className="mr-1 h-3 w-3" />
-                                  {t('Sí', 'Yes')}
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant={notHelpfulVotes.has(faq.id) ? 'destructive' : 'outline'}
-                              size="sm"
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                              {helpfulVotes.has(faq.id) ? t('¡Útil!', 'Helpful!') : t('Sí', 'Yes')}
+                            </button>
+                            <button
                               onClick={() => handleFeedback(faq.id, false)}
                               disabled={helpfulVotes.has(faq.id) || notHelpfulVotes.has(faq.id)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${notHelpfulVotes.has(faq.id)
+                                  ? 'bg-red-500 border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                                  : 'bg-white/5 border-white/10 text-white hover:border-red-500 hover:text-red-500'
+                                }`}
                             >
-                              <ThumbsDown className="mr-1 h-3 w-3" />
+                              <ThumbsDown className="h-3.5 w-3.5" />
                               {t('No', 'No')}
-                            </Button>
+                            </button>
                           </div>
                         </div>
                       </AccordionContent>
@@ -314,31 +273,44 @@ const FAQ = () => {
               </Accordion>
             )}
 
-            <div className="mt-12 rounded-2xl border border-border bg-gradient-to-br from-primary/10 to-accent/10 p-8 text-center shadow-elegant">
-              <h3 className="mb-4 font-display text-2xl font-bold text-foreground">
-                {t('¿Tienes más preguntas?', 'Have more questions?')}
-              </h3>
-              <p className="mb-6 font-sans text-lg text-muted-foreground">
-                {t(
-                  'No dudes en contactarnos. Estamos aquí para ayudarte.',
-                  'Don\'t hesitate to contact us. We\'re here to help.'
-                )}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a
-                  href="tel:+16102796200"
-                  className="font-sans text-xl font-bold text-primary hover:opacity-80 transition-smooth"
-                >
-                  📱 (610) 279-6200
-                </a>
-                <a
-                  href="https://wa.me/16102796200"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-sans text-xl font-bold text-primary hover:opacity-80 transition-smooth"
-                >
-                  💬 WhatsApp
-                </a>
+            {/* Support CTA Card */}
+            <div className="mt-20 relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#C6A649]/20 via-[#C6A649]/5 to-[#C6A649]/20 rounded-[2.5rem] blur-xl opacity-50 group-hover:opacity-100 transition duration-1000" />
+              <div className="relative rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-2xl p-10 md:p-14 text-center overflow-hidden">
+                <div className="absolute -right-20 -top-20 h-64 w-64 bg-[#C6A649]/5 rounded-full blur-3xl" />
+
+                <h3 className="relative z-10 mb-4 font-display text-3xl font-black text-white uppercase tracking-tight">
+                  {t('¿Aún tienes dudas?', 'Still have questions?')}
+                </h3>
+                <p className="relative z-10 mb-10 font-sans text-lg text-gray-400 max-w-lg mx-auto leading-relaxed">
+                  {t(
+                    'Nuestro equipo está listo para ayudarte con pedidos especiales, eventos o cualquier consulta.',
+                    'Our team is ready to help you with special orders, events, or any inquiry.'
+                  )}
+                </p>
+
+                <div className="relative z-10 flex flex-col sm:flex-row gap-6 justify-center items-center">
+                  <a
+                    href="tel:+16102796200"
+                    className="group/btn flex items-center gap-3 px-8 py-4 rounded-full bg-[#C6A649] text-black font-black text-lg transition-all hover:scale-105 hover:bg-white shadow-[0_0_25px_rgba(198,166,73,0.3)]"
+                  >
+                    <div className="bg-black/10 rounded-full p-2 group-hover/btn:bg-black/5">
+                      <Search className="h-5 w-5" />
+                    </div>
+                    (610) 279-6200
+                  </a>
+                  <a
+                    href="https://wa.me/16102796200"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-8 py-4 rounded-full border border-white/20 bg-white/5 text-white font-bold text-lg hover:bg-white/10 hover:border-white transition-all transition-smooth"
+                  >
+                    <div className="bg-[#25D366] rounded-full p-2">
+                      <HelpCircle className="h-5 w-5 text-white" />
+                    </div>
+                    WhatsApp
+                  </a>
+                </div>
               </div>
             </div>
           </div>

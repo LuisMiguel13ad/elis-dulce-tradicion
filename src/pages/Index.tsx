@@ -12,7 +12,7 @@ import NewsletterSignup from '@/components/newsletter/NewsletterSignup';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black">
       <Navbar />
       <HeroSection />
       <AboutSection />

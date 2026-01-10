@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { memo } from 'react';
 import { Heart, ChevronRight } from 'lucide-react';
-import sprite from '@/assets/featured-sprite.png';
+import sprite from '@/assets/products/featured-sprite.png';
 
 const FeaturedProducts = memo(() => {
   const { t } = useLanguage();
@@ -36,48 +36,49 @@ const FeaturedProducts = memo(() => {
   ];
 
   return (
-    <section className="py-20 bg-white">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <section className="py-32 bg-black relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#C6A649]/5 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="container mx-auto px-4 max-w-7xl relative z-10">
 
         {/* Section Header */}
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3 tracking-tight">
-            ELI'S <span className="text-[#C6A649]">PAN DULCE</span>
+        <div className="mb-20 text-center animate-fade-in">
+          <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase mb-4 block">
+            {t('Lo Más Vendido', 'Best Sellers')}
+          </span>
+          <h2 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase">
+            ELI'S <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">PAN DULCE</span>
           </h2>
-          <div className="h-1 w-20 bg-[#C6A649] mx-auto rounded-full"></div>
-          <p className="mt-4 text-gray-500 font-medium tracking-wide text-sm uppercase">
-            Freshly Baked Every Morning
+          <div className="h-1.5 w-32 bg-gradient-to-r from-transparent via-[#C6A649] to-transparent mx-auto rounded-full shadow-[0_0_10px_rgba(198,166,73,0.5)]"></div>
+          <p className="mt-8 text-gray-400 font-medium tracking-[0.2em] text-sm uppercase">
+            {t('Horneado Fresco Cada Mañana', 'Freshly Baked Every Morning')}
           </p>
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
           {products.map((product) => (
-            <div key={product.id} className="flex flex-col group cursor-pointer">
+            <div key={product.id} className="flex flex-col group cursor-pointer animate-fade-in">
               {/* Card Image Area (Sprite) */}
-              <div className="relative rounded-md overflow-hidden shadow-sm transition-transform duration-300 group-hover:-translate-y-1">
-                {/* 
-                  Sprite Implementation:
-                  - The image contains 4 boxes with margin/padding and text below.
-                  - We want to show just the box part.
-                  - We use a predetermined aspect ratio that likely cuts off the text at the bottom.
-                */}
+              <div className="relative rounded-3xl overflow-hidden bg-white/5 border border-white/10 shadow-2xl transition-all duration-500 group-hover:-translate-y-3 group-hover:border-[#C6A649]/30 group-hover:shadow-[0_20px_40px_rgba(198,166,73,0.15)]">
                 <div
-                  className="w-full aspect-square bg-no-repeat transition-transform duration-500 group-hover:scale-105"
+                  className="w-full aspect-square bg-no-repeat transition-transform duration-700 group-hover:scale-110 brightness-90 group-hover:brightness-100"
                   style={{
                     backgroundImage: `url(${sprite})`,
                     backgroundSize: '400% auto', // 4 images width
                     backgroundPosition: product.bgPosition,
                   }}
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60" />
               </div>
 
               {/* Product Info */}
-              <div className="mt-6 text-center">
-                <h3 className="font-black text-sm md:text-base text-gray-900 uppercase tracking-wide px-2 leading-tight mb-2">
+              <div className="mt-8 text-center px-4">
+                <h3 className="font-black text-lg text-white uppercase tracking-tight leading-tight mb-3 group-hover:text-[#C6A649] transition-colors">
                   {product.title}
                 </h3>
-                <p className="text-xs font-bold text-gray-500 tracking-wider">
+                <p className="text-sm font-bold text-[#C6A649] tracking-widest uppercase">
                   {product.price}
                 </p>
               </div>
@@ -85,27 +86,23 @@ const FeaturedProducts = memo(() => {
           ))}
         </div>
 
-        {/* Carousel Indicators (Mock visual) */}
-        <div className="flex justify-center gap-3 mb-12">
-          <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-        </div>
-
         {/* Description & CTA */}
-        <div className="max-w-4xl mx-auto text-center space-y-8">
-          <p className="text-gray-600 font-medium leading-relaxed md:text-lg">
-            Eli’s Bakery Cafe Pan Dulce are kind of a big deal – we took inspiration from the traditional Mexican sweet breads we love to create the ultimate Pan Dulce experience. Fresh, authentic, and made with the finest ingredients. Our Pan Dulce are available for next day pickup or delivery. Try a mixed box, or check out one of our signature flavors such as Conchas or Orejas.
+        <div className="max-w-4xl mx-auto text-center space-y-12 animate-fade-in">
+          <p className="text-gray-400 font-light leading-relaxed text-xl md:text-2xl italic font-serif">
+            {t(
+              "El Pan Dulce de Eli’s Bakery Cafe es algo especial – nos inspiramos en los panes dulces tradicionales mexicanos para crear la experiencia definitiva. Fresco, auténtico y hecho con los mejores ingredientes.",
+              "Eli’s Bakery Cafe Pan Dulce are kind of a big deal – we took inspiration from the traditional Mexican sweet breads we love to create the ultimate Pan Dulce experience. Fresh, authentic, and made with the finest ingredients."
+            )}
           </p>
 
           <Button
             asChild
             size="lg"
-            className="rounded-full bg-[#C6A649] hover:bg-[#B5953F] text-white px-10 py-7 font-black text-sm tracking-widest shadow-xl shadow-amber-900/10 transition-transform hover:scale-105"
+            className="rounded-full bg-white text-black hover:bg-[#C6A649] px-14 py-8 font-black text-lg tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all hover:scale-105"
           >
-            <Link to="/order">
-              NEXT DAY FRESH PAN DULCE <img src="https://em-content.zobj.net/source/apple/391/croissant_1f950.png" alt="croissant" className="w-5 h-5 ml-2 inline-block filter brightness-0 invert" />
+            <Link to="/order" className="flex items-center gap-4">
+              {t('PAN DULCE FRESCO MAÑANA', 'NEXT DAY FRESH PAN DULCE')}
+              <img src="https://em-content.zobj.net/source/apple/391/croissant_1f950.png" alt="croissant" className="w-6 h-6 inline-block" />
             </Link>
           </Button>
         </div>
