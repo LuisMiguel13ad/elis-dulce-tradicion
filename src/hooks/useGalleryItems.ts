@@ -37,15 +37,16 @@ export function useGalleryItems() {
             processModules(galleryModules);
             processModules(productModules);
 
-            // Shuffle for a more "gallery" feel
-            return allImages.sort(() => Math.random() - 0.5);
+            return allImages;
         };
 
         const localItems = loadLocalImages();
 
+        // Shuffle once on mount
+        const shuffled = [...localItems].sort(() => Math.random() - 0.5);
+
         // We prioritize local images as per user request to "show the work that has been done"
-        // referring to the files they provided.
-        setItems(localItems);
+        setItems(shuffled);
         setLoading(false);
 
     }, []);

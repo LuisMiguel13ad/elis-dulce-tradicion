@@ -143,6 +143,11 @@ const FrontDesk = () => {
       );
     }
     return true;
+  }).sort((a, b) => {
+    // Sort by Due Date/Time (Ascending - Earliest due first)
+    const dateA = new Date(`${a.date_needed}T${a.time_needed}`);
+    const dateB = new Date(`${b.date_needed}T${b.time_needed}`);
+    return dateA.getTime() - dateB.getTime();
   });
 
   const getCount = (statusCheck: (o: Order) => boolean) => orders.filter(statusCheck).length;

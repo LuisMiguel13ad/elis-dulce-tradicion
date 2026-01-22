@@ -157,12 +157,9 @@ const CakeSection = memo(() => {
 
                             {/* Product Info */}
                             <div className="mt-8 text-center px-4">
-                                <h3 className="font-black text-lg text-white uppercase tracking-tight leading-tight mb-3 group-hover:text-[#C6A649] transition-colors">
+                                <h3 className="font-black text-lg text-white uppercase tracking-tight leading-tight group-hover:text-[#C6A649] transition-colors">
                                     {cake.title}
                                 </h3>
-                                <p className="text-sm font-bold text-[#C6A649] tracking-widest uppercase">
-                                    {cake.price}
-                                </p>
                             </div>
                         </div>
                     ))}

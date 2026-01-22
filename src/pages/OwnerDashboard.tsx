@@ -313,27 +313,6 @@ const OwnerDashboard = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm transition-all hover:-translate-y-1 hover:shadow-md bg-white relative overflow-hidden group">
-                  {isConnected ? (
-                    <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 translate-y-[-8px] rounded-full bg-green-50 opacity-50 transition-transform group-hover:scale-110" />
-                  ) : (
-                    <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 translate-y-[-8px] rounded-full bg-red-50 opacity-50 transition-transform group-hover:scale-110" />
-                  )}
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
-                    <p className="text-sm font-medium text-gray-500">{t('Estado Sistema', 'System Status')}</p>
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isConnected ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                      <Wifi className="h-4 w-4" />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="relative z-10">
-                    <h3 className={`text-xl font-bold ${isConnected ? 'text-green-700' : 'text-red-700'}`}>
-                      {isConnected ? t('En Línea', 'Online') : t('Desconectado', 'Offline')}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isConnected ? t('Recibiendo pedidos', 'Receiving orders') : t('Revisa tu conexión', 'Check connection')}
-                    </p>
-                  </CardContent>
-                </Card>
               </div>
 
               {/* 2. MAIN CONTENT SPLIT */}
@@ -562,45 +541,6 @@ const OwnerDashboard = () => {
                     </CardContent>
                   </Card>
 
-                  {/* 3. DELIVERIES (Dark Card) */}
-                  <Card className="border-none bg-[#1a1a1a] shadow-lg text-white">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base text-white">{t('Entregas', 'Deliveries')}</CardTitle>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">
-                          <Truck className="h-4 w-4 text-white" />
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mb-4">
-                        <span className="text-4xl font-bold">{todayDeliveries.length}</span>
-                        <span className="ml-2 text-sm text-white/50">{t('para hoy', 'for today')}</span>
-                      </div>
-
-                      {todayDeliveries.length > 0 ? (
-                        <div className="space-y-3">
-                          {todayDeliveries.slice(0, 2).map((delivery: any) => (
-                            <div key={delivery.id} className="flex items-center justify-between rounded-lg bg-white/5 p-2 px-3">
-                              <p className="text-sm font-medium truncate w-24">{delivery.order_number}</p>
-                              <Badge variant="secondary" className="bg-[#C6A649] text-black hover:bg-[#C6A649]/90 border-0 text-[10px]">
-                                {delivery.time_needed}
-                              </Badge>
-                            </div>
-                          ))}
-                          {todayDeliveries.length > 2 && (
-                            <p className="text-xs text-center text-white/40">+{todayDeliveries.length - 2} more</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex -space-x-2 overflow-hidden py-2 opacity-50">
-                          {[1, 2, 3].map(i => (
-                            <div key={i} className="h-8 w-8 rounded-full bg-white/20 border-2 border-[#1a1a1a]" />
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
 
                 </div>
               </div>

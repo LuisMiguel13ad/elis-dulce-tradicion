@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { OrderFilters } from '@/components/order/OrderFilters';
 import { SortConfig } from '@/components/order/SortControls';
@@ -18,6 +18,9 @@ interface UseOrderSearchOptions {
 
 export function useOrderSearch(options: UseOrderSearchOptions = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  // ... state ...
   const [filters, setFilters] = useState<OrderFilters>(
     options.defaultFilters || {}
   );
@@ -29,6 +32,15 @@ export function useOrderSearch(options: UseOrderSearchOptions = {}) {
 
   // Search query state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Listen for mock updates (DevTools)
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ['orders', 'all'] });
+    };
+    window.addEventListener('mock-order-update', handleUpdate);
+    return () => window.removeEventListener('mock-order-update', handleUpdate);
+  }, [queryClient]);
 
   // Parse URL params on mount
   useEffect(() => {
@@ -99,7 +111,7 @@ export function useOrderSearch(options: UseOrderSearchOptions = {}) {
         // Use getAllOrders which is known to work
         const res = await api.getAllOrders();
         // If it returns an object with data property, use that, otherwise assume array
-        const list = Array.isArray(res) ? res : (res.data || []);
+        const list = Array.isArray(res) ? res : ((res as any).data || []);
         return list;
       } catch (err) {
         console.error("Failed to fetch orders, defaulting to empty:", err);

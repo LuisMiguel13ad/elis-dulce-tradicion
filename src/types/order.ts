@@ -1,5 +1,5 @@
 // Order status types
-export type OrderStatus = 
+export type OrderStatus =
   | 'pending'
   | 'confirmed'
   | 'in_progress'
@@ -10,7 +10,7 @@ export type OrderStatus =
   | 'cancelled';
 
 // Delivery status types
-export type DeliveryStatus = 
+export type DeliveryStatus =
   | 'pending'
   | 'assigned'
   | 'in_transit'
@@ -18,13 +18,13 @@ export type DeliveryStatus =
   | 'failed';
 
 // Refund status types
-export type RefundStatus = 
+export type RefundStatus =
   | 'pending'
   | 'processed'
   | 'failed';
 
 // Payment status types
-export type PaymentStatus = 
+export type PaymentStatus =
   | 'pending'
   | 'paid'
   | 'failed'
@@ -35,14 +35,14 @@ export type Order = {
   id: number;
   order_number: string;
   status: OrderStatus | string;
-  
+
   // Customer information
   user_id?: string;
   customer_name?: string;
   customer_phone?: string;
   customer_email?: string;
   customer_language?: string;
-  
+
   // Order details
   date_needed?: string;
   time_needed?: string;
@@ -52,7 +52,10 @@ export type Order = {
   dedication?: string;
   special_instructions?: string;
   reference_image_path?: string;
-  
+
+  stripe_payment_id?: string;
+  items?: any[];
+
   // Delivery information
   delivery_option?: 'pickup' | 'delivery';
   delivery_address?: string;
@@ -61,26 +64,26 @@ export type Order = {
   delivery_status?: DeliveryStatus | string;
   driver_notes?: string;
   estimated_delivery_time?: string;
-  
+
   // Pricing
   total_amount?: number | string;
   subtotal?: number;
   delivery_fee?: number;
   tax_amount?: number;
   discount_amount?: number;
-  
+
   // Payment
   payment_status?: PaymentStatus | string;
   payment_method?: string;
   payment_intent_id?: string;
-  
+
   // Cancellation
   cancelled_at?: string;
   cancelled_by?: string;
   cancellation_reason?: string;
   refund_amount?: number;
   refund_status?: RefundStatus | string;
-  
+
   // Timestamps
   created_at?: string;
   updated_at?: string;
@@ -90,15 +93,15 @@ export type Order = {
 };
 
 // Order summary for list views
-export type OrderSummary = Pick<Order, 
-  | 'id' 
-  | 'order_number' 
-  | 'status' 
-  | 'customer_name' 
-  | 'date_needed' 
-  | 'time_needed' 
-  | 'cake_size' 
-  | 'total_amount' 
+export type OrderSummary = Pick<Order,
+  | 'id'
+  | 'order_number'
+  | 'status'
+  | 'customer_name'
+  | 'date_needed'
+  | 'time_needed'
+  | 'cake_size'
+  | 'total_amount'
   | 'delivery_option'
   | 'created_at'
 >;

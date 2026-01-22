@@ -1,7 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Facebook, Instagram, MapPin, Phone, Clock, ArrowUp, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import NewsletterSignup from '@/components/newsletter/NewsletterSignup';
 import logoImage from '@/assets/brand/logo.png';
 import { Button } from '@/components/ui/button';
 
@@ -19,7 +18,7 @@ const Footer = () => {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#C6A649]/50 to-transparent blur-sm" />
 
       <div className="container mx-auto px-4 py-16">
-        <div className="grid gap-12 lg:grid-cols-4 md:grid-cols-2">
+        <div className="grid gap-12 lg:grid-cols-3 md:grid-cols-2">
           {/* Brand Column */}
           <div className="space-y-6">
             <Link to="/" className="inline-block group">
@@ -119,24 +118,6 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Newsletter */}
-          <div>
-            <h3 className="mb-6 font-display text-lg font-bold text-[#C6A649] tracking-wide relative inline-block">
-              Newsletter
-              <span className="absolute -bottom-2 left-0 w-12 h-0.5 bg-[#C6A649]/50 rounded-full"></span>
-            </h3>
-            <p className="mb-4 text-sm text-white/70">
-              {t('footer.newsletterDesc', 'Subscribe for news and special offers.')}
-            </p>
-            <div className="bg-white/5 rounded-xl border border-white/10 p-1 backdrop-blur-sm shadow-lg">
-              <NewsletterSignup
-                variant="compact"
-                className="w-full"
-                inputClassName="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#C6A649] focus:ring-1 focus:ring-[#C6A649]"
-                buttonClassName="bg-[#C6A649] hover:bg-[#B5953F] text-black hover:text-white transition-colors"
-              />
-            </div>
-          </div>
         </div>
 
         {/* Bottom Bar */}

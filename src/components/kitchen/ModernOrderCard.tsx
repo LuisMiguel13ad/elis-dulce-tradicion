@@ -178,10 +178,16 @@ export function ModernOrderCard({
                     <Clock className="h-3.5 w-3.5" />
                     <span>{format(parseISO(`2000-01-01T${order.time_needed}`), 'h:mm a')}</span>
                 </div>
-                {getUrgency() > 0 && (
+                {getUrgency() > 0 && getUrgency() < 60 && (
+                    <div className="col-span-2 flex items-center gap-2 font-black mt-1 text-red-600 animate-pulse bg-red-50 p-2 rounded-lg border border-red-200">
+                        <Clock className="h-4 w-4" />
+                        <span>URGENT: Due in {getUrgency()} mins</span>
+                    </div>
+                )}
+                {getUrgency() >= 60 && (
                     <div className={cn("col-span-2 flex items-center gap-2 font-medium mt-1", variant === 'dark' ? "text-amber-400" : "text-amber-600")}>
                         <Clock className="h-3.5 w-3.5" />
-                        <span>Due in {getUrgency()} mins</span>
+                        <span>Due in {Math.floor(getUrgency() / 60)}h {getUrgency() % 60}m</span>
                     </div>
                 )}
             </div>

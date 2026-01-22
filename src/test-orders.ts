@@ -3,6 +3,8 @@
  * Run this in browser console or import in a component
  */
 
+import { toast } from 'sonner';
+
 // Sample image URLs from assets
 const TEST_IMAGES = [
   '/src/assets/ButterflyBirthdayCake.jpg',
@@ -278,6 +280,111 @@ export const TEST_ORDERS = [
   },
 ];
 
+export const PAID_TEST_ORDERS = [
+  {
+    id: 200001,
+    order_number: 'PAY-1001',
+    customer_name: 'Stripe Test User 1',
+    customer_phone: '555-0101',
+    customer_email: 'paid1@test.com',
+    date_needed: getDate(0),
+    time_needed: '12:00',
+    cake_size: '8" Round',
+    filling: 'Vanilla',
+    theme: 'Test Payment',
+    delivery_option: 'pickup',
+    status: 'pending',
+    payment_status: 'paid',
+    stripe_payment_id: 'pi_test_1234567890',
+    total_amount: 50.00,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 200002,
+    order_number: 'PAY-1002',
+    customer_name: 'Stripe Test User 2',
+    customer_phone: '555-0102',
+    customer_email: 'paid2@test.com',
+    date_needed: getDate(0),
+    time_needed: '14:00',
+    cake_size: '1/4 Sheet',
+    filling: 'Chocolate',
+    theme: 'Test Payment',
+    delivery_option: 'delivery',
+    status: 'confirmed',
+    payment_status: 'paid',
+    stripe_payment_id: 'pi_test_0987654321',
+    total_amount: 85.00,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 200003,
+    order_number: 'PAY-1003',
+    customer_name: 'Stripe Test User 3',
+    customer_phone: '555-0103',
+    customer_email: 'paid3@test.com',
+    date_needed: getDate(1),
+    time_needed: '10:00',
+    cake_size: '10" Round',
+    filling: 'Tres Leches',
+    theme: 'Test Payment',
+    delivery_option: 'pickup',
+    status: 'in_progress',
+    payment_status: 'paid',
+    stripe_payment_id: 'pi_test_1122334455',
+    total_amount: 60.00,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 200004,
+    order_number: 'PAY-1004',
+    customer_name: 'Stripe Test User 4',
+    customer_phone: '555-0104',
+    customer_email: 'paid4@test.com',
+    date_needed: getDate(1),
+    time_needed: '16:00',
+    cake_size: 'Full Sheet',
+    filling: 'Strawberry',
+    theme: 'Test Payment',
+    delivery_option: 'delivery',
+    status: 'ready',
+    payment_status: 'paid',
+    stripe_payment_id: 'pi_test_5566778899',
+    total_amount: 200.00,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 200005,
+    order_number: 'PAY-1005',
+    customer_name: 'Stripe Test User 5',
+    customer_phone: '555-0105',
+    customer_email: 'paid5@test.com',
+    date_needed: getDate(2),
+    time_needed: '09:00',
+    cake_size: 'Cupcakes (12)',
+    filling: 'Assorted',
+    theme: 'Test Payment',
+    delivery_option: 'pickup',
+    status: 'pending',
+    payment_status: 'paid',
+    stripe_payment_id: 'pi_test_9988776655',
+    total_amount: 35.00,
+    created_at: new Date().toISOString()
+  }
+];
+
+export function seedPaidTestOrders() {
+  const existingOrders = JSON.parse(localStorage.getItem('mock_orders') || '[]');
+  // Filter out previous PAID tests to avoid dupes
+  const otherOrders = existingOrders.filter((o: any) => !o.order_number?.startsWith('PAY-'));
+
+  const allOrders = [...otherOrders, ...PAID_TEST_ORDERS];
+  localStorage.setItem('mock_orders', JSON.stringify(allOrders));
+  window.dispatchEvent(new Event('mock-order-update'));
+  toast.success('Seeded 5 Paid Orders!');
+  return PAID_TEST_ORDERS;
+}
+
 /**
  * Seeds test orders into localStorage
  */
@@ -349,4 +456,4 @@ if (typeof window !== 'undefined') {
   (window as any).getUrgentOrders = getUrgentOrders;
 }
 
-export default { seedTestOrders, clearTestOrders, getAllOrders, getUrgentOrders, TEST_ORDERS };
+export default { seedTestOrders, seedPaidTestOrders, clearTestOrders, getAllOrders, getUrgentOrders, TEST_ORDERS, PAID_TEST_ORDERS };

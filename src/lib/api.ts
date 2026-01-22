@@ -89,21 +89,38 @@ class ApiClient {
 
   async getAllOrders() {
     const sb = this.ensureSupabase();
-    if (!sb) return [];
+    let dbOrders: any[] = [];
 
-    // Fetch all orders, ordered by creation date descending
-    const { data, error } = await sb
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    if (sb) {
+      // Fetch all orders
+      const { data, error } = await sb
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching orders:', error);
-      // Return empty array instead of throwing to prevent UI crash on first load if table is empty/missing
-      return [];
+      if (error) {
+        console.error('Error fetching orders:', error);
+      } else {
+        dbOrders = data || [];
+      }
     }
 
-    return data || [];
+    // Merge with local storage mock orders (for DevTools support)
+    const localOrders = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
+      : [];
+
+    // Sort combined list
+    const allOrders = [...localOrders, ...dbOrders]
+      // Ensure we treat null/undefined payment_status carefully, default to showing if we want to be safe,
+      // BUT for this specific requirement: filtering FOR 'paid'.
+      // If we remove the server-side filter, we MUST filter here OR let the UI handle it.
+      // Given the "No orders found" issue, let's relax this temporarily or verify case sensitivity.
+      // Let's filter for "paid" (case insensitive) just to be safe.
+      .filter((o: any) => o.payment_status?.toLowerCase() === 'paid')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return allOrders;
   }
 
   async getOrder(id: string | number) {
@@ -256,38 +273,74 @@ class ApiClient {
 
     if (dateRange === 'week') startDate.setDate(now.getDate() - 7);
     if (dateRange === 'month') startDate.setMonth(now.getMonth() - 1);
-    // For 'today', startDate is effectively generic start of day?
-    // Let's simpler logic:
+
+    // Normalize logic for "today"
     const startStr = dateRange === 'today'
-      ? new Date().toISOString().split('T')[0] // today YYYY-MM-DD
+      ? new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
       : startDate.toISOString();
 
-    // 1. Today's Orders
-    const { count: todayOrders } = await sb
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', startStr);
+    // --- DB Data ---
+    let dbMetrics = {
+      todayOrders: 0,
+      pendingOrders: 0,
+      todayRevenue: 0
+    };
 
-    // 2. Pending Orders
-    const { count: pendingOrders } = await sb
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+    if (sb) {
+      // 1. Today's Orders (or range)
+      const { count: todayOrders } = await sb
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', startStr);
 
-    // 3. Revenue (Sum total_amount)
-    const { data: revenueData } = await sb
-      .from('orders')
-      .select('total_amount')
-      .gte('created_at', startStr);
+      // 2. Pending Orders
+      const { count: pendingOrders } = await sb
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
 
-    const revenue = revenueData?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
+      // 3. Revenue
+      const { data: revenueData } = await sb
+        .from('orders')
+        .select('total_amount')
+        .gte('created_at', startStr);
 
+      const revenue = revenueData?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
+
+      dbMetrics = {
+        todayOrders: todayOrders || 0,
+        pendingOrders: pendingOrders || 0,
+        todayRevenue: revenue
+      };
+    }
+
+    // --- Local Mock Data ---
+    const localOrders = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
+      : [];
+
+    // Filter local orders matching the criteria
+    const relevantLocalOrders = localOrders.filter((o: any) => {
+      const orderDate = new Date(o.created_at); // Comparison date
+      const filterDate = new Date(startStr); // Start date
+      // Simple comparison: is order created after start date?
+      // For 'today', check YYYY-MM-DD equality or close enough
+      if (dateRange === 'today') {
+        return o.created_at && o.created_at.startsWith(startStr);
+      }
+      return orderDate >= filterDate;
+    });
+
+    const localRevenue = relevantLocalOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0);
+    const localPending = localOrders.filter((o: any) => o.status === 'pending').length;
+
+    // --- Merge Results ---
     return {
-      todayOrders: todayOrders || 0,
-      todayRevenue: revenue,
-      pendingOrders: pendingOrders || 0,
+      todayOrders: dbMetrics.todayOrders + relevantLocalOrders.length,
+      todayRevenue: dbMetrics.todayRevenue + localRevenue,
+      pendingOrders: dbMetrics.pendingOrders + localPending,
       capacityUtilization: 0.5, // TODO: Implement real capacity logic
-      averageOrderValue: revenueData && revenueData.length > 0 ? revenue / revenueData.length : 0,
+      averageOrderValue: (dbMetrics.todayRevenue + localRevenue) / ((dbMetrics.todayOrders + relevantLocalOrders.length) || 1),
       totalCustomers: 0, // Placeholder
       lowStockItems: 0,
       todayDeliveries: 0
@@ -298,25 +351,87 @@ class ApiClient {
 
   async getRevenueByPeriod(startDate: string, endDate: string) {
     const sb = this.ensureSupabase();
-    // Basic group by day implementation using JS client processing (inefficient for large data but works for small scale)
-    const { data } = await sb.from('orders')
-      .select('created_at, total_amount')
-      .gte('created_at', startDate)
-      .lte('created_at', `${endDate}T23:59:59`);
+
+    // 1. Fetch DB Data
+    let dbOrders: any[] = [];
+    if (sb) {
+      const { data } = await sb.from('orders')
+        .select('created_at, total_amount')
+        .gte('created_at', startDate)
+        .lte('created_at', `${endDate}T23:59:59`);
+      dbOrders = data || [];
+    }
+
+    // 2. Fetch Local Data
+    const localOrders = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
+      : [];
+
+    const relevantLocal = localOrders.filter((o: any) => {
+      const d = o.created_at?.split('T')[0];
+      return d >= startDate && d <= endDate;
+    });
+
+    // 3. Merge
+    const allOrders = [...dbOrders, ...relevantLocal];
 
     // Group by date
-    const grouped = (data || []).reduce((acc: any, order) => {
+    const grouped = allOrders.reduce((acc: any, order) => {
       const date = order.created_at.split('T')[0];
-      if (!acc[date]) acc[date] = 0;
-      acc[date] += Number(order.total_amount);
+      if (!acc[date]) {
+        acc[date] = { revenue: 0, count: 0 };
+      }
+      acc[date].revenue += Number(order.total_amount) || 0;
+      acc[date].count += 1;
       return acc;
     }, {});
 
-    return Object.entries(grouped).map(([date, revenue]) => ({ date, revenue }));
+    return Object.entries(grouped).map(([date, stats]: [string, any]) => ({
+      date,
+      revenue: stats.revenue,
+      orderCount: stats.count,
+      avgOrderValue: stats.count > 0 ? stats.revenue / stats.count : 0
+    })).sort((a, b) => a.date.localeCompare(b.date));
   }
 
   async getPopularItems() { return []; }
-  async getOrdersByStatus() { return []; }
+  async getOrdersByStatus() {
+    const sb = this.ensureSupabase();
+    let dbOrders: any[] = [];
+
+    // 1. Fetch from DB
+    if (sb) {
+      const { data } = await sb.from('orders').select('status, total_amount');
+      dbOrders = data || [];
+    }
+
+    // 2. Fetch from Local
+    const localOrders = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
+      : [];
+
+    const allOrders = [...dbOrders, ...localOrders];
+    const totalCount = allOrders.length;
+    if (totalCount === 0) return [];
+
+    // 3. Aggregate
+    const stats: Record<string, { count: number, revenue: number }> = {};
+
+    allOrders.forEach((o: any) => {
+      const s = o.status || 'unknown';
+      if (!stats[s]) stats[s] = { count: 0, revenue: 0 };
+      stats[s].count++;
+      stats[s].revenue += Number(o.total_amount) || 0;
+    });
+
+    // 4. Format
+    return Object.entries(stats).map(([status, data]) => ({
+      status,
+      count: data.count,
+      totalRevenue: data.revenue,
+      percentage: (data.count / totalCount) * 100
+    })).sort((a, b) => b.count - a.count);
+  }
   async getPeakOrderingTimes() { return []; }
   async getCapacityUtilization() { return []; }
   async getAverageOrderValue() { return 0; }
@@ -324,12 +439,28 @@ class ApiClient {
 
   async getTodayDeliveries() {
     const sb = this.ensureSupabase();
-    const today = new Date().toISOString().split('T')[0];
-    const { data } = await sb.from('orders')
-      .select('*')
-      .eq('delivery_option', 'delivery')
-      .eq('date_needed', today);
-    return data || [];
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+
+    // 1. DB
+    let dbDeliveries: any[] = [];
+    if (sb) {
+      const { data } = await sb.from('orders')
+        .select('*')
+        .eq('delivery_option', 'delivery')
+        .eq('date_needed', today);
+      dbDeliveries = data || [];
+    }
+
+    // 2. Local
+    const localOrders = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
+      : [];
+
+    const localDeliveries = localOrders.filter((o: any) =>
+      o.delivery_option === 'delivery' && o.date_needed === today
+    );
+
+    return [...dbDeliveries, ...localDeliveries];
   }
 
   async getLowStockItems() { return []; }
@@ -338,26 +469,33 @@ class ApiClient {
   async generateCustomerActivityReport() { return new Blob([''], { type: 'text/csv' }); }
 
   // Payment Stubs
-  async createCheckout(amount: number, orderData: any, returnUrl?: string) {
-    console.log('Using connection to Supabase... but payments need Stripe rewrite.', returnUrl);
-    return { url: `${window.location.origin}/order-confirmation?mock=true` };
+  // --- STRIPE PAYMENTS ---
+
+  async createPaymentIntent(amount: number, metadata?: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Supabase not available');
+
+    const { data, error } = await sb.functions.invoke('create-payment-intent', {
+      body: {
+        amount,
+        currency: 'usd',
+        metadata
+      }
+    });
+
+    if (error) {
+      console.error('Error creating payment intent:', error);
+      throw error;
+    }
+
+    return data; // { clientSecret, id }
   }
 
-  async createPayment(paymentData: any) {
-    console.log('Mock Payment via Supabase API wrapper', paymentData);
-    // In a real app, this would call a Supabase Edge Function to talk to Stripe
-    return { success: true, paymentId: 'mock-stripe-id', error: null as string | null };
-  }
-
-  async verifyPayment(paymentId: string) {
-    console.log('Verifying payment', paymentId);
-    return { verified: true, orderNumber: 'ORD-MOCK-' + Math.floor(Math.random() * 1000), error: null as string | null };
-  }
-
-  async refundPayment(paymentId: string, amount?: number, reason?: string) {
-    console.log('Refund stub', paymentId, amount, reason);
-    return { success: true };
-  }
+  // Deprecated mocks
+  async createCheckout(amount: number) { return { url: '#' }; }
+  async createPayment() { return { success: true }; }
+  async verifyPayment() { return { verified: true }; }
+  async refundPayment() { return { success: true }; }
 
   async subscribeNewsletter(email: string) {
     const sb = this.ensureSupabase();
@@ -375,16 +513,33 @@ class ApiClient {
   async calculatePricing() { return { success: true, price: 0 }; }
   async getAvailableDates() { return { success: true, dates: [] }; }
   async getDateCapacity() { return { success: true }; }
-  async getBusinessHours() { return { success: true }; }
+  async getBusinessHours() {
+    // Return default business hours (8am-8pm every day)
+    return [
+      { day_of_week: 0, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 1, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 2, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 3, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 4, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 5, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 6, is_closed: false, open_time: '08:00', close_time: '20:00' },
+    ];
+  }
   async getHolidays() { return { success: true }; }
   async validatePromoCode() { return { success: true, valid: false }; }
   async updatePricing() { return { success: true }; }
   async createPricing() { return { success: true }; }
   async deletePricing() { return { success: true }; }
   async getPriceHistory() { return { success: true, data: [] }; }
-  async getCapacityByDate() { return { success: true }; }
+  async getCapacityByDate() {
+    // Return available capacity by default
+    return { available: true, current_orders: 0, max_orders: 10 };
+  }
   async setCapacity() { return { success: true }; }
-  async checkHoliday() { return { success: true, isHoliday: false }; }
+  async checkHoliday() {
+    // Return no holiday by default
+    return { is_holiday: false, is_closed: false, name: '' };
+  }
   async getInventory() { return { success: true, data: [] }; }
   async updateIngredient() { return { success: true }; }
   async logIngredientUsage() { return { success: true }; }

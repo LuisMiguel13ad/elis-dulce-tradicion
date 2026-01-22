@@ -19,11 +19,21 @@ const Gallery = () => {
   const { items, loading } = useGalleryItems();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const ITEMS_PER_PAGE = 12;
 
   // Flatten all images for lightbox navigation
   const allImages = useMemo(() => {
     return items.map(item => item.image_url);
   }, [items]);
+
+  const visibleItems = useMemo(() => {
+    return items.slice(0, visibleCount);
+  }, [items, visibleCount]);
+
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+  }, []);
 
   const handleImageClick = useCallback((imageSrc: string) => {
     const index = allImages.indexOf(imageSrc);
@@ -78,7 +88,7 @@ const Gallery = () => {
             <>
               {/* Unified Masonry Grid - Dark Mode */}
               <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 px-1 animate-fade-in">
-                {items.map((item, idx) => (
+                {visibleItems.map((item, idx) => (
                   <div
                     key={item.id || idx}
                     onClick={() => handleImageClick(item.image_url)}
@@ -117,6 +127,42 @@ const Gallery = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Load More Button */}
+              {visibleCount < items.length && (
+                <div className="mt-20 text-center animate-fade-in">
+                  <Button
+                    onClick={handleLoadMore}
+                    variant="outline"
+                    size="lg"
+                    className="group relative overflow-hidden rounded-full border border-[#C6A649]/50 bg-black px-12 py-8 text-lg font-bold uppercase tracking-widest text-white transition-all duration-300 hover:border-[#C6A649] hover:bg-[#C6A649]/10 hover:shadow-[0_0_30px_rgba(198,166,73,0.3)]"
+                  >
+                    <span className="relative z-10 flex items-center gap-3">
+                      {t('Ver Más', 'Load More')}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="transition-transform duration-300 group-hover:translate-y-1"
+                      >
+                        <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
+                      </svg>
+                    </span>
+                  </Button>
+                  <p className="mt-4 text-sm text-gray-500">
+                    {t(
+                      `Mostrando ${visibleCount} de ${items.length} obras maestras`,
+                      `Showing ${visibleCount} of ${items.length} masterpieces`
+                    )}
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>

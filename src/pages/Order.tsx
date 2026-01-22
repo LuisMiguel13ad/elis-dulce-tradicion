@@ -20,12 +20,14 @@ const STORAGE_KEY = 'bakery_order_draft';
 
 // --- CONSTANTS ---
 const CAKE_SIZES = [
-  { value: 'quarter-sheet', label: '1/4 Sheet', labelEs: '1/4 Plancha', price: 45, serves: '20-25', featured: false },
-  { value: 'half-sheet', label: '1/2 Sheet', labelEs: '1/2 Plancha', price: 75, serves: '40-50', featured: true },
-  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', price: 140, serves: '90-100', featured: false },
+  { value: '6-round', label: '6" Round', labelEs: '6" Redondo', price: 30, serves: '6-8', featured: false },
   { value: '8-round', label: '8" Round', labelEs: '8" Redondo', price: 35, serves: '10-12', featured: false },
-  { value: '10-round', label: '10" Round', labelEs: '10" Redondo', price: 50, serves: '20-25', featured: false },
-  { value: '12-round', label: '12" Round', labelEs: '12" Redondo', price: 65, serves: '30-35', featured: false },
+  { value: '10-round', label: '10" Round', labelEs: '10" Redondo', price: 55, serves: '20-25', featured: true },
+  { value: '12-round', label: '12" Round', labelEs: '12" Redondo', price: 85, serves: '30-35', featured: false },
+  { value: 'quarter-sheet', label: '1/4 Sheet', labelEs: '1/4 Plancha', price: 70, serves: '20-25', featured: false },
+  { value: 'half-sheet', label: '1/2 Sheet', labelEs: '1/2 Plancha', price: 135, serves: '40-50', featured: false },
+  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', price: 240, serves: '90-100', featured: false },
+  { value: '8-hard-shape', label: '8" Hard Shape', labelEs: '8" Forma Especial', price: 50, serves: '10-12', featured: false },
 ];
 
 const BREAD_TYPES = [
@@ -35,19 +37,26 @@ const BREAD_TYPES = [
 ];
 
 const FILLINGS = [
-  { value: 'strawberry', label: 'Fresa', sub: 'Strawberry' },
-  { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate' },
-  { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend' },
-  { value: 'mousse', label: 'Mousse', sub: 'Whipped' },
-  { value: 'napolitano', label: 'Napolitano', sub: 'Mix' },
-  { value: 'pecan', label: 'Nuez', sub: 'Pecan' },
-  { value: 'coconut', label: 'Coco', sub: 'Coconut' },
-  { value: 'pineapple', label: 'Piña', sub: 'Pineapple' },
-  { value: 'pina-colada', label: 'Piña Colada', sub: 'Tropical' },
-  { value: 'peach', label: 'Durazno', sub: 'Peach' },
-  { value: 'tiramisu', label: 'Tiramisu', sub: 'Italian Style' },
-  { value: 'oreo', label: 'Oreo', sub: 'Cookies & Cream' },
-  { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese' },
+  { value: 'strawberry', label: 'Fresa', sub: 'Strawberry', premium: false },
+  { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate', premium: false },
+  { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend', premium: false },
+  { value: 'mousse', label: 'Mousse', sub: 'Whipped', premium: false },
+  { value: 'napolitano', label: 'Napolitano', sub: 'Mix', premium: false },
+  { value: 'pecan', label: 'Nuez', sub: 'Pecan', premium: false },
+  { value: 'coconut', label: 'Coco', sub: 'Coconut', premium: false },
+  { value: 'pineapple', label: 'Piña', sub: 'Pineapple', premium: false },
+  { value: 'pina-colada', label: 'Piña Colada', sub: 'Tropical', premium: false },
+  { value: 'peach', label: 'Durazno', sub: 'Peach', premium: false },
+  { value: 'tiramisu', label: 'Tiramisu', sub: 'Italian Style', premium: true },
+  { value: 'relleno-flan', label: 'Relleno de Flan', sub: 'Flan Filling', premium: true },
+  { value: 'oreo', label: 'Oreo', sub: 'Cookies & Cream', premium: false },
+  { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese', premium: false },
+];
+
+// Premium filling size options with upcharges
+const PREMIUM_FILLING_OPTIONS = [
+  { value: '10-inch', label: '10"', labelEs: '10"', upcharge: 5 },
+  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', upcharge: 20 },
 ];
 
 const TIME_OPTIONS = [
@@ -152,6 +161,7 @@ const Order = () => {
   });
 
   const [selectedFillings, setSelectedFillings] = useState<string[]>([]);
+  const [premiumFillingSizes, setPremiumFillingSizes] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -237,15 +247,64 @@ const Order = () => {
   };
 
   const getTotal = () => {
-    if (pricingBreakdown) return pricingBreakdown.total;
-    return getBasePrice();
+    const base = pricingBreakdown ? pricingBreakdown.total : getBasePrice();
+    const premiumUpcharge = getPremiumFillingUpcharge();
+    return base + premiumUpcharge;
   };
 
   const toggleFilling = (filling: string) => {
+    const fillingObj = FILLINGS.find(f => f.value === filling);
+
     setSelectedFillings(prev => {
-      if (prev.includes(filling)) return prev.filter(f => f !== filling);
+      if (prev.includes(filling)) {
+        // If deselecting, also remove premium size selection
+        if (fillingObj?.premium) {
+          setPremiumFillingSizes(sizes => {
+            const newSizes = { ...sizes };
+            delete newSizes[filling];
+            return newSizes;
+          });
+        }
+        return prev.filter(f => f !== filling);
+      }
+      // Limit to 2 fillings max
+      if (prev.length >= 2) {
+        toast.error(t('Máximo 2 rellenos permitidos', 'Maximum 2 fillings allowed'));
+        return prev;
+      }
       return [...prev, filling];
     });
+  };
+
+  const setPremiumFillingSize = (filling: string, sizeOption: string) => {
+    setPremiumFillingSizes(prev => ({
+      ...prev,
+      [filling]: sizeOption
+    }));
+  };
+
+  const getPremiumFillingUpcharge = () => {
+    let upcharge = 0;
+    for (const filling of selectedFillings) {
+      const fillingObj = FILLINGS.find(f => f.value === filling);
+      if (fillingObj?.premium && premiumFillingSizes[filling]) {
+        const sizeOption = PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[filling]);
+        if (sizeOption) {
+          upcharge += sizeOption.upcharge;
+        }
+      }
+    }
+    return upcharge;
+  };
+
+  const hasPendingPremiumSelection = () => {
+    for (const filling of selectedFillings) {
+      const fillingObj = FILLINGS.find(f => f.value === filling);
+      if (fillingObj?.premium && !premiumFillingSizes[filling]) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -322,6 +381,13 @@ const Order = () => {
       }
     }
 
+    if (stepId === 'flavor') {
+      if (hasPendingPremiumSelection()) {
+        setValidationError(t('Selecciona el tamaño para los rellenos premium', 'Select size for premium fillings'));
+        return false;
+      }
+    }
+
     if (stepId === 'info') {
       if (!formData.customerName.trim()) {
         setValidationError(t('Tu nombre es requerido', 'Name is required'));
@@ -369,6 +435,16 @@ const Order = () => {
       const cleanPhone = formData.phone.replace(/\D/g, '');
       const selectedSize = CAKE_SIZES.find(s => s.value === formData.cakeSize);
 
+      // Build filling description with premium options
+      const fillingDescriptions = selectedFillings.map(filling => {
+        const fillingObj = FILLINGS.find(f => f.value === filling);
+        if (fillingObj?.premium && premiumFillingSizes[filling]) {
+          const sizeOpt = PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[filling]);
+          return `${fillingObj.label} (${sizeOpt?.label || premiumFillingSizes[filling]} +$${sizeOpt?.upcharge || 0})`;
+        }
+        return fillingObj?.label || filling;
+      });
+
       const orderData = {
         customer_name: formData.customerName,
         customer_email: formData.email || undefined,
@@ -377,7 +453,7 @@ const Order = () => {
         date_needed: formData.dateNeeded,
         time_needed: formData.timeNeeded,
         cake_size: selectedSize?.label || formData.cakeSize,
-        filling: selectedFillings.join(', ') || formData.breadType,
+        filling: fillingDescriptions.join(', ') || formData.breadType,
         theme: formData.theme || 'Custom',
         dedication: formData.dedication || '',
         reference_image_path: uploadedImageUrl || '',
@@ -386,6 +462,7 @@ const Order = () => {
         consent_timestamp: new Date().toISOString(),
         total_amount: getTotal(),
         user_id: user?.id || null,
+        premium_filling_upcharge: getPremiumFillingUpcharge(),
       };
 
       sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
@@ -403,15 +480,19 @@ const Order = () => {
 
       {/* --- BACKGROUND ANIMATION --- */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {/* Cinematic Premium Glows (Consistent with site-wide theme) */}
+        <div className="absolute top-1/4 left-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-[#C6A649]/10 rounded-full blur-[140px] pointer-events-none opacity-50" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none opacity-40" />
+
         <motion.div
           animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
           transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.08),transparent_70%)]"
+          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_70%)]"
         />
         <motion.div
           animate={{ y: [0, -50, 0], x: [0, 30, 0] }}
           transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_60%)] filter blur-3xl opacity-60"
+          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.03),transparent_60%)] filter blur-3xl opacity-40"
         />
       </div>
 
@@ -431,7 +512,7 @@ const Order = () => {
             <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-start">
               <button
                 onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
-                className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#C6A649] hover:text-black transition-all flex-shrink-0 group"
+                className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#C6A649] hover:text-black transition-all flex-shrink-0 group shadow-lg"
               >
                 <ChevronLeft size={20} strokeWidth={3} className="group-hover:-translate-x-0.5 transition-transform" />
               </button>
@@ -623,30 +704,79 @@ const Order = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">
-                    {t('Relleno', 'Filling')} <span className="opacity-50 font-medium">({t('Opcional', 'Optional')})</span>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70 flex items-center justify-between">
+                    <span>{t('Relleno', 'Filling')} <span className="opacity-50 font-medium">({t('Opcional', 'Optional')})</span></span>
+                    <span className={`${selectedFillings.length >= 2 ? 'text-[#C6A649]' : 'text-gray-500'}`}>
+                      {selectedFillings.length}/2
+                    </span>
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     {FILLINGS.map(f => {
                       const isSelected = selectedFillings.includes(f.value);
+                      const needsSizeSelection = f.premium && isSelected && !premiumFillingSizes[f.value];
+                      const selectedSizeOption = f.premium && isSelected ? PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[f.value]) : null;
+
                       return (
-                        <button
-                          key={f.value}
-                          onClick={() => toggleFilling(f.value)}
-                          className={`p-4 rounded-2xl border text-left transition-all duration-500 relative overflow-hidden group/filling ${isSelected
-                            ? 'bg-[#C6A649]/20 border-[#C6A649] text-[#C6A649] shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.05]'
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/[0.08]'
-                            }`}
-                        >
-                          <div className="relative z-10 flex flex-col">
-                            <div className="text-sm font-black uppercase tracking-tight mb-1">{f.label}</div>
-                            <div className="text-[10px] font-bold uppercase tracking-widest opacity-60 leading-none">{f.sub}</div>
-                          </div>
-                          {isSelected && <div className="absolute inset-0 bg-[#C6A649]/5 z-0" />}
-                        </button>
+                        <div key={f.value} className="relative">
+                          <button
+                            onClick={() => toggleFilling(f.value)}
+                            className={`w-full p-4 rounded-2xl border text-left transition-all duration-500 relative overflow-hidden group/filling ${isSelected
+                              ? 'bg-[#C6A649]/20 border-[#C6A649] text-[#C6A649] shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.05]'
+                              : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/[0.08]'
+                              }`}
+                          >
+                            <div className="relative z-10 flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-black uppercase tracking-tight mb-1">{f.label}</div>
+                                {f.premium && (
+                                  <span className="text-[8px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-widest">Premium</span>
+                                )}
+                              </div>
+                              <div className="text-[10px] font-bold uppercase tracking-widest opacity-60 leading-none">{f.sub}</div>
+                              {selectedSizeOption && (
+                                <div className="text-[10px] font-black text-[#C6A649] mt-2 flex items-center gap-1">
+                                  +${selectedSizeOption.upcharge} ({isSpanish ? selectedSizeOption.labelEs : selectedSizeOption.label})
+                                </div>
+                              )}
+                            </div>
+                            {isSelected && <div className="absolute inset-0 bg-[#C6A649]/5 z-0" />}
+                          </button>
+
+                          {/* Premium filling size selection popup */}
+                          {needsSizeSelection && (
+                            <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-black/95 backdrop-blur-xl border border-[#C6A649]/50 rounded-2xl p-4 shadow-[0_20px_40px_rgba(0,0,0,0.8)] animate-fade-in">
+                              <p className="text-xs font-black text-[#C6A649] uppercase tracking-widest mb-3 text-center">
+                                {t('Selecciona tamaño', 'Select size')}
+                              </p>
+                              <div className="flex flex-col gap-2">
+                                {PREMIUM_FILLING_OPTIONS.map(opt => (
+                                  <button
+                                    key={opt.value}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPremiumFillingSize(f.value, opt.value);
+                                    }}
+                                    className="w-full p-3 rounded-xl bg-white/5 border border-white/10 hover:border-[#C6A649]/50 hover:bg-[#C6A649]/10 transition-all flex justify-between items-center"
+                                  >
+                                    <span className="text-sm font-bold text-white">{isSpanish ? opt.labelEs : opt.label}</span>
+                                    <span className="text-sm font-black text-[#C6A649]">+${opt.upcharge}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
+
+                  {/* Warning if premium filling needs size selection */}
+                  {hasPendingPremiumSelection() && (
+                    <div className="flex items-center gap-3 text-amber-400 text-xs font-bold uppercase tracking-wider bg-amber-500/10 px-4 py-3 rounded-xl border border-amber-500/20">
+                      <AlertCircle size={16} />
+                      {t('Selecciona el tamaño para los rellenos premium', 'Select size for premium fillings')}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

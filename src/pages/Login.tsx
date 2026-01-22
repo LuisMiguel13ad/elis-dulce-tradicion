@@ -40,7 +40,7 @@ const Login = () => {
         if (role === 'owner') {
           navigate('/owner-dashboard');
         } else if (role === 'baker') {
-          navigate('/baker-station');
+          navigate('/front-desk');
         } else {
           navigate('/');
         }
@@ -77,7 +77,7 @@ const Login = () => {
 
   if (isAuthenticated && user) {
     const role = user.profile?.role;
-    const dashboardPath = role === 'owner' ? '/owner-dashboard' : '/baker-station';
+    const dashboardPath = role === 'owner' ? '/owner-dashboard' : '/front-desk';
 
     return (
       <div className="min-h-screen w-full bg-black text-white flex items-center justify-center relative overflow-hidden">
@@ -122,7 +122,7 @@ const Login = () => {
                   <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10"></span></div>
                   <div className="relative flex justify-center text-xs uppercase"><span className="bg-transparent px-4 text-gray-500 font-bold tracking-widest">Switch Account</span></div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="outline"
                     size="sm"
@@ -131,15 +131,6 @@ const Login = () => {
                   >
                     <Crown className="h-6 w-6 text-amber-400" />
                     <span className="text-[10px] uppercase font-black tracking-widest">Owner</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDevLogin('baker', '/baker-station')}
-                    className="flex flex-col items-center gap-2 h-auto py-4 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 text-purple-200 rounded-2xl transition-all"
-                  >
-                    <ChefHat className="h-6 w-6 text-purple-400" />
-                    <span className="text-[10px] uppercase font-black tracking-widest">Baker</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -289,7 +280,7 @@ const Login = () => {
                 <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10"></span></div>
                 <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-transparent px-4 text-gray-600 font-black tracking-[0.3em]">Developer Access</span></div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
                   size="sm"
@@ -298,15 +289,6 @@ const Login = () => {
                 >
                   <Crown className="h-6 w-6 text-amber-400" />
                   <span className="text-[10px] font-black tracking-widest uppercase">Owner</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDevLogin('baker', '/baker-station')}
-                  className="flex flex-col items-center gap-2 h-auto py-4 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 text-purple-200 rounded-2xl transition-all"
-                >
-                  <ChefHat className="h-6 w-6 text-purple-400" />
-                  <span className="text-[10px] font-black tracking-widest uppercase">Baker</span>
                 </Button>
                 <Button
                   variant="outline"

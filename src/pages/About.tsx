@@ -1,11 +1,10 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import ReviewQuote from '@/components/about/ReviewQuote';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Heart, Award, Users, Cake, ArrowRight, Quote } from 'lucide-react';
-import { featuredReviews } from '@/data/reviews';
+import bakeryDisplay from '@/assets/about/bakery-display.png';
 
 const About = () => {
   const { t } = useLanguage();
@@ -84,7 +83,7 @@ const About = () => {
                 <div className="absolute -inset-4 bg-gradient-to-tr from-[#C6A649]/20 to-transparent blur-2xl rounded-[2rem] opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
                 <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl skew-y-1 group-hover:skew-y-0 transition-transform duration-700">
                   <img
-                    src="/src/assets/about/bakery-display.png"
+                    src={bakeryDisplay}
                     alt="Eli's Bakery Legacy"
                     className="w-full h-auto object-cover scale-110 group-hover:scale-100 transition-transform duration-1000"
                   />

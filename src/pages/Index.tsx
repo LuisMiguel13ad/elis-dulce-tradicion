@@ -8,7 +8,6 @@ import CakeSection from '@/components/home/CakeSection';
 
 import { VisitUs } from '@/components/home/VisitUs';
 import TestimonialCarousel from '@/components/testimonials/TestimonialCarousel';
-import NewsletterSignup from '@/components/newsletter/NewsletterSignup';
 
 const Index = () => {
   return (
@@ -20,7 +19,6 @@ const Index = () => {
       <FeaturedProducts />
       <CakeSection />
       <TestimonialCarousel />
-      <NewsletterSignup />
       <VisitUs />
       <Footer />
     </div>

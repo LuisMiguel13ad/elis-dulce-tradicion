@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { seedTestOrders, clearTestOrders, getAllOrders } from '@/test-orders';
+import { seedTestOrders, seedPaidTestOrders, clearTestOrders, getAllOrders } from '@/test-orders';
 import { Beaker, Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -91,11 +91,23 @@ export const DevTools = () => {
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => {
+                  seedPaidTestOrders();
+                  setOrderCount(getAllOrders().length);
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white border-amber-500 text-xs"
+              >
+                <Beaker className="w-3 h-3 mr-1" />
+                Seed 5 Paid
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={handleClear}
-                className="bg-red-600 hover:bg-red-700 text-white border-red-500 text-xs"
+                className="bg-red-600 hover:bg-red-700 text-white border-red-500 text-xs col-span-2"
               >
                 <Trash2 className="w-3 h-3 mr-1" />
-                Clear Test
+                Clear All Test Data
               </Button>
             </div>
 
@@ -107,6 +119,56 @@ export const DevTools = () => {
             >
               <RefreshCw className="w-3 h-3 mr-1" />
               Refresh Feed
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  toast.loading('Sending test email...');
+                  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-order-confirmation`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                      order: {
+                        order_number: 'TEST-EMAIL-001',
+                        customer_name: 'Test Setup',
+                        customer_email: 'delivered@resend.dev', // Default safe test email
+                        date_needed: new Date().toISOString(),
+                        time_needed: '12:00',
+                        cake_size: 'Test Size',
+                        filling: 'Test Filling',
+                        theme: 'Test Theme',
+                        delivery_option: 'pickup',
+                        total_amount: 0
+                      }
+                    })
+                  });
+
+                  if (res.ok) {
+                    toast.dismiss();
+                    toast.success('Test email sent! Check Resend logs.');
+                  } else {
+                    const err = await res.json();
+                    toast.dismiss();
+                    toast.error(`Failed: ${err.error || 'Unknown error'}`);
+                    console.error(err);
+                  }
+                } catch (e) {
+                  toast.dismiss();
+                  toast.error('Network error sending email');
+                  console.error(e);
+                }
+              }}
+              className="w-full bg-slate-700 hover:bg-slate-800 text-white border-slate-600 text-xs mt-2"
+            >
+              <div className="flex items-center justify-center gap-1">
+                <span>📧</span> Test Email Config
+              </div>
             </Button>
 
             <div className="text-[10px] text-purple-400 text-center">

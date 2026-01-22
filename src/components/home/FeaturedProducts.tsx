@@ -2,7 +2,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { memo } from 'react';
-import { Heart, ChevronRight } from 'lucide-react';
 import sprite from '@/assets/products/featured-sprite.png';
 
 const FeaturedProducts = memo(() => {
@@ -75,12 +74,9 @@ const FeaturedProducts = memo(() => {
 
               {/* Product Info */}
               <div className="mt-8 text-center px-4">
-                <h3 className="font-black text-lg text-white uppercase tracking-tight leading-tight mb-3 group-hover:text-[#C6A649] transition-colors">
+                <h3 className="font-black text-lg text-white uppercase tracking-tight leading-tight group-hover:text-[#C6A649] transition-colors">
                   {product.title}
                 </h3>
-                <p className="text-sm font-bold text-[#C6A649] tracking-widest uppercase">
-                  {product.price}
-                </p>
               </div>
             </div>
           ))}

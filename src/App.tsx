@@ -23,7 +23,6 @@ const PaymentCheckout = lazy(() => import("./pages/PaymentCheckout"));
 const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
 const FrontDesk = lazy(() => import("./pages/FrontDesk"));
 const OwnerDashboard = lazy(() => import("./pages/OwnerDashboard"));
-const BakerStation = lazy(() => import("./pages/BakerStation"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Gallery = lazy(() => import("./pages/Gallery"));
@@ -119,16 +118,6 @@ const App = () => {
                         <ProtectedRoute requiredRole="owner">
                           <Suspense fallback={<PageLoader />}>
                             <OwnerDashboard />
-                          </Suspense>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/baker-station"
-                      element={
-                        <ProtectedRoute requiredRole={['baker', 'owner']}>
-                          <Suspense fallback={<PageLoader />}>
-                            <BakerStation />
                           </Suspense>
                         </ProtectedRoute>
                       }
