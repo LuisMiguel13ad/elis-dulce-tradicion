@@ -96,27 +96,25 @@ const PaymentCheckout = () => {
 
     try {
       // Create the actual order in Supabase now that payment is confirmed
+      const orderPayload = {
         ...pendingPayment.orderData,
-  payment_status: 'paid',
-    stripe_payment_id: paymentIntentId,
-      status: 'pending' // New orders start as pending
+        payment_status: 'paid',
+        stripe_payment_id: paymentIntentId,
+        status: 'pending' // New orders start as pending
       };
 
-const result = await api.createOrder(orderPayload);
+      const result = await api.createOrder(orderPayload);
 
-if (result.success) {
-  sessionStorage.removeItem('pendingOrder');
-  // Send email confirmation (handled by DB trigger or we can force call)
-  // But usually Order Confirmation screen is enough
-  navigate(`/order-confirmation?paymentId=${paymentIntentId}&orderNumber=${result.order.order_number}`);
-} else {
-  toast.error('Payment succeeded but order creation failed. Please contact support.');
-}
-
+      if (result.success) {
+        sessionStorage.removeItem('pendingOrder');
+        navigate(`/order-confirmation?paymentId=${paymentIntentId}&orderNumber=${result.order.order_number}`);
+      } else {
+        toast.error('Payment succeeded but order creation failed. Please contact support.');
+      }
     } catch (err) {
-  console.error("Post-payment error", err);
-  toast.error('Critical error creating order record.');
-}
+      console.error("Post-payment error", err);
+      toast.error('Critical error creating order record.');
+    }
   };
 
 

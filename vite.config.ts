@@ -137,7 +137,6 @@ export default defineConfig(({ mode }) => ({
           'motion-vendor': ['framer-motion', 'motion'],
           // Feature chunks
           'dashboard': [
-            './src/pages/BakerStation',
             './src/pages/OwnerDashboard',
             './src/pages/FrontDesk',
           ],
