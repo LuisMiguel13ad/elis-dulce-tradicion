@@ -10,12 +10,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase: SupabaseClient | null = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    })
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
   : null;
 
 export const STORAGE_BUCKET = 'reference-images';
@@ -33,9 +33,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
   // Optimized: Only select needed columns
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id, role, full_name, phone, preferred_language, created_at, updated_at')
-    .eq('id', userId)
+    .from('user_profiles')
+    .select('id, user_id, role, full_name, phone, preferred_language, created_at, updated_at')
+    .eq('user_id', userId)
     .single();
 
   if (error) {
@@ -57,10 +57,10 @@ export async function updateUserProfile(
 
   // Optimized: Only select updated columns
   const { data, error } = await supabase
-    .from('profiles')
+    .from('user_profiles')
     .update(updates)
-    .eq('id', userId)
-    .select('id, role, full_name, phone, preferred_language, updated_at')
+    .eq('user_id', userId)
+    .select('id, user_id, role, full_name, phone, preferred_language, created_at, updated_at')
     .single();
 
   if (error) {

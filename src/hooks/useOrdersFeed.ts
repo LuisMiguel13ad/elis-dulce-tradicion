@@ -116,22 +116,10 @@ export const useOrdersFeed = (role?: UserRole) => {
   });
 
   // Mock Data Event Listener
-  useEffect(() => {
-    const handleMockUpdate = () => {
-      loadOrders();
-      // Play sound for mock updates if it seems like a new order (simple heuristic: order count increased)
-      // Ideally we compare lists, but for now just reload.
-    };
 
-    window.addEventListener('mock-order-update', handleMockUpdate);
-    // Also listen to storage events for cross-tab updates
-    window.addEventListener('storage', handleMockUpdate);
+  // Real-time updates handled by useRealtimeOrders
+  // No mock listeners needed as we are fully synced with Supabase
 
-    return () => {
-      window.removeEventListener('mock-order-update', handleMockUpdate);
-      window.removeEventListener('storage', handleMockUpdate);
-    };
-  }, [loadOrders]);
 
   // Dismiss Alert
   const dismissAlert = () => setNewOrderAlert(false);

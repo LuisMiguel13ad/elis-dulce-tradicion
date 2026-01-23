@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,16 +11,10 @@ import { Order } from '@/types/order';
 import { KitchenRedesignedLayout } from '@/components/kitchen/KitchenRedesignedLayout';
 import { KitchenNavTabs, KitchenTab } from '@/components/kitchen/KitchenNavTabs';
 import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
-import { OrderCalendarView } from '@/components/dashboard/OrderCalendarView';
 import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
-import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
-import { PrintPreviewModal } from '@/components/print/PrintPreviewModal'; // New Import
+import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
-import { Bell, Package, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Package } from 'lucide-react';
 
 const FrontDesk = () => {
   const { t } = useLanguage();
@@ -42,23 +36,7 @@ const FrontDesk = () => {
   const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'calendar'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isTestOpen, setIsTestOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
-
-  // Dummy Order for Testing
-  const testOrder: Order = {
-    id: 9999,
-    order_number: 'ORD-TEST-001',
-    customer_name: 'Maria Garcia',
-    status: 'pending',
-    cake_size: '8" Round',
-    filling: 'Tres Leches',
-    time_needed: '14:00',
-    date_needed: '2026-01-12',
-    delivery_option: 'pickup',
-    created_at: new Date().toISOString(),
-    reference_image_path: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'
-  };
 
   // Auth Guard - Skip in dev mode for testing
   const isDev = import.meta.env.DEV;
@@ -176,36 +154,16 @@ const FrontDesk = () => {
 
     return (
       <div className="flex flex-col h-full">
-        {/* Helper Buttons for Testing */}
-        <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-2">
-          <Button
-            variant="destructive"
-            onClick={() => setIsTestOpen(true)}
-            className="shadow-xl border-2 border-white bg-red-600 hover:bg-red-700"
-          >
-            🚨 Test Full Alert
-          </Button>
-          <Button
-            variant="default"
-            onClick={() => toast.success('🔔 New Order Notification', { description: '#ORD-TEST-002 - Simple notification test' })}
-            className="shadow-xl border-2 border-white bg-blue-600 hover:bg-blue-700"
-          >
-            💬 Test Toast
-          </Button>
-        </div>
-
         {/* FullScreen Alert */}
         <FullScreenOrderAlert
-          isOpen={newOrderAlert || isTestOpen}
-          order={isTestOpen ? testOrder : latestOrder}
+          isOpen={newOrderAlert}
+          order={latestOrder}
           onClose={() => {
             dismissAlert();
-            setIsTestOpen(false);
           }}
           onViewOrder={(order) => {
             setSelectedOrder(order);
             dismissAlert();
-            setIsTestOpen(false);
           }}
         />
 

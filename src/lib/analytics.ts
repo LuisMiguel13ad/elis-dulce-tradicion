@@ -16,14 +16,16 @@ export interface RevenueDataPoint {
   date: string;
   revenue: number;
   orderCount: number;
-  avgOrderValue: number;
+  avgOrderValue?: number;
+
 }
 
 export interface PopularItem {
   itemType: 'size' | 'filling' | 'theme';
   itemName: string;
   orderCount: number;
-  totalRevenue: number;
+  totalRevenue?: number; // Optional for compatibility, made required by dashboard use
+
 }
 
 export interface OrderStatusBreakdown {
@@ -66,65 +68,50 @@ export async function getDashboardMetrics(
 /**
  * Get revenue data by period
  */
+
 export async function getRevenueByPeriod(
   startDate: string,
   endDate: string,
   groupBy: 'day' | 'week' | 'month' = 'day'
 ): Promise<RevenueDataPoint[]> {
-  return api.getRevenueByPeriod(startDate, endDate, groupBy);
+  // api.getRevenueByPeriod only takes 2 args now
+  return api.getRevenueByPeriod(startDate, endDate);
 }
 
-/**
- * Get popular items (sizes, fillings, themes)
- */
 export async function getPopularItems(
   period: 'week' | 'month' | 'year' = 'month'
 ): Promise<PopularItem[]> {
-  return api.getPopularItems(period);
+  return api.getPopularItems();
 }
 
-/**
- * Get order status breakdown
- */
 export async function getOrdersByStatus(): Promise<OrderStatusBreakdown[]> {
   return api.getOrdersByStatus();
 }
 
-/**
- * Get average order value
- */
 export async function getAverageOrderValue(
   period: 'today' | 'week' | 'month' = 'month'
 ): Promise<number> {
-  return api.getAverageOrderValue(period);
+  return api.getAverageOrderValue();
 }
 
-/**
- * Get customer retention metrics
- */
 export async function getCustomerRetention(
   period: 'week' | 'month' | 'year' = 'month'
 ): Promise<CustomerRetention[]> {
-  return api.getCustomerRetention(period);
+  return api.getCustomerRetention();
 }
 
-/**
- * Get peak ordering times
- */
 export async function getPeakOrderingTimes(
   days: number = 30
 ): Promise<PeakOrderingTime[]> {
-  return api.getPeakOrderingTimes(days);
+  return api.getPeakOrderingTimes();
 }
 
-/**
- * Get capacity utilization
- */
 export async function getCapacityUtilization(
   days: number = 30
 ): Promise<CapacityUtilization[]> {
-  return api.getCapacityUtilization(days);
+  return api.getCapacityUtilization();
 }
+
 
 /**
  * Get today's deliveries
@@ -143,23 +130,19 @@ export async function getLowStockItems(): Promise<any[]> {
 /**
  * Generate daily sales report
  */
+
 export async function generateDailySalesReport(date: string): Promise<Blob> {
-  return api.generateDailySalesReport(date);
+  return api.generateDailySalesReport();
 }
 
-/**
- * Generate inventory usage report
- */
 export async function generateInventoryReport(): Promise<Blob> {
   return api.generateInventoryReport();
 }
 
-/**
- * Generate customer activity report
- */
 export async function generateCustomerActivityReport(
   startDate: string,
   endDate: string
 ): Promise<Blob> {
-  return api.generateCustomerActivityReport(startDate, endDate);
+  return api.generateCustomerActivityReport();
 }
+

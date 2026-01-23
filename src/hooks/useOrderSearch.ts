@@ -98,29 +98,35 @@ export function useOrderSearch(options: UseOrderSearchOptions = {}) {
     [page, setSearchParams]
   );
 
-  // FETCH ALL ORDERS (Client-side filtering fallback)
-  const {
-    data: allOrders,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['orders', 'all'], // General key since we filter client side
-    queryFn: async () => {
-      try {
-        // Use getAllOrders which is known to work
-        const res = await api.getAllOrders();
-        // If it returns an object with data property, use that, otherwise assume array
-        const list = Array.isArray(res) ? res : ((res as any).data || []);
-        return list;
-      } catch (err) {
-        console.error("Failed to fetch orders, defaulting to empty:", err);
-        return []; // Return empty array on error to prevent UI crash
-      }
-    },
-    staleTime: 30000,
-    initialData: [],
-  });
+  // FETCH ALL ORDERS (Direct Fetch pattern to match useOrdersFeed)
+  // We bypass React Query here to avoid any caching issues causing "empty" states
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<any>(null);
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await api.getAllOrders();
+      const list = Array.isArray(res) ? res : ((res as any).data || []);
+      setAllOrders(list);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch orders:", err);
+      setError(err);
+      setAllOrders([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial Fetch
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const refetch = fetchOrders;
+
 
   // FILTERING LOGIC
   const filteredOrders = useMemo(() => {

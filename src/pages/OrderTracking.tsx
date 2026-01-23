@@ -36,14 +36,11 @@ const OrderTracking = () => {
     }
 
     setLoading(true);
+
     try {
-      // Try to fetch order by order number
-      // Note: This assumes your API has an endpoint to get order by order_number
-      // You may need to adjust this based on your actual API
-      const orders = (await api.getAllOrders()) as any[];
-      const foundOrder = orders.find((o: any) => 
-        o.order_number?.toLowerCase() === orderNumber.trim().toLowerCase()
-      );
+      // Security Fix: Fetch ONLY the specific order by number
+      // Do NOT fetch all orders to filter client-side
+      const foundOrder = await api.getOrderByNumber(orderNumber.trim());
 
       if (foundOrder) {
         setOrder(foundOrder);
@@ -59,16 +56,27 @@ const OrderTracking = () => {
       }
     } catch (error) {
       console.error('Error fetching order:', error);
-      toast.error(
-        t(
-          'Error al buscar la orden. Por favor intente nuevamente.',
-          'Error searching for order. Please try again.'
-        )
-      );
+      // Handle 404 specifically
+      if ((error as any)?.response?.status === 404) {
+        toast.error(
+          t(
+            'No se encontró una orden con ese número',
+            'No order found with that number'
+          )
+        );
+      } else {
+        toast.error(
+          t(
+            'Error al buscar la orden. Por favor intente nuevamente.',
+            'Error searching for order. Please try again.'
+          )
+        );
+      }
       setOrder(null);
     } finally {
       setLoading(false);
     }
+
   };
 
   // Real-time subscription for the current order
@@ -120,7 +128,7 @@ const OrderTracking = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="pt-32 pb-24">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl">
@@ -240,12 +248,12 @@ const OrderTracking = () => {
                         <span className="text-sm text-muted-foreground">
                           {t('Estado', 'Status')}:
                         </span>
-                        <Badge 
+                        <Badge
                           variant={
                             order.delivery_status === 'delivered' ? 'default' :
-                            order.delivery_status === 'in_transit' ? 'default' :
-                            order.delivery_status === 'assigned' ? 'secondary' :
-                            'outline'
+                              order.delivery_status === 'in_transit' ? 'default' :
+                                order.delivery_status === 'assigned' ? 'secondary' :
+                                  'outline'
                           }
                         >
                           {order.delivery_status === 'pending' && t('Pendiente', 'Pending')}
@@ -351,34 +359,34 @@ const OrderTracking = () => {
                 )}
 
                 {/* Cancel Order Button */}
-                {order.status !== 'cancelled' && 
-                 order.status !== 'completed' && 
-                 (user?.id === order.user_id || user?.profile?.role === 'owner' || user?.profile?.role === 'baker') && (
-                  <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold mb-1">
-                            {t('¿Necesita cancelar esta orden?', 'Need to cancel this order?')}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {t(
-                              'Se aplicará la política de reembolso correspondiente',
-                              'The applicable refund policy will be applied'
-                            )}
-                          </p>
+                {order.status !== 'cancelled' &&
+                  order.status !== 'completed' &&
+                  (user?.id === order.user_id || user?.profile?.role === 'owner' || user?.profile?.role === 'baker') && (
+                    <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold mb-1">
+                              {t('¿Necesita cancelar esta orden?', 'Need to cancel this order?')}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {t(
+                                'Se aplicará la política de reembolso correspondiente',
+                                'The applicable refund policy will be applied'
+                              )}
+                            </p>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            onClick={() => setShowCancelModal(true)}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            {t('Cancelar Orden', 'Cancel Order')}
+                          </Button>
                         </div>
-                        <Button
-                          variant="destructive"
-                          onClick={() => setShowCancelModal(true)}
-                        >
-                          <XCircle className="mr-2 h-4 w-4" />
-                          {t('Cancelar Orden', 'Cancel Order')}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      </CardContent>
+                    </Card>
+                  )}
 
                 {/* Cancellation Info */}
                 {order.status === 'cancelled' && (
@@ -411,8 +419,8 @@ const OrderTracking = () => {
                           {order.refund_status && (
                             <Badge className="ml-2" variant={
                               order.refund_status === 'processed' ? 'default' :
-                              order.refund_status === 'pending' ? 'secondary' :
-                              'destructive'
+                                order.refund_status === 'pending' ? 'secondary' :
+                                  'destructive'
                             }>
                               {order.refund_status === 'processed' && t('Procesado', 'Processed')}
                               {order.refund_status === 'pending' && t('Pendiente', 'Pending')}

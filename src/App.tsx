@@ -41,7 +41,6 @@ const CookiePolicy = lazy(() => import("./pages/Legal/CookiePolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 import { useWebsiteTracker } from "@/hooks/useWebsiteTracker";
-import DevTools from "@/components/dev/DevTools";
 
 // Tracker component to use inside Router
 const Tracker = () => {
@@ -76,7 +75,6 @@ const App = () => {
               <BrowserRouter>
                 <Tracker />
                 <ScrollToTop />
-                <DevTools />
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     {/* Public Routes */}

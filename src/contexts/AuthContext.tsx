@@ -3,11 +3,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase, getUserProfile } from '@/lib/supabase';
-import { AuthUser, UserRole } from '@/types/auth';
+import { AuthUser, UserRole, UserProfile } from '@/types/auth';
 import type { Session, User } from '@supabase/supabase-js';
 
 // DEV MODE: Set to true to enable dummy logins (disable in production)
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // Dummy users for development (Owner and Baker only)
 const DUMMY_USERS: Record<string, AuthUser> = {
@@ -19,8 +19,8 @@ const DUMMY_USERS: Record<string, AuthUser> = {
       role: 'owner',
       full_name: 'Eli (Owner)',
       phone: '555-0001',
-      email_notifications_enabled: true,
-      sms_notifications_enabled: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
   baker: {
@@ -31,8 +31,8 @@ const DUMMY_USERS: Record<string, AuthUser> = {
       role: 'baker',
       full_name: 'Baker Demo',
       phone: '555-0002',
-      email_notifications_enabled: true,
-      sms_notifications_enabled: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
 };
@@ -40,7 +40,7 @@ const DUMMY_USERS: Record<string, AuthUser> = {
 interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: UserRole }>;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
@@ -68,18 +68,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Load user session on mount
+  // Load user session on mount
   useEffect(() => {
+    // Safety timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+    }, 4000);
+
     // Check for dev mode login first
     if (DEV_MODE) {
       const savedRole = localStorage.getItem('dev_user_role') as 'owner' | 'baker' | null;
       if (savedRole && DUMMY_USERS[savedRole]) {
         setUser(DUMMY_USERS[savedRole]);
+        clearTimeout(timeoutId);
         setIsLoading(false);
         return;
       }
     }
 
     if (!supabase) {
+      clearTimeout(timeoutId);
       setIsLoading(false);
       return;
     }
@@ -88,8 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        loadUserProfile(session.user);
+        loadUserProfile(session.user).then(() => clearTimeout(timeoutId));
       } else {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     });
@@ -101,39 +110,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       if (session?.user) {
         await loadUserProfile(session.user);
+        clearTimeout(timeoutId);
       } else {
         setUser(null);
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     });
 
     return () => {
       subscription.unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, []);
 
-  const loadUserProfile = async (authUser: User) => {
+  const loadUserProfile = async (authUser: User): Promise<UserProfile | null> => {
     if (!supabase) {
       setIsLoading(false);
-      return;
+      return null;
     }
 
     try {
-      const profile = await getUserProfile(authUser.id);
+      // Create a timeout promise
+      const timeoutPromise = new Promise<{ timeout: true }>((resolve) => {
+        setTimeout(() => resolve({ timeout: true }), 3000);
+      });
 
-      if (profile) {
-        setUser({
-          id: authUser.id,
-          email: authUser.email || '',
-          profile,
-        });
-      } else {
-        // Profile might not exist yet, create a minimal user object
+      // Race against the timeout
+      const profilePromise = getUserProfile(authUser.id);
+      const result = await Promise.race([profilePromise, timeoutPromise]);
+
+      if ((result as any).timeout) {
+        console.warn('Profile fetch timed out, using fallback');
         setUser({
           id: authUser.id,
           email: authUser.email || '',
           profile: null,
         });
+        return null;
+      } else {
+        const profile = result as UserProfile | null;
+        if (profile) {
+          setUser({
+            id: authUser.id,
+            email: authUser.email || '',
+            profile,
+          });
+          return profile;
+        } else {
+          setUser({
+            id: authUser.id,
+            email: authUser.email || '',
+            profile: null,
+          });
+          return null;
+        }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -142,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: authUser.email || '',
         profile: null,
       });
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -163,9 +195,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
-        await loadUserProfile(data.user);
+        // Load profile and capture the result
+        // We need to return the role here so Login.tsx can redirect immediately
+        // without waiting for the context state update
+        const profile = await loadUserProfile(data.user);
+
+        // Use the returned profile to get the role directly
+        const role = profile?.role;
+
         toast.success('Signed in successfully');
-        return { success: true };
+        return { success: true, role };
       }
 
       return { success: false, error: 'Sign in failed' };

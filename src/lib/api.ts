@@ -105,22 +105,14 @@ class ApiClient {
       }
     }
 
-    // Merge with local storage mock orders (for DevTools support)
-    const localOrders = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
-      : [];
 
-    // Sort combined list
-    const allOrders = [...localOrders, ...dbOrders]
-      // Ensure we treat null/undefined payment_status carefully, default to showing if we want to be safe,
-      // BUT for this specific requirement: filtering FOR 'paid'.
-      // If we remove the server-side filter, we MUST filter here OR let the UI handle it.
-      // Given the "No orders found" issue, let's relax this temporarily or verify case sensitivity.
-      // Let's filter for "paid" (case insensitive) just to be safe.
-      .filter((o: any) => o.payment_status?.toLowerCase() === 'paid')
+    // Return DB orders only - Single Source of Truth
+    // Removed strict 'paid' filter so Owner/Admin can see pending payment orders too
+    const allOrders = dbOrders
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return allOrders;
+
   }
 
   async getOrder(id: string | number) {
@@ -145,17 +137,15 @@ class ApiClient {
     const sb = this.ensureSupabase();
     if (!sb) throw new Error('Database connection not available.');
 
-    const { data, error } = await sb
-      .from('orders')
-      .select('*')
-      .eq('order_number', orderNumber)
-      .maybeSingle();
+    // Use Secure RPC for public order lookup
+    const { data, error } = await sb.rpc('get_public_order', { p_order_number: orderNumber });
 
     if (error) {
       console.error(`Error fetching order by number ${orderNumber}:`, error);
       throw error;
     }
 
+    // RPC returns the object directly or null
     return data;
   }
 
@@ -172,17 +162,15 @@ class ApiClient {
       // If user is logged in, supabase rls might handle user_id, but sending it explicit is safe if RLS allows
     };
 
-    const { data, error } = await sb
-      .from('orders')
-      .insert([orderPayload])
-      .select()
-      .single();
+    // Use Secure RPC for public order creation
+    const { data, error } = await sb.rpc('create_new_order', { payload: orderPayload });
 
     if (error) {
       console.error('Error creating order:', error);
       throw error;
     }
 
+    // RPC returns the created order object
     return { success: true, order: data };
   }
 
@@ -314,45 +302,26 @@ class ApiClient {
       };
     }
 
-    // --- Local Mock Data ---
-    const localOrders = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
-      : [];
 
-    // Filter local orders matching the criteria
-    const relevantLocalOrders = localOrders.filter((o: any) => {
-      const orderDate = new Date(o.created_at); // Comparison date
-      const filterDate = new Date(startStr); // Start date
-      // Simple comparison: is order created after start date?
-      // For 'today', check YYYY-MM-DD equality or close enough
-      if (dateRange === 'today') {
-        return o.created_at && o.created_at.startsWith(startStr);
-      }
-      return orderDate >= filterDate;
-    });
-
-    const localRevenue = relevantLocalOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0);
-    const localPending = localOrders.filter((o: any) => o.status === 'pending').length;
-
-    // --- Merge Results ---
+    // --- Return DB Metrics Only ---
     return {
-      todayOrders: dbMetrics.todayOrders + relevantLocalOrders.length,
-      todayRevenue: dbMetrics.todayRevenue + localRevenue,
-      pendingOrders: dbMetrics.pendingOrders + localPending,
+      todayOrders: dbMetrics.todayOrders,
+      todayRevenue: dbMetrics.todayRevenue,
+      pendingOrders: dbMetrics.pendingOrders,
       capacityUtilization: 0.5, // TODO: Implement real capacity logic
-      averageOrderValue: (dbMetrics.todayRevenue + localRevenue) / ((dbMetrics.todayOrders + relevantLocalOrders.length) || 1),
+      averageOrderValue: (dbMetrics.todayRevenue) / (dbMetrics.todayOrders || 1),
       totalCustomers: 0, // Placeholder
       lowStockItems: 0,
       todayDeliveries: 0
     };
+
   }
 
   // Fallback / Stubbed Methods to keep TypeScript happy until fully implemented
 
+
   async getRevenueByPeriod(startDate: string, endDate: string) {
     const sb = this.ensureSupabase();
-
-    // 1. Fetch DB Data
     let dbOrders: any[] = [];
     if (sb) {
       const { data } = await sb.from('orders')
@@ -362,21 +331,8 @@ class ApiClient {
       dbOrders = data || [];
     }
 
-    // 2. Fetch Local Data
-    const localOrders = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
-      : [];
-
-    const relevantLocal = localOrders.filter((o: any) => {
-      const d = o.created_at?.split('T')[0];
-      return d >= startDate && d <= endDate;
-    });
-
-    // 3. Merge
-    const allOrders = [...dbOrders, ...relevantLocal];
-
     // Group by date
-    const grouped = allOrders.reduce((acc: any, order) => {
+    const grouped = dbOrders.reduce((acc: any, order) => {
       const date = order.created_at.split('T')[0];
       if (!acc[date]) {
         acc[date] = { revenue: 0, count: 0 };
@@ -405,19 +361,13 @@ class ApiClient {
       dbOrders = data || [];
     }
 
-    // 2. Fetch from Local
-    const localOrders = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
-      : [];
-
-    const allOrders = [...dbOrders, ...localOrders];
-    const totalCount = allOrders.length;
+    const totalCount = dbOrders.length;
     if (totalCount === 0) return [];
 
     // 3. Aggregate
     const stats: Record<string, { count: number, revenue: number }> = {};
 
-    allOrders.forEach((o: any) => {
+    dbOrders.forEach((o: any) => {
       const s = o.status || 'unknown';
       if (!stats[s]) stats[s] = { count: 0, revenue: 0 };
       stats[s].count++;
@@ -451,17 +401,9 @@ class ApiClient {
       dbDeliveries = data || [];
     }
 
-    // 2. Local
-    const localOrders = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('mock_orders') || '[]')
-      : [];
-
-    const localDeliveries = localOrders.filter((o: any) =>
-      o.delivery_option === 'delivery' && o.date_needed === today
-    );
-
-    return [...dbDeliveries, ...localDeliveries];
+    return dbDeliveries;
   }
+
 
   async getLowStockItems() { return []; }
   async generateDailySalesReport() { return new Blob([''], { type: 'text/csv' }); }

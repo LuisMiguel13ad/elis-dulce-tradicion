@@ -36,13 +36,25 @@ const Login = () => {
       const result = await signIn(formData.email, formData.password);
 
       if (result.success) {
-        const role = user?.profile?.role;
+        // Use the returned role for immediate navigation
+        // Fallback to user state if needed (though user state might be stale)
+        const role = result.role || user?.profile?.role;
+
         if (role === 'owner') {
           navigate('/owner-dashboard');
         } else if (role === 'baker') {
           navigate('/front-desk');
         } else {
-          navigate('/');
+          // If no role is found yet, maybe wait or go to home.
+          // For now, let's assume if success=true, we should have a role.
+          // If we don't, it might be a race condition.
+          // BUT, we know we just fetched it in signIn.
+          if (role) {
+            navigate('/');
+          } else {
+            // Emergency fallback if role fetch failed but auth succeeded
+            navigate('/');
+          }
         }
       } else {
         setError(result.error || t('Error al iniciar sesión', 'Error signing in'));
@@ -116,37 +128,10 @@ const Login = () => {
               {t('Cerrar Sesión', 'Logout')}
             </Button>
 
-            {isDevMode && (
-              <>
-                <div className="relative py-4">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10"></span></div>
-                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-transparent px-4 text-gray-500 font-bold tracking-widest">Switch Account</span></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDevLogin('owner')}
-                    className="flex flex-col items-center gap-2 h-auto py-4 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/40 text-amber-200 rounded-2xl transition-all"
-                  >
-                    <Crown className="h-6 w-6 text-amber-400" />
-                    <span className="text-[10px] uppercase font-black tracking-widest">Owner</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDevLogin('baker', '/front-desk')}
-                    className="flex flex-col items-center gap-2 h-auto py-4 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500/40 text-blue-200 rounded-2xl transition-all"
-                  >
-                    <Store className="h-6 w-6 text-blue-400" />
-                    <span className="text-[10px] uppercase font-black tracking-widest">Front</span>
-                  </Button>
-                </div>
-              </>
-            )}
+
           </CardContent>
         </Card>
-      </div>
+      </div >
     );
   }
 
@@ -274,34 +259,7 @@ const Login = () => {
             </div>
           </form>
 
-          {isDevMode && (
-            <>
-              <div className="relative py-4">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10"></span></div>
-                <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-transparent px-4 text-gray-600 font-black tracking-[0.3em]">Developer Access</span></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDevLogin('owner')}
-                  className="flex flex-col items-center gap-2 h-auto py-4 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/40 text-amber-200 rounded-2xl transition-all"
-                >
-                  <Crown className="h-6 w-6 text-amber-400" />
-                  <span className="text-[10px] font-black tracking-widest uppercase">Owner</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDevLogin('baker', '/front-desk')}
-                  className="flex flex-col items-center gap-2 h-auto py-4 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500/40 text-blue-200 rounded-2xl transition-all"
-                >
-                  <Store className="h-6 w-6 text-blue-400" />
-                  <span className="text-[10px] font-black tracking-widest uppercase">Front</span>
-                </Button>
-              </div>
-            </>
-          )}
+
         </CardContent>
       </Card>
 
