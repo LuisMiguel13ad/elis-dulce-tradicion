@@ -15,6 +15,7 @@
 #### 1. Social Media Profiles (VERIFIED)
 - [x] Facebook: https://www.facebook.com/elispasteleria
 - [x] Instagram: https://www.instagram.com/elisbakery_cafe/
+- [x] Live Site: https://elisbakery.com
 
 #### 2. Environment Configuration
 
@@ -126,10 +127,10 @@ vercel --prod
 # - VITE_GOOGLE_MAPS_API_KEY
 ```
 
-3. **Configure Custom Domain**
+3. **Configure Custom Domain (COMPLETED)**
+- Primary Domain: **elisbakery.com**
 - Go to Vercel Dashboard → Settings → Domains
-- Add your custom domain (e.g., elisbakery.com)
-- Update DNS records as instructed
+- Ensure `elisbakery.com` is verified
 
 ### Backend on Railway
 
