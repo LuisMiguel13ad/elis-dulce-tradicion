@@ -7,14 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, ChefHat, Crown, UtensilsCrossed, Store } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Loader2, Mail, Lock, AlertCircle, Store } from 'lucide-react';
 // Fixed import pointing to the correct logo location
 import TransparentLogo from '../assets/brand/logo.png';
 
 const Login = () => {
   const { t } = useLanguage();
-  const { signIn, signOut, user, isLoading, isAuthenticated, devLogin, isDevMode } = useAuth();
+  const { signIn, signOut, user, isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -66,18 +65,7 @@ const Login = () => {
     }
   };
 
-  const handleDevLogin = (role: 'owner' | 'baker', destination?: string) => {
-    devLogin(role);
-    setTimeout(() => {
-      if (destination) {
-        navigate(destination);
-      } else if (role === 'owner') {
-        navigate('/owner-dashboard');
-      } else {
-        navigate('/baker-station');
-      }
-    }, 100);
-  };
+
 
   if (isLoading) {
     return (
