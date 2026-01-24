@@ -6,37 +6,6 @@ import { supabase, getUserProfile } from '@/lib/supabase';
 import { AuthUser, UserRole, UserProfile } from '@/types/auth';
 import type { Session, User } from '@supabase/supabase-js';
 
-// DEV MODE: Set to true to enable dummy logins (disable in production)
-const DEV_MODE = false;
-
-// Dummy users for development (Owner and Baker only)
-const DUMMY_USERS: Record<string, AuthUser> = {
-  owner: {
-    id: 'dev-owner-001',
-    email: 'owner@elisdulce.com',
-    profile: {
-      id: 'dev-owner-001',
-      role: 'owner',
-      full_name: 'Eli (Owner)',
-      phone: '555-0001',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-  baker: {
-    id: 'dev-baker-001',
-    email: 'baker@elisdulce.com',
-    profile: {
-      id: 'dev-baker-001',
-      role: 'baker',
-      full_name: 'Baker Demo',
-      phone: '555-0002',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-};
-
 interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
@@ -46,9 +15,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   hasRole: (role: UserRole | UserRole[]) => boolean;
-  // Dev mode helpers
-  devLogin: (role: 'owner' | 'baker') => void;
-  isDevMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,15 +23,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Dev mode login - stores in localStorage for persistence
-  const devLogin = (role: 'owner' | 'baker') => {
-    if (!DEV_MODE) return;
-    const dummyUser = DUMMY_USERS[role];
-    setUser(dummyUser);
-    localStorage.setItem('dev_user_role', role);
-    // toast.success(`Dev login as ${role}`); // Removed to avoid confusion with Front Desk (which uses baker role)
-  };
 
   // Load user session on mount
   // Load user session on mount
@@ -76,15 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 4000);
 
     // Check for dev mode login first
-    if (DEV_MODE) {
-      const savedRole = localStorage.getItem('dev_user_role') as 'owner' | 'baker' | null;
-      if (savedRole && DUMMY_USERS[savedRole]) {
-        setUser(DUMMY_USERS[savedRole]);
-        clearTimeout(timeoutId);
-        setIsLoading(false);
-        return;
-      }
-    }
+    // (Removed dev mode logic)
 
     if (!supabase) {
       clearTimeout(timeoutId);
@@ -263,10 +212,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    // Clear dev mode login
-    if (DEV_MODE) {
-      localStorage.removeItem('dev_user_role');
-    }
+    // Clear dev mode login (removed)
+    localStorage.removeItem('dev_user_role');
 
     if (supabase) {
       try {
@@ -298,8 +245,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         hasRole,
-        devLogin,
-        isDevMode: DEV_MODE,
       }}
     >
       {children}
