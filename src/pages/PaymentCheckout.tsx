@@ -13,7 +13,8 @@ import {
   Loader2,
   AlertCircle,
   Truck,
-  Home
+  Home,
+  Image as ImageIcon
 } from 'lucide-react';
 
 // Stripe Imports
@@ -234,6 +235,23 @@ return (
                         </span>
                       </div>
                     </div>
+
+                    {/* Reference Image */}
+                    {orderData.reference_image_path && (
+                      <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                        <p className="text-gray-500 font-black uppercase tracking-widest text-xs mb-3 flex items-center gap-2">
+                          <ImageIcon size={12} />
+                          {t('Imagen de Referencia', 'Reference Image')}
+                        </p>
+                        <div className="relative rounded-xl overflow-hidden aspect-video bg-black/30">
+                          <img
+                            src={orderData.reference_image_path}
+                            alt="Reference"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-3 pt-6 border-t border-white/5">

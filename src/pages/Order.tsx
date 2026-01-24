@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star } from 'lucide-react';
+import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star, Mail } from 'lucide-react';
 import logoImage from '@/assets/brand/logo.png';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -60,9 +60,8 @@ const PREMIUM_FILLING_OPTIONS = [
 ];
 
 const TIME_OPTIONS = [
-  '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00',
-  '18:00', '19:00', '20:00'
+  '10:00', '11:00', '12:00', '13:00', '14:00',
+  '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ];
 
 const formatTimeDisplay = (time: string) => {
@@ -343,7 +342,8 @@ const Order = () => {
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error(t('Error al subir imagen', 'Error uploading image'));
+      const errorMsg = error instanceof Error ? error.message : 'Error uploading image';
+      toast.error(errorMsg);
       setImagePreviewUrl(null);
     } finally {
       setIsUploadingImage(false);
@@ -397,6 +397,10 @@ const Order = () => {
         setValidationError(t('Teléfono incompleto', 'Phone incomplete'));
         return false;
       }
+      if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setValidationError(t('Correo electrónico inválido', 'Invalid email address'));
+        return false;
+      }
       if (!consentGiven) {
         setValidationError(t('Marca la casilla de confirmación', 'Check the confirmation box'));
         return false;
@@ -447,7 +451,7 @@ const Order = () => {
 
       const orderData = {
         customer_name: formData.customerName,
-        customer_email: formData.email || undefined,
+        customer_email: formData.email,
         customer_phone: `+1${cleanPhone}`,
         customer_language: language,
         date_needed: formData.dateNeeded,
@@ -879,6 +883,14 @@ const Order = () => {
                   onChange={handlePhoneChange}
                   maxLength={14}
                   placeholder="(555) 555-5555"
+                />
+                <FloatingInput
+                  label={t('Correo Electrónico', 'Email')}
+                  type="email"
+                  icon={Mail}
+                  value={formData.email}
+                  onChange={(e: any) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="ejemplo@email.com"
                 />
 
                 <div className="bg-white/5 p-3 rounded-[2rem] border border-white/10 flex gap-3 shadow-2xl">

@@ -54,9 +54,16 @@ export async function uploadReferenceImage(
 
     if (error) {
       console.error('Supabase upload error:', error);
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Failed to upload image';
+      if (error.message?.includes('Bucket not found') || error.message?.includes('not found')) {
+        errorMessage = `Storage bucket "${STORAGE_BUCKET}" not found. Please create it in Supabase Dashboard > Storage.`;
+      } else if (error.message?.includes('not allowed') || error.message?.includes('policy')) {
+        errorMessage = 'Storage permissions not configured. Please enable public access for the bucket.';
+      }
       return {
         success: false,
-        error: error.message || 'Failed to upload image',
+        error: errorMessage,
       };
     }
 

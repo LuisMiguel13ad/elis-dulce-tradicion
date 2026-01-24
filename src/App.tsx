@@ -11,7 +11,6 @@ import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { queryClient } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
-import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { initServiceWorker } from "@/lib/pwa";
@@ -70,7 +69,6 @@ const App = () => {
               <Toaster />
               <Sonner />
               <OfflineIndicator />
-              <InstallPrompt />
               <AnnouncementBanner />
               <BrowserRouter>
                 <Tracker />

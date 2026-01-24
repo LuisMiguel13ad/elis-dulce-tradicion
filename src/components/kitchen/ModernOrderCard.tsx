@@ -133,7 +133,7 @@ export function ModernOrderCard({
                                     ? order.reference_image_path
                                     : order.reference_image_path.startsWith('/')
                                         ? order.reference_image_path
-                                        : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/orders/${order.reference_image_path}`
+                                        : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/reference-images/${order.reference_image_path}`
                                 }
                                 alt="Ref"
                                 className="h-full w-full object-cover"

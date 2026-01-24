@@ -74,7 +74,7 @@ export function PrintPreviewModal({ order, isOpen, onClose }: PrintPreviewModalP
                         <div className="aspect-[3/4] w-full rounded-xl overflow-hidden bg-slate-900 border border-slate-800 relative group">
                             {order.reference_image_path ? (
                                 <img
-                                    src={order.reference_image_path.startsWith('http') ? order.reference_image_path : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/orders/${order.reference_image_path}`}
+                                    src={order.reference_image_path.startsWith('http') ? order.reference_image_path : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/reference-images/${order.reference_image_path}`}
                                     alt="Cake Design"
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                 />
