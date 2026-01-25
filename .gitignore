@@ -58,3 +58,5 @@ bun.lockb
 # Uploaded files (user data)
 backend/uploads/*
 !backend/uploads/.gitkeep
+.vercel
+.env*.local
