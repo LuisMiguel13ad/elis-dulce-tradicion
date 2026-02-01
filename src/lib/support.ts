@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase';
+import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
 
 // Contact Submission Interfaces
 export interface ContactSubmission {
@@ -121,6 +122,30 @@ export async function submitContactForm(data: {
     if (error) {
       console.error('Error submitting contact form:', error);
       throw error;
+    }
+
+    // After successful insert, invoke edge function for email notifications
+    // Email failures should NOT block form submission - database is source of truth
+    try {
+      const { error: emailError } = await supabase.functions.invoke(
+        'send-contact-notification',
+        {
+          body: { submission }
+        }
+      );
+
+      if (emailError) {
+        // Log but don't throw - form submission already succeeded
+        console.error('Email notification failed:', emailError);
+      }
+    } catch (emailInvokeError) {
+      // Network/relay failures - log but don't block
+      if (emailInvokeError instanceof FunctionsRelayError ||
+          emailInvokeError instanceof FunctionsFetchError) {
+        console.error('Email function network error (will retry on next submission):', emailInvokeError);
+      } else {
+        console.error('Email notification error:', emailInvokeError);
+      }
     }
 
     return submission;
