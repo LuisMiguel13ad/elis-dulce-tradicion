@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     
     <p style="font-size: 14px; color: #666;">
       <strong>Contact Us:</strong><br>
-      📞 Phone: (610) 910-9067<br>
+      📞 Phone: (610) 279-6200<br>
       📧 Email: ${FROM_EMAIL}<br>
       🌐 Website: ${FRONTEND_URL}
     </p>
