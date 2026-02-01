@@ -164,7 +164,7 @@ function generateEnglishStatusUpdateEmail(order: StatusUpdateData, trackingUrl: 
     
     <p style="font-size: 14px; color: #666;">
       <strong>Contact Us:</strong><br>
-      📞 Phone: (610) 910-9067<br>
+      📞 Phone: (610) 279-6200<br>
       📧 Email: orders@elisbakery.com
     </p>
   </div>
@@ -244,7 +244,7 @@ function generateSpanishStatusUpdateEmail(order: StatusUpdateData, trackingUrl: 
     
     <p style="font-size: 14px; color: #666;">
       <strong>Contáctanos:</strong><br>
-      📞 Teléfono: (610) 910-9067<br>
+      📞 Teléfono: (610) 279-6200<br>
       📧 Email: orders@elisbakery.com
     </p>
   </div>
@@ -268,7 +268,7 @@ ${order.notes ? `Notes: ${order.notes}\n` : ''}
 View order details: ${trackingUrl}
 
 Contact Us:
-Phone: (610) 910-9067
+Phone: (610) 279-6200
 Email: orders@elisbakery.com
   `;
 }
@@ -288,7 +288,7 @@ ${order.notes ? `Notas: ${order.notes}\n` : ''}
 Ver detalles del pedido: ${trackingUrl}
 
 Contáctanos:
-Teléfono: (610) 910-9067
+Teléfono: (610) 279-6200
 Email: orders@elisbakery.com
   `;
 }

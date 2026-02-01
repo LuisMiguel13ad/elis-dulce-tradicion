@@ -59,7 +59,7 @@ export function getLanguage(order: OrderData): 'en' | 'es' {
 
 export function getBusinessInfo(locale: 'en' | 'es' = 'en') {
   return {
-    phone: '(610) 910-9067',
+    phone: '(610) 279-6200',
     email: 'orders@elisbakery.com',
     website: process.env.FRONTEND_URL || 'https://elisbakery.com',
     contactLabel: locale === 'es' ? 'Contáctanos' : 'Contact Us',
