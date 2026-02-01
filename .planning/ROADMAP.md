@@ -2,20 +2,27 @@
 
 **Created:** 2025-02-01
 **Milestone:** v1.1 - Email Notification Fixes
-**Phases:** 2
+**Phases:** 4
 
 ## Overview
 
 | Phase | Name | Goal | Requirements | Status |
 |-------|------|------|--------------|--------|
-| 1 | Contact Form Emails | Contact form submissions trigger emails to owner and customer | EMAIL-01, EMAIL-02, CONFIG-01, CONFIG-02, CONFIG-03, CONFIG-04, CONTENT-01, CONTENT-02, CONTENT-03 | Pending |
+| 1 | Contact Form Emails | Contact form submissions trigger emails to owner and customer | EMAIL-01, EMAIL-02, CONFIG-01, CONFIG-02, CONFIG-03, CONFIG-04, CONTENT-01, CONTENT-02, CONTENT-03 | Planned |
 | 2 | Verify Order Emails | Confirm order confirmation and ready notification emails work end-to-end | EMAIL-03, EMAIL-04 | Pending |
+| 3 | Dashboard Verification | Verify both dashboards have correct components, working graphs, and proper order handling | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05 | Pending |
+| 4 | UI/UX Verification | Ensure all UI/UX is polished, consistent, and working properly across the site | UX-01, UX-02, UX-03, UX-04, UX-05 | Pending |
 
 ---
 
 ## Phase 1: Contact Form Emails
 
 **Goal:** Contact form submissions trigger email notifications to the owner and send auto-reply confirmation to customers.
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Wire edge function call + fix content (address/phone)
 
 **Requirements:**
 - EMAIL-01: Contact form → email to owner
@@ -66,17 +73,83 @@
 
 ---
 
+## Phase 3: Dashboard Verification
+
+**Goal:** Verify that both Owner Dashboard and Front Desk Dashboard have all necessary components, working graphs/analytics, proper order handling, and remove any unnecessary code.
+
+**Requirements:**
+- DASH-01: Owner Dashboard analytics display correctly (revenue, orders, charts)
+- DASH-02: Front Desk Dashboard order queue works properly (filters, status updates)
+- DASH-03: Both dashboards receive orders in real-time
+- DASH-04: Remove unnecessary/unused components from both dashboards
+- DASH-05: Owner Dashboard has distinct interface from Front Desk (analytics-focused)
+
+**Success Criteria:**
+1. Owner Dashboard shows accurate metrics: Revenue Today, Orders Today, Average Ticket
+2. Owner Dashboard line chart (revenue trends) and pie chart (order status) render correctly with real data
+3. Front Desk Dashboard displays order cards with proper filtering by status (new, preparing, pickup, delivery, done)
+4. Real-time order updates work on both dashboards (new order appears within 5 seconds)
+5. Order status changes from Front Desk update correctly and trigger proper workflows
+6. No unused components, dead code, or placeholder functionality remains
+7. Owner Dashboard has calendar view, reports section, and analytics not present in Front Desk
+
+**Implementation Notes:**
+- Audit Owner Dashboard components: OwnerSidebar, DashboardHeader, OwnerCalendar, charts
+- Audit Front Desk components: KitchenRedesignedLayout, KitchenNavTabs, ModernOrderCard, OrderScheduler
+- Verify useRealtimeOrders and useOrdersFeed hooks work correctly
+- Remove any dev/placeholder components from src/components/dev/
+- Test order flow: create order → appears in both dashboards → update status → verify state
+
+---
+
+## Phase 4: UI/UX Verification
+
+**Goal:** Ensure the entire application UI/UX is polished, consistent, responsive, and working properly across all pages and interactions.
+
+**Requirements:**
+- UX-01: All pages load correctly without visual glitches
+- UX-02: Responsive design works on mobile, tablet, and desktop
+- UX-03: Bilingual support (English/Spanish) works consistently
+- UX-04: All interactive elements (buttons, forms, modals) function correctly
+- UX-05: Visual consistency across all pages (colors, typography, spacing)
+
+**Success Criteria:**
+1. All customer-facing pages (Home, Order, Track, Contact) render correctly
+2. All staff-facing pages (Owner Dashboard, Front Desk, Kitchen Display) render correctly
+3. Forms submit properly with validation feedback
+4. Modals open/close correctly (PrintPreview, CancelOrder, FullScreenAlert)
+5. Language toggle switches all visible text between English and Spanish
+6. No broken images, missing icons, or layout issues on any screen size
+7. Loading states and error states display appropriately
+8. Navigation between pages works without errors
+
+**Implementation Notes:**
+- Test all customer pages: /, /order, /track, /contact
+- Test all staff pages: /owner-dashboard, /front-desk, /kitchen-display, /bakery-dashboard
+- Test on different viewport sizes (mobile, tablet, desktop)
+- Verify language toggle on each page
+- Check console for any JavaScript errors during navigation
+- Test form validations on Order and Contact pages
+
+---
+
 ## Dependency Graph
 
 ```
-Phase 1 ─── Phase 2
+Phase 1 ─── Phase 2 ─── Phase 3 ─── Phase 4
+   │           │           │           │
+   │           │           │           └── UI/UX verification (final polish)
+   │           │           │
+   │           │           └── Dashboard verification (components + order flow)
    │           │
    │           └── Verify order emails work
    │
    └── Set up infrastructure + fix contact form
 ```
 
-Phase 2 depends on Phase 1 (edge functions must be deployed first).
+- Phase 2 depends on Phase 1 (edge functions must be deployed first)
+- Phase 3 depends on Phase 2 (order emails verified → can test order flow in dashboards)
+- Phase 4 depends on Phase 3 (dashboards verified → can do full UI/UX sweep)
 
 ---
 
