@@ -112,8 +112,8 @@ function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: st
         <p style="color: #666; font-size: 14px;">You can pick up your order at our bakery location. Please bring a valid ID.</p>
         <p><strong>Pickup Location:</strong><br>
         Eli's Bakery<br>
-        [Your Address Here]<br>
-        Phone: (610) 910-9067</p>
+        324 W Marshall St, Norristown, PA 19401<br>
+        Phone: (610) 279-6200</p>
       `}
     </div>
     
@@ -124,7 +124,7 @@ function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: st
     </div>
     
     <p style="font-size: 14px; color: #666;">
-      <strong>Questions?</strong> Contact us at (610) 910-9067 or orders@elisbakery.com
+      <strong>Questions?</strong> Contact us at (610) 279-6200 or orders@elisbakery.com
     </p>
     
     <p style="font-size: 16px; font-weight: bold; color: #28a745; text-align: center; margin-top: 30px;">
@@ -166,8 +166,8 @@ function generateSpanishReadyEmail(order: ReadyNotificationData, trackingUrl: st
         <p style="color: #666; font-size: 14px;">Puedes recoger tu pedido en nuestra panadería. Por favor trae una identificación válida.</p>
         <p><strong>Ubicación de Recogida:</strong><br>
         Eli's Bakery<br>
-        [Tu Dirección Aquí]<br>
-        Teléfono: (610) 910-9067</p>
+        324 W Marshall St, Norristown, PA 19401<br>
+        Teléfono: (610) 279-6200</p>
       `}
     </div>
     
@@ -178,7 +178,7 @@ function generateSpanishReadyEmail(order: ReadyNotificationData, trackingUrl: st
     </div>
     
     <p style="font-size: 14px; color: #666;">
-      <strong>¿Preguntas?</strong> Contáctanos al (610) 910-9067 o orders@elisbakery.com
+      <strong>¿Preguntas?</strong> Contáctanos al (610) 279-6200 o orders@elisbakery.com
     </p>
     
     <p style="font-size: 16px; font-weight: bold; color: #28a745; text-align: center; margin-top: 30px;">
@@ -210,13 +210,13 @@ Delivery Information:
 Pickup Information:
 - You can pick up your order at our bakery location
 - Please bring a valid ID
-- Location: [Your Address Here]
-- Phone: (610) 910-9067
+- Location: 324 W Marshall St, Norristown, PA 19401
+- Phone: (610) 279-6200
 `}
 
 View order details: ${trackingUrl}
 
-Questions? Contact us at (610) 910-9067 or orders@elisbakery.com
+Questions? Contact us at (610) 279-6200 or orders@elisbakery.com
 
 Thank you for choosing Eli's Bakery! 🎂
   `;
@@ -242,13 +242,13 @@ Información de Entrega:
 Información de Recogida:
 - Puedes recoger tu pedido en nuestra panadería
 - Por favor trae una identificación válida
-- Ubicación: [Tu Dirección Aquí]
-- Teléfono: (610) 910-9067
+- Ubicación: 324 W Marshall St, Norristown, PA 19401
+- Teléfono: (610) 279-6200
 `}
 
 Ver detalles del pedido: ${trackingUrl}
 
-¿Preguntas? Contáctanos al (610) 910-9067 o orders@elisbakery.com
+¿Preguntas? Contáctanos al (610) 279-6200 o orders@elisbakery.com
 
 ¡Gracias por elegir Eli's Bakery! 🎂
   `;
