@@ -47,6 +47,8 @@ import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
+import MenuManager from '@/components/dashboard/MenuManager';
+import InventoryManager from '@/components/dashboard/InventoryManager';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -408,6 +410,16 @@ const OwnerDashboard = () => {
                   onOrderClick={(order) => setPrintOrder(order)}
                 />
               </div>
+            </TabsContent>
+
+            {/* --- TAB: PRODUCTS --- */}
+            <TabsContent value="products" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <MenuManager />
+            </TabsContent>
+
+            {/* --- TAB: INVENTORY --- */}
+            <TabsContent value="inventory" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <InventoryManager />
             </TabsContent>
 
             {/* --- TAB: REPORTS (Simplified) --- */}
