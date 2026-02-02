@@ -55,6 +55,11 @@ Plans:
 
 **Goal:** Confirm that order confirmation emails (on order creation) and ready notification emails (on status change) work correctly end-to-end.
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Verify email infrastructure and test all language/delivery combinations
+
 **Requirements:**
 - EMAIL-03: Order confirmation email works
 - EMAIL-04: Ready notification email works
