@@ -10,6 +10,7 @@ import {
     LogOut,
     ChefHat,
     Calendar,
+    Boxes,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +33,8 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
         { id: 'overview', label: t('Resumen', 'Overview'), icon: LayoutDashboard },
         { id: 'orders', label: t('Pedidos', 'Orders'), icon: ShoppingBag },
         { id: 'calendar', label: t('Calendario', 'Calendar'), icon: Calendar },
+        { id: 'products', label: t('Productos', 'Products'), icon: Package },
+        { id: 'inventory', label: t('Inventario', 'Inventory'), icon: Boxes },
         { id: 'reports', label: t('Reportes', 'Reports'), icon: FileText },
     ];
 
