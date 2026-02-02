@@ -5,23 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 
-import { generateTestOrders } from '@/utils/generateTestData';
-import { useState } from 'react';
-import { Loader2, Database } from 'lucide-react';
-
 export const DashboardHeader = () => {
     const { t } = useLanguage();
     const { user } = useAuth();
-    const [generating, setGenerating] = useState(false);
-
-    const handleGenerateData = async () => {
-        if (confirm('Create 10 test orders?')) {
-            setGenerating(true);
-            await generateTestOrders(10);
-            setGenerating(false);
-            window.location.reload(); // Simple way to refresh all dashboards
-        }
-    };
 
     return (
         <div className="flex h-20 items-center justify-between px-8 ">
@@ -47,18 +33,6 @@ export const DashboardHeader = () => {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-                {/* Test Data Button - Dev Only or for Demo */}
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateData}
-                    disabled={generating}
-                    className="hidden lg:flex border-[#C6A649]/30 hover:bg-[#C6A649]/10 text-[#C6A649]"
-                >
-                    {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-                    {generating ? 'Generating...' : 'Generate Test Data'}
-                </Button>
-
                 <Button size="icon" variant="ghost" className="relative rounded-full hover:bg-gray-100">
                     <Bell className="h-5 w-5 text-gray-600" />
                     <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
