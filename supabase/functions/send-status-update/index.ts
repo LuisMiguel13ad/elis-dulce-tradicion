@@ -20,7 +20,17 @@ interface StatusUpdateData {
   notes?: string;
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 Deno.serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not set");
@@ -31,7 +41,7 @@ Deno.serve(async (req) => {
     if (!order || !order.customer_email) {
       return new Response(
         JSON.stringify({ error: "Order data and customer email are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -42,13 +52,11 @@ Deno.serve(async (req) => {
     if (order.new_status === 'pending' || order.new_status === oldStatus) {
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: "Status doesn't require notification" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check email preferences (if profile exists)
-    // Note: This requires querying the database, which we'll do if needed
-    // For now, we'll send emails by default and add preference checking later
+    // ... (rest of logic) ...
 
     const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${order.order_number}`;
 
@@ -76,19 +84,19 @@ Deno.serve(async (req) => {
       console.error("Resend error:", error);
       return new Response(
         JSON.stringify({ error: "Failed to send email", details: error }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
       JSON.stringify({ success: true, messageId: data?.id }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error in send-status-update:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
@@ -105,7 +113,7 @@ function generateEnglishStatusUpdateEmail(order: StatusUpdateData, trackingUrl: 
     },
     ready: {
       title: "Order Ready",
-      message: order.delivery_option === 'delivery' 
+      message: order.delivery_option === 'delivery'
         ? "Your order is ready and will be delivered soon!"
         : "Your order is ready for pickup!"
     },
@@ -311,11 +319,11 @@ function formatStatus(status: string, isSpanish = false): string {
 function formatDate(dateString: string): string {
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   } catch {
     return dateString;

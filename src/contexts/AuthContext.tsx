@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Create a timeout promise
       const timeoutPromise = new Promise<{ timeout: true }>((resolve) => {
-        setTimeout(() => resolve({ timeout: true }), 3000);
+        setTimeout(() => resolve({ timeout: true }), 10000);
       });
 
       // Race against the timeout

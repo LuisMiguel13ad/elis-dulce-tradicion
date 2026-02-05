@@ -83,9 +83,30 @@ const FrontDesk = () => {
 
     if (!status) return;
 
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (!targetOrder) return;
+    const oldStatus = targetOrder.status;
+
     try {
       await api.updateOrderStatus(orderId, status);
       toast.success(successMsg);
+
+      // Send Email Notifications
+      if (action === 'ready') {
+        toast.info(t('Enviando correo...', 'Sending email...'));
+        api.sendReadyNotification(targetOrder).then(({ success, error }) => {
+          if (success) toast.success(t('Correo enviado', 'Email sent'));
+          else console.error("Email failed", error);
+        });
+      } else if (action === 'delivery' || action === 'complete') {
+        const finalStatus = action === 'delivery' ? 'delivered' : 'completed';
+        toast.info(t('Enviando correo...', 'Sending email...'));
+        api.sendStatusUpdate(targetOrder, oldStatus, finalStatus).then(({ success, error }) => {
+          if (success) toast.success(t('Correo enviado', 'Email sent'));
+          else console.error("Email failed", error);
+        });
+      }
+
       refreshOrders();
     } catch (error) {
       console.error(error);

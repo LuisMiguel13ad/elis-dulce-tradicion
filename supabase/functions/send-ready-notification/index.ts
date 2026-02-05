@@ -21,7 +21,17 @@ interface ReadyNotificationData {
   total_amount: number;
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 Deno.serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not set");
@@ -32,7 +42,7 @@ Deno.serve(async (req) => {
     if (!order || !order.customer_email) {
       return new Response(
         JSON.stringify({ error: "Order data and customer email are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -65,26 +75,26 @@ Deno.serve(async (req) => {
       console.error("Resend error:", error);
       return new Response(
         JSON.stringify({ error: "Failed to send email", details: error }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
       JSON.stringify({ success: true, messageId: data?.id }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error in send-ready-notification:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
 
 function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: string): string {
   const isDelivery = order.delivery_option === 'delivery';
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -138,7 +148,7 @@ function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: st
 
 function generateSpanishReadyEmail(order: ReadyNotificationData, trackingUrl: string): string {
   const isDelivery = order.delivery_option === 'delivery';
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -192,7 +202,7 @@ function generateSpanishReadyEmail(order: ReadyNotificationData, trackingUrl: st
 
 function generateEnglishReadyText(order: ReadyNotificationData, trackingUrl: string): string {
   const isDelivery = order.delivery_option === 'delivery';
-  
+
   return `
 Your Order is Ready!
 
@@ -224,7 +234,7 @@ Thank you for choosing Eli's Bakery! 🎂
 
 function generateSpanishReadyText(order: ReadyNotificationData, trackingUrl: string): string {
   const isDelivery = order.delivery_option === 'delivery';
-  
+
   return `
 ¡Tu Pedido Está Listo!
 

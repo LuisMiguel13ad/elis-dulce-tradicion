@@ -113,6 +113,9 @@ export function useOrderSearch(options: UseOrderSearchOptions = {}) {
       setError(null);
     } catch (err) {
       console.error("Failed to fetch orders:", err);
+      // Import toast dynamically to avoid circular deps if needed, or use window.alert for debug
+      const { toast } = await import('sonner');
+      toast.error(`Failed to load orders: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setError(err);
       setAllOrders([]);
     } finally {

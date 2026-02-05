@@ -49,6 +49,89 @@ export function PrintPreviewModal({ order, isOpen, onClose }: PrintPreviewModalP
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* STATUS ACTIONS - QUICK DEV */}
+                        <div className="mr-8 flex items-center gap-2 border-r border-slate-700 pr-4">
+                            {order.status === 'pending' && (
+                                <Button size="sm" variant="outline" className="text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+                                    onClick={async () => {
+                                        const { api } = await import('@/lib/api');
+                                        await api.updateOrderStatus(order.id, 'confirmed');
+                                        const { toast } = await import('sonner');
+                                        toast.success('Order Confirmed');
+                                        onClose(); // Close to refresh (dashboard auto-refreshes on realtime)
+                                    }}>
+                                    Confirm
+                                </Button>
+                            )}
+                            {(order.status === 'confirmed' || order.status === 'pending' || order.status === 'paid') && (
+                                <Button size="sm" variant="outline" className="text-green-400 border-green-400/30 hover:bg-green-400/10"
+                                    onClick={async () => {
+                                        const { api } = await import('@/lib/api');
+                                        await api.updateOrderStatus(order.id, 'ready');
+                                        const { toast } = await import('sonner');
+
+                                        toast.info('Sending ready notification email...');
+                                        const { success, error } = await api.sendReadyNotification(order);
+
+                                        if (success) {
+                                            toast.success('Order Marked Ready & Email Sent');
+                                        } else {
+                                            toast.error('Order Ready, but Email Failed');
+                                            console.error('Email error:', error);
+                                        }
+
+                                        onClose();
+                                    }}>
+                                    Mark Ready
+                                </Button>
+                            )}
+                            {(order.status === 'ready' && order.delivery_option === 'delivery') && (
+                                <Button size="sm" variant="outline" className="text-blue-500 border-blue-500/30 hover:bg-blue-500/10"
+                                    onClick={async () => {
+                                        const { api } = await import('@/lib/api');
+                                        const oldStatus = order.status;
+                                        await api.updateOrderStatus(order.id, 'delivered');
+                                        const { toast } = await import('sonner');
+
+                                        toast.info('Sending delivery notification email...');
+                                        const { success, error } = await api.sendStatusUpdate(order, oldStatus, 'delivered');
+
+                                        if (success) {
+                                            toast.success('Order Marked Delivered & Email Sent');
+                                        } else {
+                                            toast.error('Order Delivered, but Email Failed');
+                                            console.error('Email error:', error);
+                                        }
+                                        onClose();
+                                    }}>
+                                    Mark Delivered
+                                </Button>
+                            )}
+                            {((order.status === 'ready' && order.delivery_option !== 'delivery') || order.status === 'delivered') && (
+                                <Button size="sm" variant="outline" className="text-gray-400 border-gray-400/30 hover:bg-gray-400/10"
+                                    onClick={async () => {
+                                        const { api } = await import('@/lib/api');
+                                        const oldStatus = order.status;
+                                        await api.updateOrderStatus(order.id, 'completed');
+                                        const { toast } = await import('sonner');
+
+                                        toast.info('Sending completion notification email...');
+                                        const { success, error } = await api.sendStatusUpdate(order, oldStatus, 'completed');
+
+                                        if (success) {
+                                            toast.success('Order Completed & Email Sent');
+                                        } else {
+                                            toast.error('Order Completed, but Email Failed');
+                                            console.error('Email error:', error);
+                                        }
+                                        onClose();
+                                    }}>
+                                    Complete
+                                </Button>
+                            )}
+                        </div>
+
+
                         <Button
                             onClick={handlePrintInvoice}
                             size="sm"
