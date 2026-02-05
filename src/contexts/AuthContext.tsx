@@ -24,29 +24,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   // Load user session on mount
-  // Load user session on mount
   useEffect(() => {
-    // Safety timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-    }, 4000);
-
-    // Check for dev mode login first
-    // (Removed dev mode logic)
-
     if (!supabase) {
-      clearTimeout(timeoutId);
       setIsLoading(false);
       return;
     }
 
-    // Get initial session
+    // Get initial session (reads from localStorage, essentially instant)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        loadUserProfile(session.user).then(() => clearTimeout(timeoutId));
+        loadUserProfile(session.user);
       } else {
-        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     });
@@ -58,17 +47,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       if (session?.user) {
         await loadUserProfile(session.user);
-        clearTimeout(timeoutId);
       } else {
         setUser(null);
-        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     });
 
     return () => {
       subscription.unsubscribe();
-      clearTimeout(timeoutId);
     };
   }, []);
 

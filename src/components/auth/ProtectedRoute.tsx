@@ -47,7 +47,7 @@ export const ProtectedRoute = ({
       if (userRole === 'baker') {
         return <Navigate to="/front-desk" replace />;
       }
-      return <Navigate to="/" replace />;
+      return <Navigate to="/login" replace />;
     }
   }
 

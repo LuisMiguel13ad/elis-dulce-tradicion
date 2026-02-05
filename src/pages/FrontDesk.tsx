@@ -39,16 +39,7 @@ const FrontDesk = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
 
-  // Auth Guard
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user || !user.profile || (user.profile.role !== 'baker' && user.profile.role !== 'owner')) {
-      toast.error('Unauthorized access');
-      navigate('/login');
-    }
-  }, [user, authLoading, navigate]);
-
-  // ... (handleOrderAction logic is correct)
+  // Auth is enforced by ProtectedRoute (requiredRole={['baker', 'owner']})
 
   const handleOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete') => {
     let status = '';

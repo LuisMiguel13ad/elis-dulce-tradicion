@@ -2,7 +2,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { OwnerSidebar } from '@/components/dashboard/OwnerSidebar';
 import { DashboardHeader, SearchResult } from '@/components/dashboard/DashboardHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +49,6 @@ import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import MenuManager from '@/components/dashboard/MenuManager';
 import InventoryManager from '@/components/dashboard/InventoryManager';
 import ReportsManager from '@/components/dashboard/ReportsManager';
-import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
@@ -58,10 +56,6 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 const OwnerDashboard = () => {
   const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
-  const navigate = useNavigate();
-
-  // 15-minute inactivity timeout for owner sessions
-  useInactivityTimeout(15 * 60 * 1000);
 
   // --- STATE ---
   const [isLoading, setIsLoading] = useState(true);
@@ -202,13 +196,11 @@ const OwnerDashboard = () => {
 
   // --- 2. LIFECYCLE & REALTIME ---
 
-  // Initial Load
+  // Initial Load (ProtectedRoute already enforces requiredRole="owner")
   useEffect(() => {
-    if (!authLoading && (!user || user.profile?.role !== 'owner')) {
-      navigate('/login');
-      return;
+    if (!authLoading && user) {
+      loadDashboardData();
     }
-    loadDashboardData();
   }, [user, authLoading]);
 
   // Real-time Listener (Supabase)
