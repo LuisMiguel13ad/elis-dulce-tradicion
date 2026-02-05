@@ -1,6 +1,6 @@
 import { KitchenSidebar } from "./KitchenSidebar";
 import { cn } from "@/lib/utils";
-import { Search, Clock, Sun, Moon } from "lucide-react";
+import { Search, Clock, Sun, Moon, Bell, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface KitchenRedesignedLayoutProps {
     children: React.ReactNode;
-    activeView: 'queue' | 'upcoming' | 'calendar';
-    onChangeView: (view: 'queue' | 'upcoming' | 'calendar') => void;
+    activeView: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports';
+    onChangeView: (view: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports') => void;
     onLogout: () => void;
     title?: string;
     darkMode?: boolean;
     onToggleTheme?: () => void;
+    searchQuery?: string;
+    onSearchChange?: (query: string) => void;
+    notificationCount?: number;
+    onNotificationClick?: () => void;
+    onRefresh?: () => void;
+    isRefreshing?: boolean;
+    badgeCounts?: Record<string, number>;
+    soundEnabled?: boolean;
+    onToggleSound?: () => void;
 }
 
 export function KitchenRedesignedLayout({
@@ -23,7 +32,16 @@ export function KitchenRedesignedLayout({
     onLogout,
     title = "Orders",
     darkMode = false,
-    onToggleTheme
+    onToggleTheme,
+    searchQuery,
+    onSearchChange,
+    notificationCount,
+    onNotificationClick,
+    onRefresh,
+    isRefreshing,
+    badgeCounts,
+    soundEnabled = true,
+    onToggleSound
 }: KitchenRedesignedLayoutProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -46,6 +64,9 @@ export function KitchenRedesignedLayout({
                 onLogout={onLogout}
                 compact={true}
                 darkMode={isDarkMode}
+                notificationCount={notificationCount}
+                onNotificationClick={onNotificationClick}
+                badgeCounts={badgeCounts}
             />
 
             <main className={cn(
@@ -70,7 +91,9 @@ export function KitchenRedesignedLayout({
                             )} />
                             <input
                                 type="text"
-                                placeholder="Search"
+                                placeholder="Name, order #, phone, email"
+                                value={searchQuery ?? ''}
+                                onChange={(e) => onSearchChange?.(e.target.value)}
                                 className={cn(
                                     "pl-10 pr-4 py-2 rounded-full border-none focus:ring-2 focus:ring-green-500 shadow-sm text-sm w-64 transition-all",
                                     isDarkMode ? "bg-slate-800 text-white placeholder:text-slate-500" : "bg-white text-gray-900"
@@ -89,6 +112,65 @@ export function KitchenRedesignedLayout({
                             )}
                         >
                             {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                        </Button>
+
+                        {/* Sound Toggle */}
+                        {onToggleSound && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onToggleSound}
+                                className={cn(
+                                    "rounded-full shadow-sm transition-colors",
+                                    soundEnabled
+                                        ? isDarkMode
+                                            ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                            : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                        : isDarkMode
+                                            ? "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                            : "bg-white text-slate-400 hover:bg-gray-50"
+                                )}
+                                title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
+                            >
+                                {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+                            </Button>
+                        )}
+
+                        {/* Refresh Button */}
+                        {onRefresh && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onRefresh}
+                                disabled={isRefreshing}
+                                className={cn(
+                                    "rounded-full shadow-sm transition-colors",
+                                    isDarkMode
+                                        ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                        : "bg-white text-slate-400 hover:bg-gray-50"
+                                )}
+                                title="Refresh orders"
+                            >
+                                <RefreshCw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
+                            </Button>
+                        )}
+
+                        {/* Notification Bell */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onNotificationClick}
+                            className={cn(
+                                "rounded-full shadow-sm transition-colors relative",
+                                isDarkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-white text-slate-400 hover:bg-gray-50"
+                            )}
+                        >
+                            <Bell className="h-5 w-5" />
+                            {(notificationCount ?? 0) > 0 && (
+                                <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                                    {notificationCount! > 99 ? '99+' : notificationCount}
+                                </span>
+                            )}
                         </Button>
 
                         {/* Time Display */}

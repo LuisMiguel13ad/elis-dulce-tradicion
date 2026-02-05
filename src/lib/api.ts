@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase, STORAGE_BUCKET, isSupabaseConfigured } from './supabase';
 import { UserProfile } from '@/types/auth';
+import { getAvailableTransitions as getStateMachineTransitions, validateTransition, type OrderStatus, type UserRole } from './orderStateMachine';
+import type { OrderNote } from '@/types/order';
 
 /**
  * API client for backend communication via Supabase
@@ -634,6 +636,46 @@ class ApiClient {
     }
   }
 
+  async sendOrderIssueNotification(issue: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      const { data, error } = await sb.functions.invoke('send-order-issue-notification', {
+        body: { issue }
+      });
+
+      if (error) {
+        console.error('Error sending issue notification:', error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error('Exception sending issue notification:', err);
+      return { success: false, error: err };
+    }
+  }
+
+  async sendDailyReport(datePreset?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      const { data, error } = await sb.functions.invoke('send-daily-report', {
+        body: { datePreset: datePreset || 'today' }
+      });
+
+      if (error) {
+        console.error('Error sending daily report:', error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error('Exception sending daily report:', err);
+      return { success: false, error: err };
+    }
+  }
+
   // Placeholders for other methods to match interface
   async getCurrentPricing() { return { success: true, data: {} }; }
   async calculatePricing() { return { success: true, price: 0 }; }
@@ -732,11 +774,157 @@ class ApiClient {
 
     return { success: true };
   }
-  async validateDeliveryAddress() { return { success: true, valid: true }; }
-  async calculateDeliveryFee() { return { success: true, fee: 0 }; }
-  async getDeliveryZones() { return { success: true, data: [] }; }
-  async updateDeliveryStatus() { return { success: true }; }
-  async assignDelivery() { return { success: true }; }
+  // --- DELIVERY API ---
+
+  async validateDeliveryAddress(address: string, zipCode: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, valid: false, error: 'Database not available' };
+
+    try {
+      const { data: zones, error } = await sb
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      const matchingZone = (zones || []).find((zone: any) =>
+        (zone.zip_codes || []).includes(zipCode)
+      );
+
+      return { success: true, valid: !!matchingZone, zone: matchingZone || undefined };
+    } catch (err: any) {
+      console.error('Error validating delivery address:', err);
+      return { success: false, valid: false, error: err.message };
+    }
+  }
+
+  async calculateDeliveryFee(address: string, zipCode: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { serviceable: false };
+
+    try {
+      const { data: zones, error } = await sb
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      const zone = (zones || []).find((z: any) =>
+        (z.zip_codes || []).includes(zipCode)
+      );
+
+      if (!zone) return { serviceable: false };
+
+      const estimatedDistance = (zone.max_distance_miles || 5) * 0.7;
+      const fee = (zone.base_fee || 0) + (estimatedDistance * (zone.per_mile_rate || 0));
+
+      return {
+        serviceable: true,
+        zone: {
+          name: zone.name,
+          estimated_delivery_minutes: zone.estimated_delivery_minutes,
+        },
+        fee: Math.round(fee * 100) / 100,
+        distance: Math.round(estimatedDistance * 10) / 10,
+      };
+    } catch (err: any) {
+      console.error('Error calculating delivery fee:', err);
+      return { serviceable: false };
+    }
+  }
+
+  async getDeliveryZones() {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, data: [], error: 'Database not available' };
+
+    try {
+      const { data, error } = await sb
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (err: any) {
+      console.error('Error fetching delivery zones:', err);
+      return { success: false, data: [], error: err.message };
+    }
+  }
+
+  async updateDeliveryStatus(orderId: number, status: string, notes?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const updates: any = { delivery_status: status, updated_at: new Date().toISOString() };
+      if (status === 'delivered') updates.completed_at = new Date().toISOString();
+      if (notes) updates.delivery_notes = notes;
+
+      const { error } = await sb.from('orders').update(updates).eq('id', orderId);
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error updating delivery status:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async getStaffMembers(): Promise<{ id: string; full_name: string; role: string }[]> {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    try {
+      const { data, error } = await sb
+        .from('user_profiles')
+        .select('user_id, full_name, role')
+        .in('role', ['baker', 'owner'])
+        .order('full_name');
+
+      if (error) throw error;
+
+      return (data || []).map((p: any) => ({
+        id: p.user_id,
+        full_name: p.full_name || 'Staff Member',
+        role: p.role,
+      }));
+    } catch (err: any) {
+      console.error('Error fetching staff members:', err);
+      return [];
+    }
+  }
+
+  async assignDelivery(orderId: number, driverId: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { error: assignError } = await sb
+        .from('delivery_assignments')
+        .upsert({
+          order_id: orderId,
+          driver_id: driverId,
+          assigned_at: new Date().toISOString(),
+        }, { onConflict: 'order_id' });
+
+      if (assignError) throw assignError;
+
+      const { error: orderError } = await sb
+        .from('orders')
+        .update({ delivery_status: 'assigned', updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+
+      if (orderError) throw orderError;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error assigning delivery:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // --- CUSTOMER STUBS (not actively used yet) ---
   async getCustomerProfile() { return { success: true, data: {} }; }
   async getCustomerOrders() { return { success: true, data: [] }; }
   async getCustomerAddresses() { return { success: true, data: [] }; }
@@ -748,12 +936,394 @@ class ApiClient {
   async getAttributes() { return { success: true, data: {} }; }
   async checkCapacity() { return { success: true, available: true }; }
   async getBakerTicket() { return { success: true, data: {} }; }
-  async getCancellationPolicy() { return { success: true, policy: {} }; }
-  async cancelOrder() { return { success: true }; }
-  async adminCancelOrder() { return { success: true }; }
-  async getAvailableTransitions() { return { success: true, transitions: [] }; }
-  async transitionOrderStatus() { return { success: true }; }
-  async getTransitionHistory() { return { success: true, history: [] }; }
+
+  // --- CANCELLATION API ---
+
+  async getCancellationPolicy(orderId: number, hoursUntilNeeded: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return null;
+
+    try {
+      const { data, error } = await sb
+        .from('cancellation_policies')
+        .select('*')
+        .lte('hours_before_needed', hoursUntilNeeded)
+        .order('hours_before_needed', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching cancellation policy:', error);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.error('Error fetching cancellation policy:', err);
+      return null;
+    }
+  }
+
+  async cancelOrder(orderId: number, request: { reason: string; reasonDetails?: string }) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      if (['cancelled', 'completed'].includes(order.status)) {
+        return { success: false, error: `Cannot cancel order with status '${order.status}'` };
+      }
+
+      const previousStatus = order.status;
+
+      // Calculate hours until needed for refund policy
+      let hoursUntilNeeded = Infinity;
+      if (order.date_needed && order.time_needed) {
+        const neededDateTime = new Date(`${order.date_needed}T${order.time_needed}`);
+        hoursUntilNeeded = Math.max(0, (neededDateTime.getTime() - Date.now()) / (1000 * 60 * 60));
+      }
+
+      let refundAmount = 0;
+      let refundPercentage = 0;
+      const policy = await this.getCancellationPolicy(orderId, hoursUntilNeeded);
+      if (policy && order.total_amount) {
+        refundPercentage = policy.refund_percentage || 0;
+        refundAmount = Math.round((parseFloat(order.total_amount) * refundPercentage / 100) * 100) / 100;
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: request.reason,
+          refund_amount: refundAmount || null,
+          refund_status: refundAmount > 0 ? 'pending' : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Record status history (non-blocking)
+      sb.from('order_status_history').insert({
+        order_id: orderId,
+        previous_status: previousStatus,
+        new_status: 'cancelled',
+        reason: request.reason,
+        metadata: { reason_details: request.reasonDetails },
+      }).then(({ error: histError }) => {
+        if (histError) console.error('Error inserting status history:', histError);
+      });
+
+      return {
+        success: true,
+        refund: refundAmount > 0 ? {
+          refundAmount,
+          refundPercentage,
+          refundStatus: 'pending' as const,
+        } : undefined,
+      };
+    } catch (err: any) {
+      console.error('Error cancelling order:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async adminCancelOrder(
+    orderId: number,
+    request: { reason: string; reasonDetails?: string; overrideRefundAmount?: number; adminNotes?: string }
+  ) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      if (order.status === 'cancelled') {
+        return { success: false, error: 'Order is already cancelled' };
+      }
+
+      const previousStatus = order.status;
+
+      // Calculate refund — admin can override
+      let refundAmount = 0;
+      let refundPercentage = 0;
+
+      if (request.overrideRefundAmount !== undefined) {
+        refundAmount = request.overrideRefundAmount;
+        if (order.total_amount) {
+          refundPercentage = Math.round((refundAmount / parseFloat(order.total_amount)) * 100);
+        }
+      } else {
+        let hoursUntilNeeded = Infinity;
+        if (order.date_needed && order.time_needed) {
+          const neededDateTime = new Date(`${order.date_needed}T${order.time_needed}`);
+          hoursUntilNeeded = Math.max(0, (neededDateTime.getTime() - Date.now()) / (1000 * 60 * 60));
+        }
+        const policy = await this.getCancellationPolicy(orderId, hoursUntilNeeded);
+        if (policy && order.total_amount) {
+          refundPercentage = policy.refund_percentage || 0;
+          refundAmount = Math.round((parseFloat(order.total_amount) * refundPercentage / 100) * 100) / 100;
+        }
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: request.reason,
+          admin_notes: request.adminNotes || null,
+          refund_amount: refundAmount || null,
+          refund_status: refundAmount > 0 ? 'pending' : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Record status history (non-blocking)
+      sb.from('order_status_history').insert({
+        order_id: orderId,
+        previous_status: previousStatus,
+        new_status: 'cancelled',
+        reason: request.reason,
+        metadata: {
+          reason_details: request.reasonDetails,
+          admin_notes: request.adminNotes,
+          override_refund_amount: request.overrideRefundAmount,
+          is_admin_cancellation: true,
+        },
+      }).then(({ error: histError }) => {
+        if (histError) console.error('Error inserting status history:', histError);
+      });
+
+      return {
+        success: true,
+        refund: refundAmount > 0 ? {
+          refundAmount,
+          refundPercentage,
+          refundStatus: 'pending' as const,
+        } : undefined,
+      };
+    } catch (err: any) {
+      console.error('Error admin-cancelling order:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // --- ORDER TRANSITIONS API ---
+
+  async getAvailableTransitions(orderId: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, transitions: [] as OrderStatus[], error: 'Database not available' };
+
+    try {
+      const { data: order, error } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (error || !order) return { success: false, transitions: [] as OrderStatus[], error: 'Order not found' };
+
+      // Get current user role
+      const { data: { user } } = await sb.auth.getUser();
+      let userRole: UserRole = 'customer';
+      if (user) {
+        const { data: profile } = await sb
+          .from('user_profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        if (profile?.role) userRole = profile.role as UserRole;
+      }
+
+      const transitions = getStateMachineTransitions(order.status as OrderStatus, order, userRole);
+      return { success: true, transitions };
+    } catch (err: any) {
+      console.error('Error getting available transitions:', err);
+      return { success: false, transitions: [] as OrderStatus[], error: err.message };
+    }
+  }
+
+  async transitionOrderStatus(orderId: number, newStatus: string, reason?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      // Get current user
+      const { data: { user } } = await sb.auth.getUser();
+      let userRole: UserRole = 'customer';
+      if (user) {
+        const { data: profile } = await sb
+          .from('user_profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        if (profile?.role) userRole = profile.role as UserRole;
+      }
+
+      // Validate transition
+      const validation = validateTransition(
+        order.status as OrderStatus,
+        newStatus as OrderStatus,
+        order,
+        { orderId, userRole, reason }
+      );
+
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      const previousStatus = order.status;
+      const updates: any = { status: newStatus, updated_at: new Date().toISOString() };
+      if (newStatus === 'ready') updates.ready_at = new Date().toISOString();
+      if (newStatus === 'completed') updates.completed_at = new Date().toISOString();
+      if (newStatus === 'cancelled') {
+        updates.cancelled_at = new Date().toISOString();
+        if (reason) updates.cancellation_reason = reason;
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update(updates)
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Record status history (non-blocking)
+      sb.from('order_status_history').insert({
+        order_id: orderId,
+        previous_status: previousStatus,
+        new_status: newStatus,
+        changed_by: user?.id || null,
+        reason: reason || null,
+      }).then(({ error: histError }) => {
+        if (histError) console.error('Error inserting status history:', histError);
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error transitioning order status:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async getTransitionHistory(orderId: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, history: [], error: 'Database not available' };
+
+    try {
+      const { data, error } = await sb
+        .from('order_status_history')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return { success: true, history: data || [] };
+    } catch (err: any) {
+      console.error('Error fetching transition history:', err);
+      return { success: false, history: [], error: err.message };
+    }
+  }
+
+  // --- ORDER NOTES API ---
+
+  async getOrderNotes(orderId: number): Promise<{ success: boolean; data: OrderNote[]; error?: string }> {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, data: [], error: 'Database not available' };
+
+    try {
+      const { data, error } = await sb
+        .from('order_notes')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (err: any) {
+      console.error('Error fetching order notes:', err);
+      return { success: false, data: [], error: err.message };
+    }
+  }
+
+  async addOrderNote(orderId: number, content: string): Promise<{ success: boolean; data?: OrderNote; error?: string }> {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return { success: false, error: 'Not authenticated' };
+
+      const { data: profile } = await sb
+        .from('user_profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      const authorName = profile?.full_name || user.email || 'Staff';
+
+      const { data, error } = await sb
+        .from('order_notes')
+        .insert({
+          order_id: orderId,
+          created_by: user.id,
+          author_name: authorName,
+          content: content.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err: any) {
+      console.error('Error adding order note:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async deleteOrderNote(noteId: number): Promise<{ success: boolean; error?: string }> {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { error } = await sb
+        .from('order_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error deleting order note:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   async searchOrders(query: string) {
     const sb = this.ensureSupabase();
     if (!sb) return { success: false, error: 'Database connection not available.' };
@@ -778,16 +1348,50 @@ class ApiClient {
   }
   async processRefund(orderId: string, amount?: number) {
     const sb = this.ensureSupabase();
-    if (!sb) return { success: false, error: 'Supabase not available' };
+    if (!sb) return { success: false, error: 'Database not available' };
 
-    // Placeholder for actual Stripe Refund logic via Edge Function
-    // Since only 4 notification functions were verified, we'll log this action.
-    console.log(`Processing refund for order ${orderId}, amount: ${amount}`);
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
 
-    // In future: await sb.functions.invoke('process-refund', { body: { orderId, amount } })
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
 
-    // For now, return success to simulate logic
-    return { success: true, message: 'Refund processed (simulated)' };
+      const refundAmount = amount || parseFloat(order.total_amount) || 0;
+
+      // Record refund in refunds table (actual Square processing requires server-side)
+      const { error: refundError } = await sb
+        .from('refunds')
+        .insert({
+          order_id: orderId,
+          amount: refundAmount,
+          status: 'pending',
+          reason: 'Refund requested',
+        });
+
+      if (refundError) {
+        // Table may not exist yet — log but continue to update order
+        console.warn('Could not insert refund record:', refundError);
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update({
+          refund_status: 'pending',
+          refund_amount: refundAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      return { success: true, message: 'Refund recorded and pending processing' };
+    } catch (err: any) {
+      console.error('Error processing refund:', err);
+      return { success: false, error: err.message };
+    }
   }
 }
 

@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const SLASH = String.fromCharCode(47);
 
-export const useOrdersFeed = (role?: UserRole) => {
+export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolean }) => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,8 +69,8 @@ export const useOrdersFeed = (role?: UserRole) => {
           setLatestOrder(newOrder);
           setNewOrderAlert(true);
 
-          // Play sound
-          if (audioRef.current) {
+          // Play sound (unless muted)
+          if (audioRef.current && options?.soundEnabled !== false) {
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(() => console.log('Audio autoplay blocked'));
           }

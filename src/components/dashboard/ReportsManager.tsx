@@ -24,6 +24,8 @@ import {
   Calendar,
   TrendingUp,
   FileSpreadsheet,
+  Mail,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfWeek, startOfMonth, isWithinInterval, parseISO } from 'date-fns';
@@ -81,6 +83,7 @@ const ReportsManager = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [datePreset, setDatePreset] = useState<DatePreset>('last_30');
   const [activeReport, setActiveReport] = useState<string | null>(null);
+  const [isSendingReport, setIsSendingReport] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -310,6 +313,24 @@ const ReportsManager = () => {
     const csv = generateCSV(headers, rows);
     downloadCSV(csv, `customer_report_${format(start, 'yyyy-MM-dd')}_to_${format(end, 'yyyy-MM-dd')}.csv`);
     toast.success(t('Reporte descargado', 'Report downloaded'));
+  };
+
+  const sendReportEmail = async () => {
+    setIsSendingReport(true);
+    try {
+      const result = await api.sendDailyReport(datePreset);
+      if (result.success) {
+        toast.success(t('Reporte enviado al correo del propietario', 'Report emailed to owner'));
+      } else {
+        toast.error(t('Error al enviar reporte', 'Failed to send report'));
+        console.error('Send report error:', result.error);
+      }
+    } catch (error) {
+      toast.error(t('Error al enviar reporte', 'Failed to send report'));
+      console.error('Send report exception:', error);
+    } finally {
+      setIsSendingReport(false);
+    }
   };
 
   const exportInventoryReport = () => {
@@ -804,6 +825,23 @@ const ReportsManager = () => {
               <Button variant="outline" className="h-20 flex-col gap-2" onClick={exportInventoryReport}>
                 <Package className="h-5 w-5 text-orange-500" />
                 <span className="text-xs">{t('Inventario CSV', 'Inventory CSV')}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex-col gap-2"
+                onClick={sendReportEmail}
+                disabled={isSendingReport}
+              >
+                {isSendingReport ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+                ) : (
+                  <Mail className="h-5 w-5 text-amber-500" />
+                )}
+                <span className="text-xs">
+                  {isSendingReport
+                    ? t('Enviando...', 'Sending...')
+                    : t('Enviar Reporte', 'Email Report')}
+                </span>
               </Button>
             </div>
           </CardContent>

@@ -3,9 +3,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
+import { useNotificationState } from '@/hooks/useNotificationState';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Order } from '@/types/order';
+import { parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 // Components
 import { KitchenRedesignedLayout } from '@/components/kitchen/KitchenRedesignedLayout';
@@ -15,7 +18,14 @@ import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
-import { Package } from 'lucide-react';
+import { NotificationPanel } from '@/components/kitchen/NotificationPanel';
+import CancelOrderModal from '@/components/order/CancelOrderModal';
+import { FrontDeskInventory } from '@/components/kitchen/FrontDeskInventory';
+import { DeliveryManagementPanel } from '@/components/kitchen/DeliveryManagementPanel';
+import ReportsManager from '@/components/dashboard/ReportsManager';
+import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
+import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
+import { Package, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const FrontDesk = () => {
   const { t } = useLanguage();
@@ -26,18 +36,50 @@ const FrontDesk = () => {
   const {
     orders,
     isLoading: feedLoading,
+    isRefreshing,
     refreshOrders,
     newOrderAlert,
     latestOrder,
     dismissAlert
-  } = useOrdersFeed();
+  } = useOrdersFeed(undefined, { soundEnabled: isSoundEnabled });
+
+  // Notification State
+  const { markAsRead, markAllAsRead, isUnread } = useNotificationState();
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+
+  const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready'];
+  const unreadCount = orders.filter(o => ACTIVE_STATUSES.includes(o.status) && isUnread(o.id)).length;
+
+  // Cancel Order State
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+
+  const handleCancelSuccess = () => {
+    if (cancelTarget) {
+      // Send cancellation email notification (non-blocking)
+      toast.info(t('Enviando correo...', 'Sending email...'));
+      api.sendStatusUpdate(cancelTarget, cancelTarget.status, 'cancelled')
+        .then(({ success }) => {
+          if (success) toast.success(t('Correo de cancelación enviado', 'Cancellation email sent'));
+        });
+    }
+    setCancelTarget(null);
+    refreshOrders();
+  };
 
   // State
   const [activeTab, setActiveTab] = useState<KitchenTab>('active');
-  const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'calendar'>('queue');
+  const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery]);
 
   // Auth is enforced by ProtectedRoute (requiredRole={['baker', 'owner']})
 
@@ -55,8 +97,8 @@ const FrontDesk = () => {
         successMsg = t('Orden completada', 'Order completed');
         break;
       case 'confirm':
-        status = 'in_progress';
-        successMsg = t('Orden aceptada y en preparación', 'Order accepted & preparing');
+        status = 'confirmed';
+        successMsg = t('Orden aceptada', 'Order accepted');
         break;
       case 'start':
         status = 'in_progress';
@@ -79,7 +121,13 @@ const FrontDesk = () => {
       toast.success(successMsg);
 
       // Send Email Notifications
-      if (action === 'ready') {
+      if (action === 'confirm') {
+        toast.info(t('Enviando correo...', 'Sending email...'));
+        api.sendOrderConfirmation(targetOrder).then(({ success, error }) => {
+          if (success) toast.success(t('Correo enviado', 'Email sent'));
+          else console.error("Email failed", error);
+        });
+      } else if (action === 'ready') {
         toast.info(t('Enviando correo...', 'Sending email...'));
         api.sendReadyNotification(targetOrder).then(({ success, error }) => {
           if (success) toast.success(t('Correo enviado', 'Email sent'));
@@ -114,6 +162,11 @@ const FrontDesk = () => {
   const filteredOrders = orders.filter((order: Order) => {
     // 1. Tab Filter
     if (activeTab === 'active' && !['pending', 'confirmed', 'in_progress', 'ready'].includes(order.status)) return false;
+    if (activeTab === 'today') {
+      if (['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (order.date_needed !== todayStr) return false;
+    }
     if (activeTab === 'pickup' && (order.status !== 'ready' || order.delivery_option !== 'pickup')) return false;
     if (activeTab === 'delivery' && (order.status !== 'ready' || order.delivery_option !== 'delivery')) return false;
     if (activeTab === 'done' && !['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
@@ -125,7 +178,9 @@ const FrontDesk = () => {
       const query = searchQuery.toLowerCase();
       return (
         order.customer_name?.toLowerCase().includes(query) ||
-        order.order_number?.toLowerCase().includes(query)
+        order.order_number?.toLowerCase().includes(query) ||
+        order.customer_phone?.toLowerCase().includes(query) ||
+        order.customer_email?.toLowerCase().includes(query)
       );
     }
     return true;
@@ -136,10 +191,53 @@ const FrontDesk = () => {
     return dateA.getTime() - dateB.getTime();
   });
 
+  // Separate current orders from overdue orders
+  const now = new Date();
+  const isCompletedStatus = (status: string) =>
+    ['delivered', 'completed', 'cancelled'].includes(status);
+
+  const currentOrders = filteredOrders.filter((order) => {
+    if (isCompletedStatus(order.status)) return true;
+    try {
+      const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
+      return dueDateTime >= now;
+    } catch {
+      return true;
+    }
+  });
+
+  const overdueOrders = filteredOrders.filter((order) => {
+    if (isCompletedStatus(order.status)) return false;
+    try {
+      const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
+      return dueDateTime < now;
+    } catch {
+      return false;
+    }
+  });
+
+  // Pagination: combine current + overdue into a single ordered list for slicing
+  const combinedOrders = [...currentOrders, ...overdueOrders];
+  const totalOrders = combinedOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, totalOrders);
+  const pageOrders = combinedOrders.slice(startIndex, endIndex);
+
+  // Split the page slice back into current vs overdue for rendering with the divider
+  const currentOrderCount = currentOrders.length;
+  const pageCurrentOrders = pageOrders.filter((_, i) => (startIndex + i) < currentOrderCount);
+  const pageOverdueOrders = pageOrders.filter((_, i) => (startIndex + i) >= currentOrderCount);
+
   const getCount = (statusCheck: (o: Order) => boolean) => orders.filter(statusCheck).length;
+  const todayStr = new Date().toISOString().split('T')[0];
   const counts = {
     all: orders.length,
     active: getCount(o => ['pending', 'confirmed', 'in_progress', 'ready'].includes(o.status)),
+    today: orders.filter(o =>
+      !['delivered', 'completed', 'cancelled'].includes(o.status) && o.date_needed === todayStr
+    ).length,
     new: getCount(o => o.status === 'pending'),
     preparing: getCount(o => ['confirmed', 'in_progress'].includes(o.status)),
     pickup: getCount(o => o.status === 'ready' && o.delivery_option === 'pickup'),
@@ -147,7 +245,79 @@ const FrontDesk = () => {
     done: getCount(o => ['delivered', 'completed'].includes(o.status)),
   };
 
+  // Keyboard shortcut: navigate between orders in the modal
+  const navigateOrder = (direction: 1 | -1) => {
+    if (!selectedOrder) return;
+    const idx = filteredOrders.findIndex(o => o.id === selectedOrder.id);
+    if (idx === -1) return;
+    const nextIdx = idx + direction;
+    if (nextIdx >= 0 && nextIdx < filteredOrders.length) {
+      setSelectedOrder(filteredOrders[nextIdx]);
+    }
+  };
+
+  // Keyboard shortcuts when PrintPreviewModal is open
+  useEffect(() => {
+    if (!selectedOrder) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      switch (e.key) {
+        case 'a':
+        case 'A':
+          if (selectedOrder.status === 'pending') {
+            handleOrderAction(selectedOrder.id, 'confirm');
+            setSelectedOrder(null);
+          }
+          break;
+        case 'r':
+        case 'R':
+          if (['confirmed', 'in_progress'].includes(selectedOrder.status)) {
+            handleOrderAction(selectedOrder.id, 'ready');
+            setSelectedOrder(null);
+          }
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          navigateOrder(1);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          navigateOrder(-1);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedOrder, filteredOrders]);
+
   const renderContent = () => {
+    if (activeView === 'inventory') {
+      return <FrontDeskInventory darkMode={isDarkMode} />;
+    }
+
+    if (activeView === 'deliveries') {
+      return (
+        <DeliveryManagementPanel
+          orders={orders}
+          darkMode={isDarkMode}
+          onRefresh={refreshOrders}
+          onShowDetails={(order) => setSelectedOrder(order)}
+        />
+      );
+    }
+
+    if (activeView === 'reports') {
+      return (
+        <div className={isDarkMode ? 'dark' : ''}>
+          <ReportsManager />
+        </div>
+      );
+    }
+
     if (activeView === 'upcoming') {
       return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -162,6 +332,18 @@ const FrontDesk = () => {
 
     return (
       <div className="flex flex-col h-full">
+        {/* Urgent Orders Banner */}
+        <UrgentOrdersBanner
+          orders={orders}
+          variant={isDarkMode ? 'dark' : 'light'}
+          onOrderClick={(order) => setSelectedOrder(order)}
+        />
+
+        {/* Quick Stats Widget */}
+        <div className={isDarkMode ? 'dark mb-6' : 'mb-6'}>
+          <QuickStatsWidget orders={orders} />
+        </div>
+
         {/* Today's Schedule Summary */}
         <div className={isDarkMode ? 'dark mb-6' : 'mb-6'}>
           <TodayScheduleSummary orders={orders} />
@@ -176,6 +358,7 @@ const FrontDesk = () => {
           }}
           onViewOrder={(order) => {
             setSelectedOrder(order);
+            markAsRead(order.id);
             dismissAlert();
           }}
         />
@@ -191,25 +374,154 @@ const FrontDesk = () => {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto pb-20">
-          {filteredOrders.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-4">
+          {totalOrders === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
               <Package className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium">No orders in this view</p>
+              <p className="text-lg font-medium">{t('Sin ordenes en esta vista', 'No orders in this view')}</p>
             </div>
           ) : (
-            filteredOrders.map((order) => (
-              <ModernOrderCard
-                key={order.id}
-                order={order}
-                onAction={handleOrderAction}
-                onShowDetails={(o) => setSelectedOrder(o)}
-                isFrontDesk={true}
-                variant={isDarkMode ? 'dark' : 'default'}
-              />
-            ))
+            <>
+              {/* Current / Upcoming orders on this page */}
+              {pageCurrentOrders.map((order) => (
+                <ModernOrderCard
+                  key={order.id}
+                  order={order}
+                  onAction={handleOrderAction}
+                  onShowDetails={(o) => setSelectedOrder(o)}
+                  onCancel={(o) => setCancelTarget(o)}
+                  isFrontDesk={true}
+                  variant={isDarkMode ? 'dark' : 'default'}
+                />
+              ))}
+
+              {/* Overdue Section Divider */}
+              {pageOverdueOrders.length > 0 && (
+                <div className="col-span-full mt-4 mb-2">
+                  <div className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl border",
+                    isDarkMode
+                      ? "bg-red-900/20 border-red-500/30 text-red-400"
+                      : "bg-red-50 border-red-200 text-red-700"
+                  )}>
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <span className="font-bold text-sm">
+                      {t('Ordenes atrasadas', 'Overdue Orders')} ({overdueOrders.length})
+                    </span>
+                    <div className={cn(
+                      "flex-1 h-px",
+                      isDarkMode ? "bg-red-500/20" : "bg-red-200"
+                    )} />
+                  </div>
+                </div>
+              )}
+
+              {/* Overdue orders on this page */}
+              {pageOverdueOrders.map((order) => (
+                <ModernOrderCard
+                  key={order.id}
+                  order={order}
+                  onAction={handleOrderAction}
+                  onShowDetails={(o) => setSelectedOrder(o)}
+                  onCancel={(o) => setCancelTarget(o)}
+                  isFrontDesk={true}
+                  variant={isDarkMode ? 'dark' : 'default'}
+                />
+              ))}
+            </>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-2 pb-20">
+            <p className={cn(
+              "text-sm",
+              isDarkMode ? "text-slate-400" : "text-gray-500"
+            )}>
+              {t(
+                `Mostrando ${startIndex + 1}-${endIndex} de ${totalOrders} ordenes`,
+                `Showing ${startIndex + 1}-${endIndex} of ${totalOrders} orders`
+              )}
+            </p>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                disabled={safePage <= 1}
+                className={cn(
+                  "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                  isDarkMode
+                    ? "text-slate-300 hover:bg-slate-700 disabled:hover:bg-transparent"
+                    : "text-gray-600 hover:bg-gray-100 disabled:hover:bg-transparent"
+                )}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('Anterior', 'Prev')}</span>
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((pageNum) => {
+                  if (pageNum === 1 || pageNum === totalPages) return true;
+                  if (Math.abs(pageNum - safePage) <= 1) return true;
+                  return false;
+                })
+                .reduce<(number | 'ellipsis')[]>((acc, pageNum, idx, arr) => {
+                  if (idx > 0 && pageNum - arr[idx - 1] > 1) {
+                    acc.push('ellipsis');
+                  }
+                  acc.push(pageNum);
+                  return acc;
+                }, [])
+                .map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className={cn(
+                        "px-2 text-sm",
+                        isDarkMode ? "text-slate-500" : "text-gray-400"
+                      )}
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item)}
+                      className={cn(
+                        "h-9 w-9 rounded-lg text-sm font-medium transition-colors",
+                        item === safePage
+                          ? isDarkMode
+                            ? "bg-slate-700 text-white shadow-md"
+                            : "bg-white text-gray-900 shadow-sm border border-gray-200"
+                          : isDarkMode
+                            ? "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                disabled={safePage >= totalPages}
+                className={cn(
+                  "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                  isDarkMode
+                    ? "text-slate-300 hover:bg-slate-700 disabled:hover:bg-transparent"
+                    : "text-gray-600 hover:bg-gray-100 disabled:hover:bg-transparent"
+                )}
+              >
+                <span className="hidden sm:inline">{t('Siguiente', 'Next')}</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -230,11 +542,46 @@ const FrontDesk = () => {
       title="Front Desk"
       darkMode={isDarkMode}
       onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      notificationCount={unreadCount}
+      onNotificationClick={() => setIsNotificationPanelOpen(true)}
+      onRefresh={refreshOrders}
+      isRefreshing={isRefreshing}
+      badgeCounts={{ queue: counts.new }}
+      soundEnabled={isSoundEnabled}
+      onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
     >
       <PrintPreviewModal
         isOpen={!!selectedOrder}
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
+        onCancelOrder={(order) => {
+          setSelectedOrder(null);
+          setCancelTarget(order);
+        }}
+      />
+
+      <CancelOrderModal
+        order={cancelTarget}
+        open={!!cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onSuccess={handleCancelSuccess}
+        isAdmin={true}
+      />
+
+      <NotificationPanel
+        isOpen={isNotificationPanelOpen}
+        onOpenChange={setIsNotificationPanelOpen}
+        orders={orders}
+        onSelectOrder={(order) => {
+          setSelectedOrder(order);
+          setIsNotificationPanelOpen(false);
+        }}
+        darkMode={isDarkMode}
+        markAsRead={markAsRead}
+        markAllAsRead={markAllAsRead}
+        isUnread={isUnread}
       />
 
       {renderContent()}

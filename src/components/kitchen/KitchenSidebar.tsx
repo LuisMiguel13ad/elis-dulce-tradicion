@@ -1,44 +1,51 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LayoutGrid, ClipboardList, MessageSquare, LogOut, Search, CalendarDays } from "lucide-react";
+import { ClipboardList, LogOut, CalendarDays, Bell, Boxes, Truck, BarChart3 } from "lucide-react";
 import TransparentLogo from '@/assets/brand/logo.png';
 
 interface KitchenSidebarProps {
-    activeView: 'queue' | 'upcoming' | 'calendar';
-    onChangeView: (view: 'queue' | 'upcoming' | 'calendar') => void;
+    activeView: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports';
+    onChangeView: (view: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports') => void;
     onLogout: () => void;
     compact?: boolean;
     darkMode?: boolean;
+    notificationCount?: number;
+    onNotificationClick?: () => void;
+    badgeCounts?: Record<string, number>;
 }
 
-export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false, darkMode = false }: KitchenSidebarProps) {
-    // Reference image items: Menu (Grid), Orders (Clipboard), Chat, Analytics (Hidden per request), Search
-    // We map 'queue' -> Orders, 'upcoming' -> Menu/Dashboard
+export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false, darkMode = false, notificationCount, onNotificationClick, badgeCounts }: KitchenSidebarProps) {
     const menuItems = [
         {
-            id: 'queue', // Main Orders view - Top priority
+            id: 'queue',
             label: 'Orders',
             icon: ClipboardList,
             view: 'queue' as const
         },
         {
-            id: 'upcoming', // Calendar view
+            id: 'upcoming',
             label: 'Calendar',
             icon: CalendarDays,
             view: 'upcoming' as const
         },
         {
-            id: 'chat',
-            label: 'Messages', // Renamed from Chat
-            icon: MessageSquare,
-            view: 'chat' as any // Placeholder
+            id: 'inventory',
+            label: 'Inventory',
+            icon: Boxes,
+            view: 'inventory' as const
         },
         {
-            id: 'search',
-            label: 'Search',
-            icon: Search,
-            view: 'search' as any // Placeholder
-        }
+            id: 'deliveries',
+            label: 'Deliveries',
+            icon: Truck,
+            view: 'deliveries' as const
+        },
+        {
+            id: 'reports',
+            label: 'Reports',
+            icon: BarChart3,
+            view: 'reports' as const
+        },
     ];
 
     return (
@@ -69,7 +76,7 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
                                 ? (darkMode ? "bg-green-500/20 text-green-400" : "bg-green-50 text-green-600")
                                 : (darkMode ? "text-slate-400 hover:bg-slate-700 hover:text-white" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600")
                         )}
-                        onClick={() => item.view !== 'chat' && item.view !== 'search' && onChangeView(item.view)}
+                        onClick={() => onChangeView(item.view)}
                     >
                         <item.icon className={cn("transition-colors", compact ? "h-6 w-6" : "h-5 w-5")} />
                         {!compact && item.label}
@@ -78,8 +85,44 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
                         {activeView === item.view && (
                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-green-600 rounded-r-full" />
                         )}
+
+                        {/* Badge Count */}
+                        {(badgeCounts?.[item.id] ?? 0) > 0 && (
+                            <span className={cn(
+                                "absolute rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center",
+                                compact
+                                    ? "top-1 right-1 h-4 min-w-[16px] px-0.5"
+                                    : "top-1/2 -translate-y-1/2 right-3 h-5 min-w-[20px] px-1"
+                            )}>
+                                {badgeCounts![item.id] > 99 ? '99+' : badgeCounts![item.id]}
+                            </span>
+                        )}
                     </Button>
                 ))}
+
+                {/* Notifications Button */}
+                <Button
+                    variant="ghost"
+                    className={cn(
+                        "w-full transition-all duration-200 relative group",
+                        compact ? "h-12 w-12 p-0 justify-center rounded-xl" : "justify-start gap-3 h-12 text-md font-medium",
+                        darkMode ? "text-slate-400 hover:bg-slate-700 hover:text-white" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                    )}
+                    onClick={onNotificationClick}
+                >
+                    <Bell className={cn("transition-colors", compact ? "h-6 w-6" : "h-5 w-5")} />
+                    {!compact && "Notifications"}
+                    {(notificationCount ?? 0) > 0 && (
+                        <span className={cn(
+                            "absolute rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center",
+                            compact
+                                ? "top-1 right-1 h-4 min-w-[16px] px-0.5"
+                                : "top-1/2 -translate-y-1/2 right-3 h-5 min-w-[20px] px-1"
+                        )}>
+                            {notificationCount! > 99 ? '99+' : notificationCount}
+                        </span>
+                    )}
+                </Button>
             </div>
 
             {/* Footer Actions */}

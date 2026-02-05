@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type KitchenTab = 'all' | 'active' | 'new' | 'preparing' | 'pickup' | 'delivery' | 'done';
+export type KitchenTab = 'all' | 'active' | 'today' | 'new' | 'preparing' | 'pickup' | 'delivery' | 'done';
 
 interface KitchenNavTabsProps {
     activeTab: KitchenTab;
@@ -14,6 +14,7 @@ export function KitchenNavTabs({ activeTab, onTabChange, counts, darkMode = fals
     const tabs: { id: KitchenTab; label: string }[] = [
         { id: 'all', label: 'All' },
         { id: 'active', label: 'Active' },
+        { id: 'today', label: 'Today' },
         { id: 'new', label: 'New' },
         { id: 'preparing', label: 'Preparing' },
         { id: 'pickup', label: 'Pickup' },

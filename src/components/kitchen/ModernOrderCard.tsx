@@ -9,6 +9,7 @@ interface ModernOrderCardProps {
     order: Order;
     onAction: (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete') => void;
     onShowDetails?: (order: Order) => void;
+    onCancel?: (order: Order) => void;
     isReadOnly?: boolean;
     isFrontDesk?: boolean;
     variant?: 'default' | 'dark';
@@ -18,6 +19,7 @@ export function ModernOrderCard({
     order,
     onAction,
     onShowDetails,
+    onCancel,
     isReadOnly,
     isFrontDesk,
     variant = 'default'
@@ -85,8 +87,13 @@ export function ModernOrderCard({
                     Accept Order
                 </Button>
             );
-        } else if (order.status === 'confirmed' || order.status === 'in_progress') {
-            // Combined "Preparing" state
+        } else if (order.status === 'confirmed') {
+            actionButton = (
+                <Button onClick={() => onAction(order.id, 'start')} className="flex-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded-xl h-10">
+                    Start Preparing
+                </Button>
+            );
+        } else if (order.status === 'in_progress') {
             actionButton = (
                 <Button onClick={() => onAction(order.id, 'ready')} className="flex-1 bg-green-600 text-white hover:bg-green-700 rounded-xl h-10">
                     Mark Ready
@@ -116,7 +123,12 @@ export function ModernOrderCard({
             "rounded-2xl p-5 shadow-sm border flex flex-col gap-4 font-sans hover:shadow-md transition-shadow",
             variant === 'dark'
                 ? "bg-[#1f2937] border-slate-700/50 text-white"
-                : "bg-white border-gray-100 text-gray-900"
+                : "bg-white border-gray-100 text-gray-900",
+            getUrgency() <= 0 && !['delivered', 'completed', 'cancelled'].includes(order.status) && (
+                variant === 'dark'
+                    ? "border-l-4 border-l-red-500/70"
+                    : "border-l-4 border-l-red-400"
+            )
         )}>
 
             {/* Header */}
@@ -190,6 +202,24 @@ export function ModernOrderCard({
                         <span>Due in {Math.floor(getUrgency() / 60)}h {getUrgency() % 60}m</span>
                     </div>
                 )}
+                {getUrgency() <= 0 && !['delivered', 'completed', 'cancelled'].includes(order.status) && (
+                    <div className={cn(
+                        "col-span-2 flex items-center gap-2 font-black mt-1 text-xs p-2 rounded-lg border animate-pulse",
+                        variant === 'dark'
+                            ? "text-red-400 bg-red-900/30 border-red-500/30"
+                            : "text-red-700 bg-red-50 border-red-200"
+                    )}>
+                        <Clock className="h-4 w-4" />
+                        <span>
+                            {Math.abs(getUrgency()) < 60
+                                ? `OVERDUE: ${Math.abs(getUrgency())}m ago`
+                                : Math.abs(getUrgency()) < 1440
+                                    ? `OVERDUE: ${Math.floor(Math.abs(getUrgency()) / 60)}h ${Math.abs(getUrgency()) % 60}m ago`
+                                    : `OVERDUE: ${Math.floor(Math.abs(getUrgency()) / 1440)}d ago`
+                            }
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Cake/Order Details */}
@@ -252,8 +282,25 @@ export function ModernOrderCard({
             </div>
 
             {/* Actions */}
-            <div className={cn("pt-4 border-t flex gap-2", variant === 'dark' ? "border-slate-700/50" : "border-gray-100")}>
-                {!isReadOnly && renderActions()}
+            <div className={cn("pt-4 border-t", variant === 'dark' ? "border-slate-700/50" : "border-gray-100")}>
+                <div className="flex gap-2">
+                    {!isReadOnly && renderActions()}
+                </div>
+                {onCancel && !['completed', 'cancelled', 'delivered'].includes(order.status) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); onCancel(order); }}
+                        className={cn(
+                            "w-full text-xs h-8 mt-2",
+                            variant === 'dark'
+                                ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                : "text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                        )}
+                    >
+                        Cancel Order
+                    </Button>
+                )}
             </div>
         </div>
     );

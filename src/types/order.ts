@@ -105,3 +105,13 @@ export type OrderSummary = Pick<Order,
   | 'delivery_option'
   | 'created_at'
 >;
+
+// Internal staff note on an order
+export interface OrderNote {
+  id: number;
+  order_id: number;
+  created_by: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+}

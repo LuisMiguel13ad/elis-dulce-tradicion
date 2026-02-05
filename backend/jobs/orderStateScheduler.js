@@ -267,5 +267,28 @@ export function startScheduledJobs() {
     sendReminderForUnstartedOrders();
   });
 
+  // Run daily at 7:00 AM: Send daily report email to owner
+  cron.schedule('0 7 * * *', () => {
+    console.log('📧 Running scheduled job: sendDailyReportEmail');
+    sendDailyReport();
+  });
+
   console.log('✅ Scheduled state transition jobs started');
+}
+
+/**
+ * Send daily report email to the owner
+ */
+async function sendDailyReport() {
+  try {
+    const { sendDailyReportEmail } = await import('../utils/edgeFunctions.js');
+    const result = await sendDailyReportEmail();
+    if (result.success) {
+      console.log('✅ Daily report email sent successfully');
+    } else {
+      console.error('❌ Daily report email failed:', result.error);
+    }
+  } catch (error) {
+    console.error('Error sending daily report:', error);
+  }
 }
