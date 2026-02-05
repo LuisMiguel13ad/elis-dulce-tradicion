@@ -194,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // But we can update it with phone if provided
         if (phone && data.user.id) {
           await supabase
-            .from('profiles')
+            .from('user_profiles')
             .update({ phone, full_name: fullName })
             .eq('id', data.user.id)
             .select('id, role, full_name, phone'); // Only select needed columns
