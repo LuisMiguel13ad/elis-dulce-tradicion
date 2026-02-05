@@ -314,6 +314,9 @@ const FrontDesk = () => {
     if (activeView === 'reports') {
       return (
         <div className={isDarkMode ? 'dark' : ''}>
+          <div className="mb-6">
+            <QuickStatsWidget orders={orders} />
+          </div>
           <ReportsManager />
         </div>
       );
@@ -322,11 +325,16 @@ const FrontDesk = () => {
     if (activeView === 'upcoming') {
       return (
         <div className="flex flex-col h-full overflow-hidden">
-          <OrderScheduler
-            orders={orders}
-            onOrderClick={(order) => setSelectedOrder(order)}
-            darkMode={isDarkMode}
-          />
+          <div className="flex-none pb-4">
+            <TodayScheduleSummary orders={orders} />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <OrderScheduler
+              orders={orders}
+              onOrderClick={(order) => setSelectedOrder(order)}
+              darkMode={isDarkMode}
+            />
+          </div>
         </div>
       );
     }
@@ -340,15 +348,7 @@ const FrontDesk = () => {
           onOrderClick={(order) => setSelectedOrder(order)}
         />
 
-        {/* Quick Stats Widget */}
-        <div className={isDarkMode ? 'dark mb-6' : 'mb-6'}>
-          <QuickStatsWidget orders={orders} />
-        </div>
 
-        {/* Today's Schedule Summary */}
-        <div className={isDarkMode ? 'dark mb-6' : 'mb-6'}>
-          <TodayScheduleSummary orders={orders} />
-        </div>
 
         {/* FullScreen Alert */}
         <FullScreenOrderAlert

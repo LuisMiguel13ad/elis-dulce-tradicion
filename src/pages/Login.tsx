@@ -78,6 +78,16 @@ const Login = () => {
 
 
 
+  // Optimize: Early return for authenticated users to prevent form rendering
+  // This prevents the "flash" of the login form before redirection
+  if (isAuthenticated && user && !isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
@@ -88,8 +98,19 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full bg-black text-white flex items-center justify-center relative overflow-hidden px-4 selection:bg-[#C6A649]/30">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[#C6A649]/5 rounded-full blur-[180px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none" />
+      {/* Performance Optimization: Replaced heavy blur filters with radial gradients */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(198, 166, 73, 0.08) 0%, rgba(0, 0, 0, 0) 70%)'
+        }}
+      />
+      <div
+        className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, rgba(0, 0, 0, 0) 70%)'
+        }}
+      />
 
       <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-white/40 hover:text-[#C6A649] transition-all z-20 group">
         <Store className="h-5 w-5 group-hover:scale-110 transition-transform" />
