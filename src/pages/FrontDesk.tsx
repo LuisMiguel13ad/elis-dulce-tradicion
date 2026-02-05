@@ -32,6 +32,8 @@ const FrontDesk = () => {
   const { user, isLoading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+
   // Data Hooks
   const {
     orders,
@@ -72,7 +74,6 @@ const FrontDesk = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 12;
 
