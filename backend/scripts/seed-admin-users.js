@@ -57,7 +57,7 @@ async function createAdminUser(email, password, fullName, role, phone = null) {
 
       // Update profile role
       const { error: profileError } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .update({
           role,
           full_name: fullName,
@@ -96,7 +96,7 @@ async function createAdminUser(email, password, fullName, role, phone = null) {
 
     // Update profile with role (trigger should create it, but we'll update it)
     const { error: profileError } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .update({
         role,
         full_name: fullName,

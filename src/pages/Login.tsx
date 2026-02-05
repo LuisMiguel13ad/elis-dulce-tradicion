@@ -32,7 +32,8 @@ const Login = () => {
       const role = user.profile?.role;
       if (role === 'owner') navigate('/owner-dashboard', { replace: true });
       else if (role === 'baker') navigate('/front-desk', { replace: true });
-      else navigate('/', { replace: true });
+      else if (role) navigate('/', { replace: true });
+      // If role is undefined/null, do nothing — wait for profile to load
     }
   }, [isLoading, isAuthenticated, user, navigate]);
 
