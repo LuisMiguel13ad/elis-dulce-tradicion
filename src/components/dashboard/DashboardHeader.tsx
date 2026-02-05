@@ -255,7 +255,7 @@ export const DashboardHeader = ({ onSearch, onNavigateTab }: DashboardHeaderProp
                 {user?.profile?.role === 'owner'
                   ? t('Propietario', 'Owner')
                   : user?.profile?.role === 'baker'
-                    ? t('Panadero', 'Baker')
+                    ? t('Recepción', 'Front Desk')
                     : t('Cliente', 'Customer')}
               </Badge>
             </div>

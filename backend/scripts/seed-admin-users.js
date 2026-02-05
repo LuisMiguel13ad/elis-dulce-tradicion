@@ -1,7 +1,7 @@
 /**
  * Admin User Seeding Script
  * 
- * This script creates initial owner and baker accounts in Supabase.
+ * This script creates initial owner and front desk accounts in Supabase.
  * Run this after setting up the database schema.
  * 
  * Usage:
@@ -42,7 +42,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 /**
- * Create an admin user (owner or baker)
+ * Create an admin user (owner or front desk)
  */
 async function createAdminUser(email, password, fullName, role, phone = null) {
   try {
@@ -140,7 +140,7 @@ async function seedAdminUsers() {
     {
       email: 'baker@elisbakery.com',
       password: 'ChangeThisPassword123!',
-      fullName: 'Baker Staff',
+      fullName: 'Front Desk',
       role: 'baker',
       phone: null,
     },
