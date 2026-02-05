@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase, getUserProfile } from '@/lib/supabase';
 import { AuthUser, UserRole, UserProfile } from '@/types/auth';
@@ -212,9 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    // Clear dev mode login (removed)
-    localStorage.removeItem('dev_user_role');
-
     if (supabase) {
       try {
         await supabase.auth.signOut();

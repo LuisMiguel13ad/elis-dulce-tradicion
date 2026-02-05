@@ -13,6 +13,7 @@ import { KitchenNavTabs, KitchenTab } from '@/components/kitchen/KitchenNavTabs'
 import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
 import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
+import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
 import { Package } from 'lucide-react';
 
@@ -38,19 +39,14 @@ const FrontDesk = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
 
-  // Auth Guard - Skip in dev mode for testing
-  const isDev = import.meta.env.DEV;
+  // Auth Guard
   useEffect(() => {
-    if (isDev) {
-      console.log('[FrontDesk] Dev mode - skipping auth check');
-      return;
-    }
     if (authLoading) return;
     if (!user || !user.profile || (user.profile.role !== 'baker' && user.profile.role !== 'owner')) {
       toast.error('Unauthorized access');
       navigate('/login');
     }
-  }, [user, authLoading, navigate, isDev]);
+  }, [user, authLoading, navigate]);
 
   // ... (handleOrderAction logic is correct)
 
@@ -175,6 +171,11 @@ const FrontDesk = () => {
 
     return (
       <div className="flex flex-col h-full">
+        {/* Today's Schedule Summary */}
+        <div className={isDarkMode ? 'dark mb-6' : 'mb-6'}>
+          <TodayScheduleSummary orders={orders} />
+        </div>
+
         {/* FullScreen Alert */}
         <FullScreenOrderAlert
           isOpen={newOrderAlert}

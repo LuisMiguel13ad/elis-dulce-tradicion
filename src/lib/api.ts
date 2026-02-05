@@ -231,6 +231,36 @@ class ApiClient {
     return MOCK_PRODUCTS;
   }
 
+  async getAllProducts() {
+    const sb = this.ensureSupabase();
+    if (sb) {
+      const { data, error } = await sb.from('products').select('*').order('category').order('name_en');
+      if (error) throw error;
+      return data || [];
+    }
+    return MOCK_PRODUCTS;
+  }
+
+  async createProduct(productData: any) {
+    const sb = this.ensureSupabase();
+    const { data, error } = await sb.from('products').insert(productData).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateProduct(id: number, productData: any) {
+    const sb = this.ensureSupabase();
+    const { data, error } = await sb.from('products').update(productData).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteProduct(id: number) {
+    const sb = this.ensureSupabase();
+    const { error } = await sb.from('products').update({ is_active: false }).eq('id', id);
+    if (error) throw error;
+  }
+
   // --- FILE UPLOAD ---
   async uploadFile(file: File) {
     const sb = this.ensureSupabase();
@@ -471,18 +501,19 @@ class ApiClient {
     const sb = this.ensureSupabase();
     if (!sb) return [];
 
-    // Assuming we have a products table with stock_quantity
-    // If not, we'll return empty
     try {
+      // Supabase JS doesn't support column-to-column comparison,
+      // so fetch all ingredients and filter client-side
       const { data, error } = await sb
-        .from('products')
+        .from('ingredients')
         .select('*')
-        .eq('is_active', true)
-        // .lt('stock_quantity', 10) // Uncomment if stock_quantity exists
-        .limit(5);
+        .order('name');
 
       if (error) throw error;
-      return data || [];
+
+      return (data || []).filter(
+        (item: any) => item.quantity <= item.low_stock_threshold
+      );
     } catch (e) {
       console.warn('Error fetching low stock items:', e);
       return [];
@@ -635,9 +666,72 @@ class ApiClient {
     // Return no holiday by default
     return { is_holiday: false, is_closed: false, name: '' };
   }
-  async getInventory() { return { success: true, data: [] }; }
-  async updateIngredient() { return { success: true }; }
-  async logIngredientUsage() { return { success: true }; }
+  async getInventory() {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('*')
+      .order('category')
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching inventory:', error);
+      throw error;
+    }
+    return data || [];
+  }
+  async updateIngredient(id: number, quantity: number, notes?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database not available');
+
+    const { data, error } = await sb
+      .from('ingredients')
+      .update({
+        quantity,
+        last_updated: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+  async logIngredientUsage(ingredientId: number, quantityUsed: number, orderId?: number, notes?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database not available');
+
+    // 1. Log the usage
+    const { error: usageError } = await sb
+      .from('ingredient_usage')
+      .insert({
+        ingredient_id: ingredientId,
+        quantity_used: quantityUsed,
+        order_id: orderId || null,
+        notes: notes || null,
+      });
+
+    if (usageError) throw usageError;
+
+    // 2. Decrement ingredient quantity
+    const { data: current } = await sb
+      .from('ingredients')
+      .select('quantity')
+      .eq('id', ingredientId)
+      .single();
+
+    if (current) {
+      const newQty = Math.max(0, current.quantity - quantityUsed);
+      await sb
+        .from('ingredients')
+        .update({ quantity: newQty, last_updated: new Date().toISOString() })
+        .eq('id', ingredientId);
+    }
+
+    return { success: true };
+  }
   async validateDeliveryAddress() { return { success: true, valid: true }; }
   async calculateDeliveryFee() { return { success: true, fee: 0 }; }
   async getDeliveryZones() { return { success: true, data: [] }; }

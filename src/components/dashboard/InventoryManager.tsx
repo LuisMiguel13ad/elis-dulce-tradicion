@@ -53,8 +53,8 @@ const InventoryManager = () => {
         api.getInventory(),
         api.getLowStockItems(),
       ]);
-      setIngredients(allItems);
-      setLowStockItems(lowStock);
+      setIngredients(Array.isArray(allItems) ? allItems : []);
+      setLowStockItems(Array.isArray(lowStock) ? lowStock : []);
     } catch (error) {
       console.error('Error loading inventory:', error);
       toast.error(t('Error al cargar inventario', 'Error loading inventory'));

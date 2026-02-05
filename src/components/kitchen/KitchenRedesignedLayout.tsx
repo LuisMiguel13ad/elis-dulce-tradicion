@@ -1,6 +1,6 @@
 import { KitchenSidebar } from "./KitchenSidebar";
 import { cn } from "@/lib/utils";
-import { Search, Bell, Clock, Sun, Moon } from "lucide-react";
+import { Search, Clock, Sun, Moon } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -103,13 +103,6 @@ export function KitchenRedesignedLayout({
                         </div>
 
                         {/* User Profile */}
-                        <Button variant="ghost" size="icon" className={cn(
-                            "rounded-full shadow-sm",
-                            isDarkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-white text-gray-600 hover:bg-gray-50"
-                        )}>
-                            <Bell className="h-5 w-5" />
-                        </Button>
-
                         <Avatar className="h-10 w-10 border-2 border-white shadow-sm cursor-pointer">
                             <AvatarImage src="/placeholder-avatar.jpg" />
                             <AvatarFallback className="bg-green-600 text-white font-bold">K</AvatarFallback>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Image as ImageIcon, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Product {
@@ -22,8 +23,21 @@ interface Product {
   price: number;
   image_url: string | null;
   category: string;
-  is_active: number;
+  is_active: boolean | number;
 }
+
+const CATEGORIES: Record<string, { es: string; en: string }> = {
+  cakes:     { es: 'Pasteles',       en: 'Cakes' },
+  bread:     { es: 'Pan Dulce',      en: 'Sweet Bread' },
+  cookies:   { es: 'Galletas',       en: 'Cookies' },
+  pastries:  { es: 'Repostería',     en: 'Pastries' },
+  beverages: { es: 'Bebidas',        en: 'Beverages' },
+  specialty: { es: 'Especialidades', en: 'Specialty' },
+  other:     { es: 'Otros',          en: 'Other' },
+};
+
+type SortField = 'name' | 'category' | 'price' | 'status';
+type SortDir = 'asc' | 'desc';
 
 const MenuManager = () => {
   const { t } = useLanguage();
@@ -34,6 +48,12 @@ const MenuManager = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Search, filter, sort state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const [formData, setFormData] = useState({
     name_es: '',
@@ -53,7 +73,7 @@ const MenuManager = () => {
   const loadProducts = async () => {
     try {
       setIsLoading(true);
-      const data = await api.getProducts();
+      const data = await api.getAllProducts();
       setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -61,6 +81,66 @@ const MenuManager = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Filtered + sorted products
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p =>
+        p.name_en.toLowerCase().includes(q) ||
+        p.name_es.toLowerCase().includes(q)
+      );
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      result = result.filter(p => p.category === categoryFilter);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = a.name_en.localeCompare(b.name_en);
+          break;
+        case 'category':
+          cmp = (a.category || '').localeCompare(b.category || '');
+          break;
+        case 'price':
+          cmp = a.price - b.price;
+          break;
+        case 'status': {
+          const aActive = a.is_active ? 1 : 0;
+          const bActive = b.is_active ? 1 : 0;
+          cmp = bActive - aActive; // Active first by default
+          break;
+        }
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+
+    return result;
+  }, [products, searchQuery, categoryFilter, sortField, sortDir]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +157,7 @@ const MenuManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name_es || !formData.name_en || !formData.price) {
       toast.error(t('Por favor complete todos los campos requeridos', 'Please fill in all required fields'));
       return;
@@ -88,10 +168,9 @@ const MenuManager = () => {
     try {
       let imageUrl = formData.image_url;
 
-      // Upload image if a new file was selected
       if (imageFile) {
         const uploadResult = await api.uploadFile(imageFile);
-        imageUrl = uploadResult.path;
+        imageUrl = uploadResult.url;
       }
 
       const productData = {
@@ -105,16 +184,13 @@ const MenuManager = () => {
       };
 
       if (editingProduct) {
-        // Update existing product
         await api.updateProduct(editingProduct.id, productData);
         toast.success(t('Producto actualizado exitosamente', 'Product updated successfully'));
       } else {
-        // Create new product
         await api.createProduct(productData);
         toast.success(t('Producto creado exitosamente', 'Product created successfully'));
       }
 
-      // Reset form and close dialog
       resetForm();
       setIsDialogOpen(false);
       loadProducts();
@@ -157,6 +233,22 @@ const MenuManager = () => {
     }
   };
 
+  const handleToggleActive = async (product: Product) => {
+    try {
+      const newActive = !product.is_active;
+      await api.updateProduct(product.id, { is_active: newActive });
+      toast.success(
+        newActive
+          ? t('Producto activado', 'Product activated')
+          : t('Producto desactivado', 'Product deactivated')
+      );
+      loadProducts();
+    } catch (error) {
+      console.error('Error toggling product status:', error);
+      toast.error(t('Error al cambiar estado', 'Error toggling status'));
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name_es: '',
@@ -183,16 +275,13 @@ const MenuManager = () => {
   };
 
   const getCategoryLabel = (category: string) => {
-    const categories: Record<string, { es: string; en: string }> = {
-      cakes: { es: 'Pasteles', en: 'Cakes' },
-      bread: { es: 'Pan Dulce', en: 'Sweet Bread' },
-      other: { es: 'Otros', en: 'Other' },
-    };
-    return categories[category] || { es: category, en: category };
+    return CATEGORIES[category] || { es: category, en: category };
   };
 
   const getImageUrl = (imageUrl: string | null) => {
     if (!imageUrl) return null;
+    // If it's already a full URL, return as-is
+    if (imageUrl.startsWith('http')) return imageUrl;
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     return `${baseUrl}${imageUrl}`;
   };
@@ -310,15 +399,11 @@ const MenuManager = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cakes">
-                        {t('Pasteles', 'Cakes')}
-                      </SelectItem>
-                      <SelectItem value="bread">
-                        {t('Pan Dulce', 'Sweet Bread')}
-                      </SelectItem>
-                      <SelectItem value="other">
-                        {t('Otros', 'Other')}
-                      </SelectItem>
+                      {Object.entries(CATEGORIES).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {t(label.es, label.en)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -380,11 +465,37 @@ const MenuManager = () => {
         </Dialog>
       </div>
 
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t('Buscar por nombre...', 'Search by name...')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder={t('Categoría', 'Category')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('Todas', 'All Categories')}</SelectItem>
+            {Object.entries(CATEGORIES).map(([key, label]) => (
+              <SelectItem key={key} value={key}>
+                {t(label.es, label.en)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>{t('Productos', 'Products')}</CardTitle>
           <CardDescription>
-            {t('Lista de todos los productos del menú', 'List of all menu products')}
+            {filteredProducts.length} {t('de', 'of')} {products.length} {t('productos', 'products')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -396,23 +507,52 @@ const MenuManager = () => {
                 {t('Haz clic en "Agregar Producto" para comenzar', 'Click "Add Product" to get started')}
               </p>
             </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>{t('No se encontraron productos', 'No products found')}</p>
+              <p className="text-sm mt-2">
+                {t('Intenta con otra búsqueda o filtro', 'Try a different search or filter')}
+              </p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('Imagen', 'Image')}</TableHead>
-                  <TableHead>{t('Nombre', 'Name')}</TableHead>
-                  <TableHead>{t('Categoría', 'Category')}</TableHead>
-                  <TableHead>{t('Precio', 'Price')}</TableHead>
-                  <TableHead>{t('Descripción', 'Description')}</TableHead>
+                  <TableHead>
+                    <button onClick={() => handleSort('name')} className="flex items-center hover:text-foreground transition-colors">
+                      {t('Nombre', 'Name')}
+                      <SortIcon field="name" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button onClick={() => handleSort('category')} className="flex items-center hover:text-foreground transition-colors">
+                      {t('Categoría', 'Category')}
+                      <SortIcon field="category" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button onClick={() => handleSort('price')} className="flex items-center hover:text-foreground transition-colors">
+                      {t('Precio', 'Price')}
+                      <SortIcon field="price" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button onClick={() => handleSort('status')} className="flex items-center hover:text-foreground transition-colors">
+                      {t('Estado', 'Status')}
+                      <SortIcon field="status" />
+                    </button>
+                  </TableHead>
                   <TableHead className="text-right">{t('Acciones', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => {
+                {filteredProducts.map((product) => {
                   const categoryLabel = getCategoryLabel(product.category);
+                  const isActive = !!product.is_active;
                   return (
-                    <TableRow key={product.id}>
+                    <TableRow key={product.id} className={!isActive ? 'opacity-50' : ''}>
                       <TableCell>
                         {product.image_url ? (
                           <img
@@ -438,16 +578,17 @@ const MenuManager = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold">
-                        ${product.price.toFixed(2)}
+                        ${Number(product.price).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs">
-                          <div className="text-sm line-clamp-2">{product.description_en || '-'}</div>
-                          {product.description_es && (
-                            <div className="text-xs text-muted-foreground line-clamp-2">
-                              {product.description_es}
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isActive}
+                            onCheckedChange={() => handleToggleActive(product)}
+                          />
+                          <Badge variant={isActive ? 'default' : 'secondary'} className="text-[10px]">
+                            {isActive ? t('Activo', 'Active') : t('Inactivo', 'Inactive')}
+                          </Badge>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -481,4 +622,3 @@ const MenuManager = () => {
 };
 
 export default MenuManager;
-

@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { OwnerSidebar } from '@/components/dashboard/OwnerSidebar';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { DashboardHeader, SearchResult } from '@/components/dashboard/DashboardHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +14,10 @@ import {
   DollarSign,
   Package,
   AlertTriangle,
-  Clock,
   RefreshCw,
   BarChart3,
-  Download
+  Truck,
+  CheckCircle2
 } from 'lucide-react';
 import {
   LineChart,
@@ -49,6 +49,9 @@ import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import MenuManager from '@/components/dashboard/MenuManager';
 import InventoryManager from '@/components/dashboard/InventoryManager';
+import ReportsManager from '@/components/dashboard/ReportsManager';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
+import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -56,6 +59,9 @@ const OwnerDashboard = () => {
   const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // 15-minute inactivity timeout for owner sessions
+  useInactivityTimeout(15 * 60 * 1000);
 
   // --- STATE ---
   const [isLoading, setIsLoading] = useState(true);
@@ -75,8 +81,6 @@ const OwnerDashboard = () => {
 
   const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month'>('day');
 
-  // Skip auth in dev mode for testing
-  const isDev = import.meta.env.DEV;
 
   // --- 1. DATA LOADING (The "Brain") ---
   const loadDashboardData = async () => {
@@ -200,14 +204,12 @@ const OwnerDashboard = () => {
 
   // Initial Load
   useEffect(() => {
-    if (!isDev) {
-      if (!authLoading && (!user || user.profile?.role !== 'owner')) {
-        navigate('/login');
-        return;
-      }
+    if (!authLoading && (!user || user.profile?.role !== 'owner')) {
+      navigate('/login');
+      return;
     }
     loadDashboardData();
-  }, [user, authLoading, isDev]);
+  }, [user, authLoading]);
 
   // Real-time Listener (Supabase)
   useRealtimeOrders({
@@ -220,13 +222,84 @@ const OwnerDashboard = () => {
     onOrderDelete: () => loadDashboardData(),
   });
 
+  // --- 3. GLOBAL SEARCH ---
+  const searchCacheRef = useRef<{ products: any[]; ingredients: any[] } | null>(null);
 
-  // --- 3. EXPORT HELPERS ---
-  const handleExportReport = async (type: string) => {
-    toast.info(`Generating ${type} report... (Simulated)`);
-    setTimeout(() => toast.success('Report downloaded'), 1000);
-  };
+  const handleGlobalSearch = useCallback(
+    (query: string): SearchResult[] => {
+      const q = query.toLowerCase();
+      const results: SearchResult[] = [];
 
+      // Search orders (already in state)
+      allOrders
+        .filter(
+          (o) =>
+            o.customer_name?.toLowerCase().includes(q) ||
+            o.order_number?.toLowerCase().includes(q) ||
+            o.customer_email?.toLowerCase().includes(q)
+        )
+        .slice(0, 5)
+        .forEach((o) => {
+          results.push({
+            type: 'order',
+            label: o.customer_name || o.order_number || `Order #${o.id}`,
+            subtitle: `${o.order_number || ''} · ${o.status || ''} · $${Number(o.total_amount || 0).toFixed(2)}`,
+            tabId: 'orders',
+          });
+        });
+
+      // Search products (lazy-loaded cache)
+      if (searchCacheRef.current?.products) {
+        searchCacheRef.current.products
+          .filter(
+            (p: any) =>
+              p.name_en?.toLowerCase().includes(q) ||
+              p.name_es?.toLowerCase().includes(q)
+          )
+          .slice(0, 5)
+          .forEach((p: any) => {
+            results.push({
+              type: 'product',
+              label: p.name_en || p.name_es,
+              subtitle: `${p.category || ''} · $${Number(p.price || 0).toFixed(2)}`,
+              tabId: 'products',
+            });
+          });
+      }
+
+      // Search ingredients (lazy-loaded cache)
+      if (searchCacheRef.current?.ingredients) {
+        searchCacheRef.current.ingredients
+          .filter((i: any) => i.name?.toLowerCase().includes(q))
+          .slice(0, 5)
+          .forEach((i: any) => {
+            results.push({
+              type: 'ingredient',
+              label: i.name,
+              subtitle: `${i.quantity} ${i.unit} · ${i.category || ''}`,
+              tabId: 'inventory',
+            });
+          });
+      }
+
+      // Load products + ingredients on first search if not cached
+      if (!searchCacheRef.current) {
+        Promise.all([api.getAllProducts(), api.getInventory()])
+          .then(([products, ingredients]) => {
+            searchCacheRef.current = {
+              products: Array.isArray(products) ? products : [],
+              ingredients: Array.isArray(ingredients) ? ingredients : [],
+            };
+          })
+          .catch(() => {
+            searchCacheRef.current = { products: [], ingredients: [] };
+          });
+      }
+
+      return results;
+    },
+    [allOrders]
+  );
 
   if (isLoading) {
     return (
@@ -249,7 +322,7 @@ const OwnerDashboard = () => {
       <OwnerSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <DashboardHeader />
+        <DashboardHeader onSearch={handleGlobalSearch} onNavigateTab={setActiveTab} />
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -302,7 +375,26 @@ const OwnerDashboard = () => {
                     <p className="text-xs text-muted-foreground mt-1">{t('por pedido', 'per order')}</p>
                   </CardContent>
                 </Card>
+
+                {/* Today's Deliveries */}
+                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <p className="text-sm font-medium text-gray-500">{t('Entregas Hoy', "Today's Deliveries")}</p>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <Truck className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="text-2xl font-bold text-gray-900">{metrics?.todayDeliveries || 0}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {metrics?.totalCustomers || 0} {t('clientes totales', 'total customers')}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
+
+              {/* TODAY'S SCHEDULE SUMMARY */}
+              <TodayScheduleSummary orders={allOrders} />
 
               {/* CHARTS ROW */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -358,6 +450,76 @@ const OwnerDashboard = () => {
                     </CardContent>
                   </Card>
                 </div>
+              </div>
+
+              {/* POPULAR ITEMS + LOW STOCK ROW */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {/* Popular Items */}
+                <Card className="border-none shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>{t('Más Pedidos', 'Most Ordered')}</CardTitle>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {popularItems.length === 0 ? (
+                      <p className="text-center py-6 text-gray-400 text-sm">{t('Sin datos aún', 'No data yet')}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {popularItems.map((item, i) => (
+                          <div key={item.itemName} className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-sm font-medium text-gray-700 truncate">{item.itemName}</p>
+                                <span className="text-xs font-bold text-gray-500 ml-2">{item.orderCount}</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-[#C6A649] rounded-full transition-all"
+                                  style={{ width: `${(item.orderCount / (popularItems[0]?.orderCount || 1)) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Low Stock Alerts */}
+                <Card className="border-none shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>{t('Alertas de Stock', 'Stock Alerts')}</CardTitle>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${lowStockItems.length > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                      {lowStockItems.length > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {lowStockItems.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6">
+                        <CheckCircle2 className="h-10 w-10 text-green-400 mb-2" />
+                        <p className="text-sm text-gray-400">{t('Todo abastecido', 'All stocked')}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {lowStockItems.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                              <p className="text-sm font-medium text-gray-700">{item.name || item.title}</p>
+                            </div>
+                            <Badge variant="destructive" className="text-[10px]">
+                              {t('Bajo', 'Low')}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
               {/* RECENT ORDERS TABLE (Preview) */}
@@ -422,21 +584,9 @@ const OwnerDashboard = () => {
               <InventoryManager />
             </TabsContent>
 
-            {/* --- TAB: REPORTS (Simplified) --- */}
-            <TabsContent value="reports">
-              <Card className="border-none shadow-sm">
-                <CardHeader><CardTitle>Reports Center</CardTitle></CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-3">
-                  <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => handleExportReport('Daily Sales')}>
-                    <Download className="h-6 w-6 text-blue-500" />
-                    <span>Daily Sales CSV</span>
-                  </Button>
-                  <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => handleExportReport('Inventory')}>
-                    <Package className="h-6 w-6 text-orange-500" />
-                    <span>Inventory CSV</span>
-                  </Button>
-                </CardContent>
-              </Card>
+            {/* --- TAB: REPORTS --- */}
+            <TabsContent value="reports" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <ReportsManager />
             </TabsContent>
           </Tabs>
         </main>

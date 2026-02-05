@@ -13,7 +13,7 @@ import TransparentLogo from '../assets/brand/logo.png';
 
 const Login = () => {
   const { t } = useLanguage();
-  const { signIn, signOut, user, isLoading, isAuthenticated } = useAuth();
+  const { signIn, user, isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,6 +25,16 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const message = location.state?.message;
+
+  // Auto-redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      const role = user.profile?.role;
+      if (role === 'owner') navigate('/owner-dashboard', { replace: true });
+      else if (role === 'baker') navigate('/front-desk', { replace: true });
+      else navigate('/', { replace: true });
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,54 +82,6 @@ const Login = () => {
       <div className="flex min-h-screen items-center justify-center bg-black">
         <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
       </div>
-    );
-  }
-
-  if (isAuthenticated && user) {
-    const role = user.profile?.role;
-    const dashboardPath = role === 'owner' ? '/owner-dashboard' : '/front-desk';
-
-    return (
-      <div className="min-h-screen w-full bg-black text-white flex items-center justify-center relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#C6A649]/5 rounded-full blur-[150px] pointer-events-none" />
-
-        <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-white/50 hover:text-[#C6A649] transition-all z-20 group">
-          <Store className="h-5 w-5 group-hover:scale-110 transition-transform" />
-          <span className="text-sm font-black uppercase tracking-widest">{t('Volver al Inicio', 'Back to Home')}</span>
-        </Link>
-
-        <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] relative z-10 rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="space-y-4 text-center pb-8 pt-12">
-            <CardTitle className="text-3xl font-black text-white uppercase tracking-tighter">
-              {t('Ya has iniciado sesión', 'Already Logged In')}
-            </CardTitle>
-            <div className="h-1 w-20 bg-[#C6A649] mx-auto rounded-full" />
-            <CardDescription className="text-gray-400 text-base font-light italic font-serif">
-              {t('Conectado como', 'Logged in as')} <strong className="text-[#C6A649] font-black">{user.profile?.full_name || user.email}</strong>
-              <span className="block text-xs mt-2 uppercase tracking-[0.2em] text-[#C6A649]/60">({user.profile?.role})</span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 px-10 pb-12">
-            <Button
-              className="w-full bg-[#C6A649] text-black hover:bg-white font-black uppercase tracking-widest h-14 rounded-2xl shadow-[0_10px_30px_rgba(198,166,73,0.3)] transition-all hover:scale-105"
-              onClick={() => navigate(dashboardPath)}
-            >
-              {t('Ir al Panel', 'Go to Dashboard')}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full border-white/10 text-white hover:bg-white/5 hover:text-white font-black uppercase tracking-widest h-14 rounded-2xl transition-all"
-              onClick={async () => {
-                await signOut();
-              }}
-            >
-              {t('Cerrar Sesión', 'Logout')}
-            </Button>
-
-
-          </CardContent>
-        </Card>
-      </div >
     );
   }
 
