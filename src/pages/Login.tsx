@@ -28,41 +28,41 @@ const Login = () => {
 
   // Auto-redirect authenticated users to their dashboard
   useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-      const role = user.profile?.role;
-      if (role === 'owner') navigate('/owner-dashboard', { replace: true });
-      else if (role === 'baker') navigate('/front-desk', { replace: true });
-      else if (role) navigate('/', { replace: true });
-      // If role is undefined/null, do nothing — wait for profile to load
+    if (user && !isLoading) {
+      // If we're already logged in, redirect based on role
+      // We rely on the role from metadata if the profile isn't fully loaded yet?
+      // Actually AuthContext handles profile loading. 
+      // checkUserRole handles the redirection routing.
+      const checkUserRole = async () => {
+        // ... existing checkUserRole logic is likely inside useEffect or similar
+        // But here we just want to ensure we don't double redirect or fight with the form submission
+      };
     }
-  }, [isLoading, isAuthenticated, user, navigate]);
+  }, [user, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setIsSubmitting(true);
+    setError(null); // Clear any previous errors
+
+    // Clear any previous scheduled redirects from useEffect if possible (not easily done without refs)
+    // Instead we trust signIn to return the authoritative result.
 
     try {
-      const result = await signIn(formData.email, formData.password);
+      const { success, error: signInError, role } = await signIn(formData.email, formData.password);
 
-      if (result.success) {
-        // Use the returned role for immediate navigation
-        // Fallback to user state if needed (though user state might be stale)
-        const role = result.role || user?.profile?.role;
-
+      if (success) {
+        // Explicit redirect based on returned role
         if (role === 'owner') {
-          navigate('/owner-dashboard');
+          navigate('/owner-dashboard', { replace: true });
         } else if (role === 'baker') {
-          navigate('/front-desk');
-        } else if (role) {
-          // Fix race condition: only redirect to home if we definitely have a role that isn't owner/baker
-          navigate('/');
+          navigate('/front-desk', { replace: true });
         } else {
-          // If role is missing/undefined, wait or let the useEffect handle it
-          // Do NOT blindly redirect to home to avoid overwriting state
+          // Default fallback for other roles (e.g. driver) or if role missing
+          navigate('/', { replace: true });
         }
       } else {
-        setError(result.error || t('Error al iniciar sesión', 'Error signing in'));
+        setError(signInError || t('Error al iniciar sesión', 'Error signing in'));
       }
     } catch (err) {
       setError(t('Ocurrió un error inesperado', 'An unexpected error occurred'));

@@ -86,8 +86,7 @@ const OwnerDashboard = () => {
       const orderList = Array.isArray(orders) ? orders : [];
       setAllOrders(orderList); // Primary State for Calendar & Lists
 
-      // 2. Compute Metrics Locally (No "Ghost" API calls)
-      computeMetrics(orderList);
+      setAllOrders(orderList); // Primary State for Calendar & Lists
 
       // 3. Fetch auxiliary data (Low Stock) - non-critical
       try {
@@ -104,7 +103,10 @@ const OwnerDashboard = () => {
   };
 
   // Compute derived state from the raw order list
-  const computeMetrics = (orders: any[]) => {
+  const computeMetrics = useMemo(() => {
+    if (!allOrders.length) return null;
+
+    const orders = allOrders;
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd'); // Local YYYY-MM-DD ideally
 
@@ -117,29 +119,18 @@ const OwnerDashboard = () => {
     // Pending Count
     const pendingCount = orders.filter(o => o.status === 'pending').length;
 
-    setMetrics({
-      todayOrders: ordersToday.length,
-      todayRevenue: revenueToday,
-      pendingOrders: pendingCount,
-      capacityUtilization: 0.5, // Placeholder
-      averageOrderValue: ordersToday.length > 0 ? revenueToday / ordersToday.length : 0,
-      totalCustomers: new Set(orders.map(o => o.customer_name)).size,
-      lowStockItems: 0, // Updated separately
-      todayDeliveries: ordersToday.filter(o => o.delivery_option === 'delivery').length
-    });
-
     // Compute Status Breakdown
     const statusCounts: Record<string, number> = {};
     orders.forEach(o => {
       const s = o.status || 'unknown';
       statusCounts[s] = (statusCounts[s] || 0) + 1;
     });
-    setStatusBreakdown(Object.entries(statusCounts).map(([status, count]) => ({
+    const breakdown = Object.entries(statusCounts).map(([status, count]) => ({
       status,
       count,
       totalRevenue: 0,
       percentage: (count / orders.length) * 100
-    })));
+    }));
 
     // Compute Popular Items (Simplistic extraction from cake_size)
     const itemCounts: Record<string, number> = {};
@@ -156,8 +147,30 @@ const OwnerDashboard = () => {
       }))
       .sort((a, b) => b.orderCount - a.orderCount)
       .slice(0, 5);
-    setPopularItems(topItems);
-  };
+
+    return {
+      metrics: {
+        todayOrders: ordersToday.length,
+        todayRevenue: revenueToday,
+        pendingOrders: pendingCount,
+        capacityUtilization: 0.5, // Placeholder
+        averageOrderValue: ordersToday.length > 0 ? revenueToday / ordersToday.length : 0,
+        totalCustomers: new Set(orders.map(o => o.customer_name)).size,
+        lowStockItems: 0, // Updated separately
+        todayDeliveries: ordersToday.filter(o => o.delivery_option === 'delivery').length
+      },
+      breakdown,
+      topItems
+    };
+  }, [allOrders]);
+
+  useEffect(() => {
+    if (computeMetrics) {
+      setMetrics(computeMetrics.metrics);
+      setStatusBreakdown(computeMetrics.breakdown);
+      setPopularItems(computeMetrics.topItems);
+    }
+  }, [computeMetrics]);
 
   // Re-compute revenue chart when period changes or orders update
   useEffect(() => {

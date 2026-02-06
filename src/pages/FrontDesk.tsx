@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -160,7 +160,7 @@ const FrontDesk = () => {
   };
 
   // Filter Logic logic...
-  const filteredOrders = orders.filter((order: Order) => {
+  const filteredOrders = useMemo(() => orders.filter((order: Order) => {
     // 1. Tab Filter
     if (activeTab === 'active' && !['pending', 'confirmed', 'in_progress', 'ready'].includes(order.status)) return false;
     if (activeTab === 'today') {
@@ -190,32 +190,37 @@ const FrontDesk = () => {
     const dateA = new Date(`${a.date_needed}T${a.time_needed}`);
     const dateB = new Date(`${b.date_needed}T${b.time_needed}`);
     return dateA.getTime() - dateB.getTime();
-  });
+  }), [orders, activeTab, searchQuery]);
 
   // Separate current orders from overdue orders
-  const now = new Date();
-  const isCompletedStatus = (status: string) =>
-    ['delivered', 'completed', 'cancelled'].includes(status);
+  // Memoize these derived lists to prevent recalculation on every render (e.g. clock ticks)
+  const { currentOrders, overdueOrders } = useMemo(() => {
+    const now = new Date();
+    const isCompletedStatus = (status: string) =>
+      ['delivered', 'completed', 'cancelled'].includes(status);
 
-  const currentOrders = filteredOrders.filter((order) => {
-    if (isCompletedStatus(order.status)) return true;
-    try {
-      const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
-      return dueDateTime >= now;
-    } catch {
-      return true;
-    }
-  });
+    const current = filteredOrders.filter((order) => {
+      if (isCompletedStatus(order.status)) return true;
+      try {
+        const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
+        return dueDateTime >= now;
+      } catch {
+        return true;
+      }
+    });
 
-  const overdueOrders = filteredOrders.filter((order) => {
-    if (isCompletedStatus(order.status)) return false;
-    try {
-      const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
-      return dueDateTime < now;
-    } catch {
-      return false;
-    }
-  });
+    const overdue = filteredOrders.filter((order) => {
+      if (isCompletedStatus(order.status)) return false;
+      try {
+        const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
+        return dueDateTime < now;
+      } catch {
+        return false;
+      }
+    });
+
+    return { currentOrders: current, overdueOrders: overdue };
+  }, [filteredOrders]);
 
   // Pagination: combine current + overdue into a single ordered list for slicing
   const combinedOrders = [...currentOrders, ...overdueOrders];
@@ -374,155 +379,158 @@ const FrontDesk = () => {
           />
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-4">
-          {totalOrders === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
-              <Package className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium">{t('Sin ordenes en esta vista', 'No orders in this view')}</p>
-            </div>
-          ) : (
-            <>
-              {/* Current / Upcoming orders on this page */}
-              {pageCurrentOrders.map((order) => (
-                <ModernOrderCard
-                  key={order.id}
-                  order={order}
-                  onAction={handleOrderAction}
-                  onShowDetails={(o) => setSelectedOrder(o)}
-                  onCancel={(o) => setCancelTarget(o)}
-                  isFrontDesk={true}
-                  variant={isDarkMode ? 'dark' : 'default'}
-                />
-              ))}
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-1">
+          {/* Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-4">
+            {totalOrders === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+                <Package className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium">{t('Sin ordenes en esta vista', 'No orders in this view')}</p>
+              </div>
+            ) : (
+              <>
+                {/* Current / Upcoming orders on this page */}
+                {pageCurrentOrders.map((order) => (
+                  <ModernOrderCard
+                    key={order.id}
+                    order={order}
+                    onAction={handleOrderAction}
+                    onShowDetails={(o) => setSelectedOrder(o)}
+                    onCancel={(o) => setCancelTarget(o)}
+                    isFrontDesk={true}
+                    variant={isDarkMode ? 'dark' : 'default'}
+                  />
+                ))}
 
-              {/* Overdue Section Divider */}
-              {pageOverdueOrders.length > 0 && (
-                <div className="col-span-full mt-4 mb-2">
-                  <div className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl border",
-                    isDarkMode
-                      ? "bg-red-900/20 border-red-500/30 text-red-400"
-                      : "bg-red-50 border-red-200 text-red-700"
-                  )}>
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    <span className="font-bold text-sm">
-                      {t('Ordenes atrasadas', 'Overdue Orders')} ({overdueOrders.length})
-                    </span>
+                {/* Overdue Section Divider */}
+                {pageOverdueOrders.length > 0 && (
+                  <div className="col-span-full mt-4 mb-2">
                     <div className={cn(
-                      "flex-1 h-px",
-                      isDarkMode ? "bg-red-500/20" : "bg-red-200"
-                    )} />
+                      "flex items-center gap-3 px-4 py-3 rounded-xl border",
+                      isDarkMode
+                        ? "bg-red-900/20 border-red-500/30 text-red-400"
+                        : "bg-red-50 border-red-200 text-red-700"
+                    )}>
+                      <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                      <span className="font-bold text-sm">
+                        {t('Ordenes atrasadas', 'Overdue Orders')} ({overdueOrders.length})
+                      </span>
+                      <div className={cn(
+                        "flex-1 h-px",
+                        isDarkMode ? "bg-red-500/20" : "bg-red-200"
+                      )} />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Overdue orders on this page */}
-              {pageOverdueOrders.map((order) => (
-                <ModernOrderCard
-                  key={order.id}
-                  order={order}
-                  onAction={handleOrderAction}
-                  onShowDetails={(o) => setSelectedOrder(o)}
-                  onCancel={(o) => setCancelTarget(o)}
-                  isFrontDesk={true}
-                  variant={isDarkMode ? 'dark' : 'default'}
-                />
-              ))}
-            </>
+                {/* Overdue orders on this page */}
+                {pageOverdueOrders.map((order) => (
+                  <ModernOrderCard
+                    key={order.id}
+                    order={order}
+                    onAction={handleOrderAction}
+                    onShowDetails={(o) => setSelectedOrder(o)}
+                    onCancel={(o) => setCancelTarget(o)}
+                    isFrontDesk={true}
+                    variant={isDarkMode ? 'dark' : 'default'}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-2 pb-20">
+              <p className={cn(
+                "text-sm",
+                isDarkMode ? "text-slate-400" : "text-gray-500"
+              )}>
+                {t(
+                  `Mostrando ${startIndex + 1}-${endIndex} de ${totalOrders} ordenes`,
+                  `Showing ${startIndex + 1}-${endIndex} of ${totalOrders} orders`
+                )}
+              </p>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "disabled:opacity-40 disabled:cursor-not-allowed",
+                    isDarkMode
+                      ? "text-slate-300 hover:bg-slate-700 disabled:hover:bg-transparent"
+                      : "text-gray-600 hover:bg-gray-100 disabled:hover:bg-transparent"
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">{t('Anterior', 'Prev')}</span>
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((pageNum) => {
+                    if (pageNum === 1 || pageNum === totalPages) return true;
+                    if (Math.abs(pageNum - safePage) <= 1) return true;
+                    return false;
+                  })
+                  .reduce<(number | 'ellipsis')[]>((acc, pageNum, idx, arr) => {
+                    if (idx > 0 && pageNum - arr[idx - 1] > 1) {
+                      acc.push('ellipsis');
+                    }
+                    acc.push(pageNum);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === 'ellipsis' ? (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className={cn(
+                          "px-2 text-sm",
+                          isDarkMode ? "text-slate-500" : "text-gray-400"
+                        )}
+                      >
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setCurrentPage(item)}
+                        className={cn(
+                          "h-9 w-9 rounded-lg text-sm font-medium transition-colors",
+                          item === safePage
+                            ? isDarkMode
+                              ? "bg-slate-700 text-white shadow-md"
+                              : "bg-white text-gray-900 shadow-sm border border-gray-200"
+                            : isDarkMode
+                              ? "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                              : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                        )}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "disabled:opacity-40 disabled:cursor-not-allowed",
+                    isDarkMode
+                      ? "text-slate-300 hover:bg-slate-700 disabled:hover:bg-transparent"
+                      : "text-gray-600 hover:bg-gray-100 disabled:hover:bg-transparent"
+                  )}
+                >
+                  <span className="hidden sm:inline">{t('Siguiente', 'Next')}</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
-
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-2 pb-20">
-            <p className={cn(
-              "text-sm",
-              isDarkMode ? "text-slate-400" : "text-gray-500"
-            )}>
-              {t(
-                `Mostrando ${startIndex + 1}-${endIndex} de ${totalOrders} ordenes`,
-                `Showing ${startIndex + 1}-${endIndex} of ${totalOrders} orders`
-              )}
-            </p>
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
-                disabled={safePage <= 1}
-                className={cn(
-                  "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  "disabled:opacity-40 disabled:cursor-not-allowed",
-                  isDarkMode
-                    ? "text-slate-300 hover:bg-slate-700 disabled:hover:bg-transparent"
-                    : "text-gray-600 hover:bg-gray-100 disabled:hover:bg-transparent"
-                )}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('Anterior', 'Prev')}</span>
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((pageNum) => {
-                  if (pageNum === 1 || pageNum === totalPages) return true;
-                  if (Math.abs(pageNum - safePage) <= 1) return true;
-                  return false;
-                })
-                .reduce<(number | 'ellipsis')[]>((acc, pageNum, idx, arr) => {
-                  if (idx > 0 && pageNum - arr[idx - 1] > 1) {
-                    acc.push('ellipsis');
-                  }
-                  acc.push(pageNum);
-                  return acc;
-                }, [])
-                .map((item, idx) =>
-                  item === 'ellipsis' ? (
-                    <span
-                      key={`ellipsis-${idx}`}
-                      className={cn(
-                        "px-2 text-sm",
-                        isDarkMode ? "text-slate-500" : "text-gray-400"
-                      )}
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={item}
-                      onClick={() => setCurrentPage(item)}
-                      className={cn(
-                        "h-9 w-9 rounded-lg text-sm font-medium transition-colors",
-                        item === safePage
-                          ? isDarkMode
-                            ? "bg-slate-700 text-white shadow-md"
-                            : "bg-white text-gray-900 shadow-sm border border-gray-200"
-                          : isDarkMode
-                            ? "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                      )}
-                    >
-                      {item}
-                    </button>
-                  )
-                )}
-
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
-                disabled={safePage >= totalPages}
-                className={cn(
-                  "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  "disabled:opacity-40 disabled:cursor-not-allowed",
-                  isDarkMode
-                    ? "text-slate-300 hover:bg-slate-700 disabled:hover:bg-transparent"
-                    : "text-gray-600 hover:bg-gray-100 disabled:hover:bg-transparent"
-                )}
-              >
-                <span className="hidden sm:inline">{t('Siguiente', 'Next')}</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
