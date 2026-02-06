@@ -2,7 +2,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import heroVideo from '@/assets/HeroVideo.mp4';
+import heroVideo from "@/assets/Eli'sHero.mp4";
 import heroLogo from '@/assets/brand/logo.png';
 
 const HeroSection = () => {
