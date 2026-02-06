@@ -55,9 +55,9 @@ async function verifySupabaseToken(token) {
 
   // Get user profile to check role
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('user_profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('user_id', user.id)
     .single();
 
   return {

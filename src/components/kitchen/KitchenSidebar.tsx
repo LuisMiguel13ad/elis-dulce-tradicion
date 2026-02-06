@@ -12,9 +12,10 @@ interface KitchenSidebarProps {
     notificationCount?: number;
     onNotificationClick?: () => void;
     badgeCounts?: Record<string, number>;
+    userName?: string;
 }
 
-export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false, darkMode = false, notificationCount, onNotificationClick, badgeCounts }: KitchenSidebarProps) {
+export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false, darkMode = false, notificationCount, onNotificationClick, badgeCounts, userName = 'Staff' }: KitchenSidebarProps) {
     const menuItems = [
         {
             id: 'queue',
@@ -143,8 +144,12 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
                 {/* User Avatar if compact */}
                 {compact && (
                     <div className={cn("mt-4 pt-4 border-t flex justify-center", darkMode ? "border-slate-700" : "border-gray-100")}>
-                        <div className="h-10 w-10 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
-                            <img src="/placeholder-avatar.jpg" alt="User" className="h-full w-full object-cover opacity-0" />
+                        <div className="h-10 w-10 rounded-full bg-green-600 overflow-hidden border-2 border-white shadow-sm">
+                            <img
+                                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=22c55e&color=fff&size=40`}
+                                alt={userName}
+                                className="h-full w-full object-cover"
+                            />
                         </div>
                     </div>
                 )}

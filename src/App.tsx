@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { initServiceWorker } from "@/lib/pwa";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Lazy load pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -61,9 +62,10 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        <LanguageProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <LanguageProvider>
           <AuthProvider>
             <TooltipProvider>
               <Toaster />
@@ -126,9 +128,10 @@ const App = () => {
               </BrowserRouter>
             </TooltipProvider>
           </AuthProvider>
-        </LanguageProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

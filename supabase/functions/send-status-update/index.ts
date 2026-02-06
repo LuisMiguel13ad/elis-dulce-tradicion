@@ -30,6 +30,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// XSS protection: escape HTML special characters in user input
+function escapeHtml(text: string | undefined | null): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
@@ -61,7 +72,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${order.order_number}`;
+    const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(order.order_number)}`;
 
     const subject = isSpanish
       ? `Actualización de Pedido #${order.order_number} - Eli's Bakery`
@@ -181,7 +192,7 @@ function generateStatusUpdateEmail(order: StatusUpdateData, trackingUrl: string,
   </div>
   
   <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 16px;">${labels.greeting} ${order.customer_name},</p>
+    <p style="font-size: 16px;">${labels.greeting} ${escapeHtml(order.customer_name)},</p>
     
     <p style="font-size: 16px;">${statusInfo.message}</p>
     
@@ -189,7 +200,7 @@ function generateStatusUpdateEmail(order: StatusUpdateData, trackingUrl: string,
       <p><strong>${labels.orderNumber}</strong> ${order.order_number}</p>
       <p><strong>${labels.status}</strong> <span style="color: #d4af37; font-weight: bold;">${formatStatus(order.new_status, lang)}</span></p>
       <p><strong>${labels.dateNeeded}</strong> ${formatDate(order.date_needed, lang)} ${labels.at} ${order.time_needed}</p>
-      ${order.notes ? `<p><strong>${labels.notes}</strong> ${order.notes}</p>` : ''}
+      ${order.notes ? `<p><strong>${labels.notes}</strong> ${escapeHtml(order.notes)}</p>` : ''}
     </div>
     
     <div style="text-align: center; margin: 30px 0;">

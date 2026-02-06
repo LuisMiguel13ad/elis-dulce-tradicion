@@ -92,6 +92,19 @@ export async function sendReadyNotificationEmail(order: any): Promise<EdgeFuncti
 }
 
 /**
+ * Send failed payment notification email to admin
+ */
+export async function sendFailedPaymentNotification(payment: {
+  amount: number;
+  customer_name: string;
+  customer_email: string;
+  error_message: string;
+  idempotency_key?: string;
+}): Promise<EdgeFunctionResponse> {
+  return callEdgeFunction('send-failed-payment-notification', { payment });
+}
+
+/**
  * Call an edge function using cron secret auth (for scheduled jobs)
  */
 async function callEdgeFunctionWithCronSecret(

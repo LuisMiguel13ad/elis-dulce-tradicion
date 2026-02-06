@@ -27,6 +27,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// XSS protection: escape HTML special characters in user input
+function escapeHtml(text: string | undefined | null): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
@@ -50,7 +61,7 @@ Deno.serve(async (req) => {
     const resend = new Resend(RESEND_API_KEY);
     const isSpanish = order.customer_language === 'es' || order.customer_language === 'spanish';
 
-    const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${order.order_number}`;
+    const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(order.order_number)}`;
 
     const subject = isSpanish
       ? `¡Tu Pedido #${order.order_number} Está Listo! - Eli's Bakery`
@@ -124,7 +135,7 @@ function generateReadyEmail(order: ReadyNotificationData, trackingUrl: string, i
   </div>
   
   <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 18px; font-weight: bold;">${labels.greeting} ${order.customer_name},</p>
+    <p style="font-size: 18px; font-weight: bold;">${labels.greeting} ${escapeHtml(order.customer_name)},</p>
     
     <p style="font-size: 16px;">${labels.intro}</p>
     
@@ -132,7 +143,7 @@ function generateReadyEmail(order: ReadyNotificationData, trackingUrl: string, i
       <h2 style="color: #28a745; margin-top: 0;">${isDelivery ? `🚗 ${labels.deliveryInfo}` : `📍 ${labels.pickupInfo}`}</h2>
       <p><strong>${labels.orderNumber}</strong> ${order.order_number}</p>
       ${isDelivery ? `
-        <p><strong>${labels.deliveryAddress}</strong> ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}</p>
+        <p><strong>${labels.deliveryAddress}</strong> ${escapeHtml(order.delivery_address)}${order.delivery_apartment ? `, ${escapeHtml(order.delivery_apartment)}` : ''}</p>
         <p style="color: #666; font-size: 14px;">${labels.deliveryNote}</p>
       ` : `
         <p style="color: #666; font-size: 14px;">${labels.pickupNote}</p>

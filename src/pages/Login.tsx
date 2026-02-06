@@ -36,10 +36,11 @@ const Login = () => {
         navigate('/owner-dashboard', { replace: true });
       } else if (role === 'baker') {
         navigate('/front-desk', { replace: true });
-      } else {
-        // Default fallback
+      } else if (role) {
+        // Only redirect to home if we have a known role that's not owner/baker
         navigate('/', { replace: true });
       }
+      // If role is undefined, do nothing — wait for profile to load
     }
   }, [user, isLoading, navigate]);
 
@@ -60,10 +61,11 @@ const Login = () => {
           navigate('/owner-dashboard', { replace: true });
         } else if (role === 'baker') {
           navigate('/front-desk', { replace: true });
-        } else {
-          // Default fallback for other roles (e.g. driver) or if role missing
+        } else if (role) {
+          // Default fallback for other roles (e.g. driver)
           navigate('/', { replace: true });
         }
+        // If role is undefined (timeout or error), don't redirect
       } else {
         setError(signInError || t('Error al iniciar sesión', 'Error signing in'));
       }

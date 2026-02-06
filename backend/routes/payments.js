@@ -508,8 +508,21 @@ async function logFailedPayment(client, { amount, orderData, error, idempotencyK
       error,
     });
 
-    // TODO: Send notification to admin (email/Slack/etc.)
-    // Could use edge function or webhook for this
+    // Send notification to admin
+    try {
+      const { sendFailedPaymentNotification } = await import('../utils/edgeFunctions.js');
+      await sendFailedPaymentNotification({
+        amount: amount / 100,
+        customer_name: orderData.customer_name,
+        customer_email: orderData.customer_email,
+        error_message: error,
+        idempotency_key: idempotencyKey,
+      });
+      console.log('✅ Admin notified of failed payment');
+    } catch (notifyErr) {
+      console.error('⚠️ Failed to send admin notification:', notifyErr);
+      // Don't throw - notification failure shouldn't break payment flow
+    }
   } catch (err) {
     console.error('Error logging failed payment:', err);
     // Don't throw - logging failure shouldn't break payment flow

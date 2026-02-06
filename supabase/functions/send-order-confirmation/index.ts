@@ -17,6 +17,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// XSS protection: escape HTML special characters in user input
+function escapeHtml(text: string | undefined | null): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
@@ -40,8 +51,8 @@ Deno.serve(async (req) => {
     const resend = new Resend(RESEND_API_KEY);
     const isSpanish = order.customer_language === 'es' || order.customer_language === 'spanish';
 
-    // Generate tracking URL
-    const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${order.order_number}`;
+    // Generate tracking URL with encoded order number
+    const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(order.order_number)}`;
 
     // Email content based on language
     const subject = isSpanish
@@ -127,7 +138,7 @@ function generateConfirmationEmail(order: OrderData, trackingUrl: string, isSpan
   </div>
   
   <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 16px;">${labels.greeting} ${order.customer_name},</p>
+    <p style="font-size: 16px;">${labels.greeting} ${escapeHtml(order.customer_name)},</p>
     
     <p style="font-size: 16px;">${labels.intro}</p>
     
@@ -137,10 +148,10 @@ function generateConfirmationEmail(order: OrderData, trackingUrl: string, isSpan
       <p><strong>${labels.dateNeeded}</strong> ${formatDate(order.date_needed, lang)} ${labels.at} ${order.time_needed}</p>
       <p><strong>${labels.size}</strong> ${order.cake_size}</p>
       <p><strong>${labels.filling}</strong> ${order.filling}</p>
-      <p><strong>${labels.theme}</strong> ${order.theme}</p>
-      ${order.dedication ? `<p><strong>${labels.dedication}</strong> "${order.dedication}"</p>` : ''}
+      <p><strong>${labels.theme}</strong> ${escapeHtml(order.theme)}</p>
+      ${order.dedication ? `<p><strong>${labels.dedication}</strong> "${escapeHtml(order.dedication)}"</p>` : ''}
       <p><strong>${labels.delivery}</strong> ${order.delivery_option === 'delivery' ? labels.deliveryHome : labels.deliveryPickup}</p>
-      ${order.delivery_address ? `<p><strong>${labels.address}</strong> ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}</p>` : ''}
+      ${order.delivery_address ? `<p><strong>${labels.address}</strong> ${escapeHtml(order.delivery_address)}${order.delivery_apartment ? `, ${escapeHtml(order.delivery_apartment)}` : ''}</p>` : ''}
       <p style="font-size: 20px; font-weight: bold; color: #d4af37; margin-top: 15px;">
         ${labels.total} $${order.total_amount.toFixed(2)}
       </p>

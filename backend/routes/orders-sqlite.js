@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db/sqlite-connection.js';
+import { triggerMakeWebhook } from './webhooks.js';
 
 const router = express.Router();
 
@@ -186,11 +187,10 @@ router.patch('/:id/status', (req, res) => {
       console.log(`   📦 PICKUP order`);
     }
     
-    // TODO: Send customer notifications via Make.com webhook
-    // Uncomment when Make.com is configured:
-    // if (status === 'ready' || status === 'out_for_delivery' || status === 'delivered') {
-    //   await triggerMakeWebhook(`order_${status}`, order);
-    // }
+    // Send customer notifications via Make.com webhook (or fallback email)
+    if (status === 'ready' || status === 'out_for_delivery' || status === 'delivered') {
+      triggerMakeWebhook(`order_${status}`, order);
+    }
     
     res.json(order);
   } catch (error) {

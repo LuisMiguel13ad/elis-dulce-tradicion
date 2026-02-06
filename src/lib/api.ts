@@ -7,6 +7,8 @@ import type { OrderNote } from '@/types/order';
 /**
  * API client for backend communication via Supabase
  */
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const MOCK_PRODUCTS = [
   {
     id: 1,
@@ -176,27 +178,34 @@ class ApiClient {
     return { success: true, order: data };
   }
 
-  async updateOrderStatus(id: number, status: string, metadata?: any) {
+  async updateOrderStatus(id: number, status: string, metadata?: { reason?: string; [key: string]: any }) {
     const sb = this.ensureSupabase();
     if (!sb) return { success: false, error: 'Database connection not available.' };
 
-    const updates: any = { status, updated_at: new Date().toISOString() };
-    if (metadata) {
-      // Merge metadata if you have a jsonb column, or handled otherwise
-      // For now assuming we just update status
+    try {
+      // Get current user for history tracking
+      const { data: { user } } = await sb.auth.getUser();
+
+      // Use atomic RPC that updates status AND records history
+      const { data, error } = await sb.rpc('transition_order_status', {
+        p_order_id: id,
+        p_new_status: status,
+        p_user_id: user?.id || null,
+        p_reason: metadata?.reason || null,
+        p_metadata: metadata || {}
+      });
+
+      if (error) {
+        console.error(`Error updating order ${id} status:`, error);
+        return { success: false, error: error.message };
+      }
+
+      // RPC returns { success, previous_status, new_status, order_id } or { success, error }
+      return data as { success: boolean; error?: string };
+    } catch (err: any) {
+      console.error(`Error updating order ${id} status:`, err);
+      return { success: false, error: err.message };
     }
-
-    const { error } = await sb
-      .from('orders')
-      .update(updates)
-      .eq('id', id);
-
-    if (error) {
-      console.error(`Error updating order ${id} status:`, error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
   }
 
   // Method to check existence of order for idempotency or validation
@@ -288,6 +297,35 @@ class ApiClient {
 
   async getDashboardMetrics(dateRange: 'today' | 'week' | 'month') {
     const sb = this.ensureSupabase();
+
+    // Try to fetch from backend first (has accurate capacity calculation)
+    try {
+      const session = sb ? (await sb.auth.getSession()).data.session : null;
+      if (session?.access_token) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/analytics/dashboard?dateRange=${dateRange}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (response.ok) {
+          const backendMetrics = await response.json();
+          // Backend returns capacityUtilization as percentage (0-100)
+          // Convert to decimal (0-1) for UI consistency
+          return {
+            ...backendMetrics,
+            capacityUtilization: (backendMetrics.capacityUtilization || 0) / 100,
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Backend metrics unavailable, falling back to Supabase:', error);
+    }
+
+    // Fallback: Supabase-only computation
     const now = new Date();
     let startDate = new Date();
 
@@ -335,12 +373,12 @@ class ApiClient {
     }
 
 
-    // --- Return DB Metrics Only ---
+    // --- Return DB Metrics Only (fallback without capacity data) ---
     return {
       todayOrders: dbMetrics.todayOrders,
       todayRevenue: dbMetrics.todayRevenue,
       pendingOrders: dbMetrics.pendingOrders,
-      capacityUtilization: 0.5, // TODO: Implement real capacity logic
+      capacityUtilization: 0, // Fallback when backend unavailable
       averageOrderValue: (dbMetrics.todayRevenue) / (dbMetrics.todayOrders || 1),
       totalCustomers: 0, // Placeholder
       lowStockItems: 0,
@@ -1395,12 +1433,30 @@ class ApiClient {
     }
   }
 
-  async trackEvent(name: string, properties?: any) {
-    // Analytics placeholder - non-blocking
+  async trackEvent(name: string, properties?: Record<string, any>) {
+    // Always log in dev for debugging
     if (import.meta.env.DEV) {
       console.log(`[Analytics] ${name}`, properties);
     }
-    return { success: true };
+
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: true }; // Silently succeed if no DB connection
+
+    try {
+      await sb.rpc('track_analytics_event', {
+        p_event_name: name,
+        p_properties: {
+          ...properties,
+          timestamp: new Date().toISOString(),
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+        }
+      });
+      return { success: true };
+    } catch (error) {
+      // Analytics should never block user experience
+      console.warn('Analytics tracking failed:', error);
+      return { success: true };
+    }
   }
 }
 

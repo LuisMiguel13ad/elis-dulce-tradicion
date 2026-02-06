@@ -14,6 +14,17 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// XSS protection: escape HTML special characters in user input
+function escapeHtml(text: string | undefined | null): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 interface OrderIssue {
     id: number;
     order_id: number;
@@ -78,13 +89,13 @@ Deno.serve(async (req) => {
                                                                                                                                              <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
                                                                                                                                                          <h2 style="color: #dc3545; margin-top: 0;">Issue Details</h2>
                                                                                                                                                                      <p><strong>Order Number:</strong> ${issue.order_number}</p>
-                                                                                                                                                                                 <p><strong>Customer:</strong> ${issue.customer_name}</p>
-                                                                                                                                                                                             <p><strong>Email:</strong> ${issue.customer_email}</p>
-                                                                                                                                                                                                         ${issue.customer_phone ? `<p><strong>Phone:</strong> ${issue.customer_phone}</p>` : ''}
-                                                                                                                                                                                                                     <p><strong>Category:</strong> ${issue.issue_category}</p>
+                                                                                                                                                                                 <p><strong>Customer:</strong> ${escapeHtml(issue.customer_name)}</p>
+                                                                                                                                                                                             <p><strong>Email:</strong> ${escapeHtml(issue.customer_email)}</p>
+                                                                                                                                                                                                         ${issue.customer_phone ? `<p><strong>Phone:</strong> ${escapeHtml(issue.customer_phone)}</p>` : ''}
+                                                                                                                                                                                                                     <p><strong>Category:</strong> ${escapeHtml(issue.issue_category)}</p>
                                                                                                                                                                                                                                  <p><strong>Description:</strong></p>
                                                                                                                                                                                                                                              <div style="background: #fff; padding: 15px; border-left: 3px solid #dc3545; margin: 10px 0;">
-                                                                                                                                                                                                                                                           ${issue.issue_description.replace(/\n/g, '<br>')}
+                                                                                                                                                                                                                                                           ${escapeHtml(issue.issue_description).replace(/\n/g, '<br>')}
                                                                                                                                                                                                                                                                        </div>
                                                                                                                                                                                                                                                                                    ${issue.photo_urls && issue.photo_urls.length > 0 ? `
                                                                                                                                                                                                                                                                                                  <p><strong>Photos:</strong></p>
@@ -125,16 +136,16 @@ Deno.serve(async (req) => {
                                                                                    <h1 style="color: #fff; margin: 0; font-size: 28px;">📋 Issue Report Received</h1>
                                                                                            </div>
                                                                                                    <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-                                                                                                             <p style="font-size: 16px;">Dear ${issue.customer_name},</p>
+                                                                                                             <p style="font-size: 16px;">Dear ${escapeHtml(issue.customer_name)},</p>
                                                                                                                        <p style="font-size: 16px;">We've received your issue report regarding order <strong>${issue.order_number}</strong>. We take all customer concerns seriously and will investigate this matter promptly.</p>
                                                                                                                                  <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                                                                                                                             <p style="margin: 0 0 10px 0;"><strong>Issue Category:</strong> ${issue.issue_category}</p>
+                                                                                                                                             <p style="margin: 0 0 10px 0;"><strong>Issue Category:</strong> ${escapeHtml(issue.issue_category)}</p>
                                                                                                                                                          <p style="margin: 0;"><strong>Your Description:</strong></p>
-                                                                                                                                                                     <p style="margin: 5px 0 0 0;">${issue.issue_description}</p>
+                                                                                                                                                                     <p style="margin: 5px 0 0 0;">${escapeHtml(issue.issue_description)}</p>
                                                                                                                                                                                </div>
                                                                                                                                                                                          <p style="font-size: 14px; color: #666;">Our team will review your report and contact you within 24 hours to discuss the next steps and resolution.</p>
                                                                                                                                                                                                    <div style="text-align: center; margin: 30px 0;">
-                                                                                                                                                                                                               <a href="${FRONTEND_URL}/order-tracking?orderNumber=${issue.order_number}" style="background: #d4af37; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                                                                                                                                                                                                               <a href="${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(issue.order_number)}" style="background: #d4af37; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                                                                                                                                                                                                                              Track Your Order
                                                                                                                                                                                                                                          </a>
                                                                                                                                                                                                                                                    </div>

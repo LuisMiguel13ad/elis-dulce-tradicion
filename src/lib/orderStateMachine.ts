@@ -36,8 +36,13 @@ export interface OrderData {
   date_needed?: string;
   time_needed?: string;
   ready_at?: string;
+  completed_at?: string;
   created_at: string;
   total_amount?: number;
+  // Time metrics (populated by DB trigger/RPC)
+  time_to_confirm?: number;
+  time_to_ready?: number;
+  time_to_complete?: number;
 }
 
 // Transition result
@@ -209,26 +214,19 @@ export function getAvailableTransitions(
 
 /**
  * Calculate time metrics for an order
+ * These values are pre-calculated by the database RPC (transition_order_status)
+ * and stored directly on the order record.
  */
 export function calculateTimeMetrics(order: OrderData): {
   timeToConfirm?: number; // minutes
   timeToReady?: number; // minutes
   timeToComplete?: number; // minutes
 } {
-  const metrics: {
-    timeToConfirm?: number;
-    timeToReady?: number;
-    timeToComplete?: number;
-  } = {};
-
-  // This would typically come from order_status_history
-  // For now, we'll calculate from timestamps if available
-  const createdAt = new Date(order.created_at).getTime();
-
-  // These would be populated from order_status_history queries
-  // Placeholder for now - actual implementation would query history
-
-  return metrics;
+  return {
+    timeToConfirm: order.time_to_confirm,
+    timeToReady: order.time_to_ready,
+    timeToComplete: order.time_to_complete,
+  };
 }
 
 /**

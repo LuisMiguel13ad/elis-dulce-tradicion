@@ -23,6 +23,7 @@ interface KitchenRedesignedLayoutProps {
     badgeCounts?: Record<string, number>;
     soundEnabled?: boolean;
     onToggleSound?: () => void;
+    userName?: string;
 }
 
 export function KitchenRedesignedLayout({
@@ -41,7 +42,8 @@ export function KitchenRedesignedLayout({
     isRefreshing,
     badgeCounts,
     soundEnabled = true,
-    onToggleSound
+    onToggleSound,
+    userName = 'Staff'
 }: KitchenRedesignedLayoutProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -67,6 +69,7 @@ export function KitchenRedesignedLayout({
                 notificationCount={notificationCount}
                 onNotificationClick={onNotificationClick}
                 badgeCounts={badgeCounts}
+                userName={userName}
             />
 
             <main className={cn(
@@ -186,8 +189,10 @@ export function KitchenRedesignedLayout({
 
                         {/* User Profile */}
                         <Avatar className="h-10 w-10 border-2 border-white shadow-sm cursor-pointer">
-                            <AvatarImage src="/placeholder-avatar.jpg" />
-                            <AvatarFallback className="bg-green-600 text-white font-bold">K</AvatarFallback>
+                            <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=22c55e&color=fff`} />
+                            <AvatarFallback className="bg-green-600 text-white font-bold">
+                                {userName.charAt(0).toUpperCase()}
+                            </AvatarFallback>
                         </Avatar>
                     </div>
                 </header>

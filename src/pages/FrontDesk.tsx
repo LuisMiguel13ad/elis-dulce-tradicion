@@ -560,6 +560,7 @@ const FrontDesk = () => {
       badgeCounts={{ queue: counts.new }}
       soundEnabled={isSoundEnabled}
       onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
+      userName={user?.profile?.full_name || user?.email?.split('@')[0] || 'Staff'}
     >
       <PrintPreviewModal
         isOpen={!!selectedOrder}
