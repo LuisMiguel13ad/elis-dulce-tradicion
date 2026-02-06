@@ -17,15 +17,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// XSS protection: escape HTML special characters in user input
+// XSS Protection: Escape HTML special characters to prevent script injection
 function escapeHtml(text: string | undefined | null): string {
   if (!text) return '';
-  return String(text)
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
+    .replace(/'/g, '&#039;');
 }
 
 Deno.serve(async (req) => {
@@ -51,13 +51,13 @@ Deno.serve(async (req) => {
     const resend = new Resend(RESEND_API_KEY);
     const isSpanish = order.customer_language === 'es' || order.customer_language === 'spanish';
 
-    // Generate tracking URL with encoded order number
+    // Generate tracking URL
     const trackingUrl = `${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(order.order_number)}`;
 
     // Email content based on language
     const subject = isSpanish
-      ? `Confirmación de Pedido #${order.order_number} - Eli's Bakery`
-      : `Order Confirmation #${order.order_number} - Eli's Bakery`;
+      ? `Confirmacion de Pedido #${escapeHtml(order.order_number)} - Eli's Bakery`
+      : `Order Confirmation #${escapeHtml(order.order_number)} - Eli's Bakery`;
 
     const htmlContent = generateConfirmationEmail(order, trackingUrl, isSpanish);
     const textContent = generateConfirmationText(order, trackingUrl, isSpanish);
@@ -96,32 +96,42 @@ function generateConfirmationEmail(order: OrderData, trackingUrl: string, isSpan
   const biz = getBusinessInfo(isSpanish ? 'es' : 'en');
   const lang = isSpanish ? 'es' : 'en';
 
+  // Sanitize all user-provided fields to prevent XSS
+  const safeName = escapeHtml(order.customer_name);
+  const safeOrderNumber = escapeHtml(order.order_number);
+  const safeCakeSize = escapeHtml(order.cake_size);
+  const safeFilling = escapeHtml(order.filling);
+  const safeTheme = escapeHtml(order.theme);
+  const safeDedication = escapeHtml(order.dedication);
+  const safeDeliveryAddress = escapeHtml(order.delivery_address);
+  const safeDeliveryApartment = escapeHtml(order.delivery_apartment);
+
   // Localized strings
   const labels = {
-    title: isSpanish ? '¡Pedido Confirmado!' : 'Order Confirmed!',
+    title: isSpanish ? 'Pedido Confirmado!' : 'Order Confirmed!',
     greeting: isSpanish ? 'Estimado/a' : 'Dear',
     intro: isSpanish
-      ? '¡Gracias por tu pedido! Estamos emocionados de crear tu pastel personalizado.'
+      ? 'Gracias por tu pedido! Estamos emocionados de crear tu pastel personalizado.'
       : "Thank you for your order! We're excited to create your custom cake.",
     detailsHeader: isSpanish ? 'Detalles del Pedido' : 'Order Details',
-    orderNumber: isSpanish ? 'Número de Orden:' : 'Order Number:',
+    orderNumber: isSpanish ? 'Numero de Orden:' : 'Order Number:',
     dateNeeded: isSpanish ? 'Fecha Necesaria:' : 'Date Needed:',
     at: isSpanish ? 'a las' : 'at',
-    size: isSpanish ? 'Tamaño:' : 'Cake Size:',
+    size: isSpanish ? 'Tamano:' : 'Cake Size:',
     filling: isSpanish ? 'Relleno:' : 'Filling:',
     theme: isSpanish ? 'Tema:' : 'Theme:',
     dedication: isSpanish ? 'Dedicatoria:' : 'Dedication:',
     delivery: isSpanish ? 'Entrega:' : 'Delivery:',
     deliveryHome: isSpanish ? 'Entrega a Domicilio' : 'Home Delivery',
     deliveryPickup: isSpanish ? 'Recoger' : 'Pickup',
-    address: isSpanish ? 'Dirección de Entrega:' : 'Delivery Address:',
+    address: isSpanish ? 'Direccion de Entrega:' : 'Delivery Address:',
     total: 'Total:',
     trackBtn: isSpanish ? 'Rastrear Tu Pedido' : 'Track Your Order',
     notify: isSpanish
-      ? 'Te notificaremos cuando tu pedido esté listo. Puedes rastrear el estado de tu pedido usando el enlace de arriba.'
+      ? 'Te notificaremos cuando tu pedido este listo. Puedes rastrear el estado de tu pedido usando el enlace de arriba.'
       : "We'll notify you when your order is ready. You can track your order status using the link above.",
-    contactTitle: isSpanish ? 'Contáctanos:' : 'Contact Us:',
-    phone: isSpanish ? 'Teléfono:' : 'Phone:',
+    contactTitle: isSpanish ? 'Contactanos:' : 'Contact Us:',
+    phone: isSpanish ? 'Telefono:' : 'Phone:',
     website: isSpanish ? 'Sitio Web:' : 'Website:'
   };
 
@@ -183,57 +193,67 @@ function generateConfirmationText(order: OrderData, trackingUrl: string, isSpani
   const biz = getBusinessInfo(isSpanish ? 'es' : 'en');
   const lang = isSpanish ? 'es' : 'en';
 
+  // Plain text doesn't need HTML escaping but we sanitize for consistency
+  const safeName = order.customer_name || '';
+  const safeOrderNumber = order.order_number || '';
+  const safeCakeSize = order.cake_size || '';
+  const safeFilling = order.filling || '';
+  const safeTheme = order.theme || '';
+  const safeDedication = order.dedication || '';
+  const safeDeliveryAddress = order.delivery_address || '';
+  const safeDeliveryApartment = order.delivery_apartment || '';
+
   if (isSpanish) {
     return `
-¡Pedido Confirmado!
+        Pedido Confirmado!
 
-Estimado/a ${order.customer_name},
+        Estimado/a ${safeName},
 
-¡Gracias por tu pedido! Estamos emocionados de crear tu pastel personalizado.
+        Gracias por tu pedido! Estamos emocionados de crear tu pastel personalizado.
 
-Detalles del Pedido:
-- Número de Orden: ${order.order_number}
-- Fecha Necesaria: ${formatDate(order.date_needed, lang)} a las ${order.time_needed}
-- Tamaño: ${order.cake_size}
-- Relleno: ${order.filling}
-- Tema: ${order.theme}
-${order.dedication ? `- Dedicatoria: "${order.dedication}"\n` : ''}- Entrega: ${order.delivery_option === 'delivery' ? 'Entrega a Domicilio' : 'Recoger'}
-${order.delivery_address ? `- Dirección de Entrega: ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}\n` : ''}- Total: $${order.total_amount.toFixed(2)}
+        Detalles del Pedido:
+        - Numero de Orden: ${safeOrderNumber}
+        - Fecha Necesaria: ${formatDate(order.date_needed, lang)} a las ${order.time_needed}
+        - Tamano: ${safeCakeSize}
+        - Relleno: ${safeFilling}
+        - Tema: ${safeTheme}
+        ${safeDedication ? `- Dedicatoria: "${safeDedication}"\n` : ''}- Entrega: ${order.delivery_option === 'delivery' ? 'Entrega a Domicilio' : 'Recoger'}
+        ${safeDeliveryAddress ? `- Direccion de Entrega: ${safeDeliveryAddress}${safeDeliveryApartment ? `, ${safeDeliveryApartment}` : ''}\n` : ''}- Total: $${order.total_amount.toFixed(2)}
 
-Rastrear tu pedido: ${trackingUrl}
+        Rastrear tu pedido: ${trackingUrl}
 
-Te notificaremos cuando tu pedido esté listo.
+        Te notificaremos cuando tu pedido este listo.
 
-Contáctanos:
-Teléfono: ${biz.phone}
-Email: ${biz.email}
-Sitio Web: ${biz.website}
-    `;
+        Contactanos:
+        Telefono: ${biz.phone}
+        Email: ${biz.email}
+        Sitio Web: ${biz.website}
+        `;
   }
 
   return `
-Order Confirmed!
+  Order Confirmed!
 
-Dear ${order.customer_name},
+  Dear ${safeName},
 
-Thank you for your order! We're excited to create your custom cake.
+  Thank you for your order! We're excited to create your custom cake.
 
-Order Details:
-- Order Number: ${order.order_number}
-- Date Needed: ${formatDate(order.date_needed, lang)} at ${order.time_needed}
-- Cake Size: ${order.cake_size}
-- Filling: ${order.filling}
-- Theme: ${order.theme}
-${order.dedication ? `- Dedication: "${order.dedication}"\n` : ''}- Delivery: ${order.delivery_option === 'delivery' ? 'Home Delivery' : 'Pickup'}
-${order.delivery_address ? `- Delivery Address: ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}\n` : ''}- Total: $${order.total_amount.toFixed(2)}
+  Order Details:
+  - Order Number: ${safeOrderNumber}
+  - Date Needed: ${formatDate(order.date_needed, lang)} at ${order.time_needed}
+  - Cake Size: ${safeCakeSize}
+  - Filling: ${safeFilling}
+  - Theme: ${safeTheme}
+  ${safeDedication ? `- Dedication: "${safeDedication}"\n` : ''}- Delivery: ${order.delivery_option === 'delivery' ? 'Home Delivery' : 'Pickup'}
+  ${safeDeliveryAddress ? `- Delivery Address: ${safeDeliveryAddress}${safeDeliveryApartment ? `, ${safeDeliveryApartment}` : ''}\n` : ''}- Total: $${order.total_amount.toFixed(2)}
 
-Track your order: ${trackingUrl}
+  Track your order: ${trackingUrl}
 
-We'll notify you when your order is ready.
+  We'll notify you when your order is ready.
 
-Contact Us:
-Phone: ${biz.phone}
-Email: ${biz.email}
-Website: ${biz.website}
+  Contact Us:
+  Phone: ${biz.phone}
+  Email: ${biz.email}
+  Website: ${biz.website}
   `;
 }
