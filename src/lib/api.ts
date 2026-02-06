@@ -1346,6 +1346,7 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+  // SIMULATED ONLY: This records the refund in DB but does not process it via Stripe/Square.
   async processRefund(orderId: string, amount?: number) {
     const sb = this.ensureSupabase();
     if (!sb) return { success: false, error: 'Database not available' };

@@ -54,17 +54,12 @@ const Login = () => {
           navigate('/owner-dashboard');
         } else if (role === 'baker') {
           navigate('/front-desk');
+        } else if (role) {
+          // Fix race condition: only redirect to home if we definitely have a role that isn't owner/baker
+          navigate('/');
         } else {
-          // If no role is found yet, maybe wait or go to home.
-          // For now, let's assume if success=true, we should have a role.
-          // If we don't, it might be a race condition.
-          // BUT, we know we just fetched it in signIn.
-          if (role) {
-            navigate('/');
-          } else {
-            // Emergency fallback if role fetch failed but auth succeeded
-            navigate('/');
-          }
+          // If role is missing/undefined, wait or let the useEffect handle it
+          // Do NOT blindly redirect to home to avoid overwriting state
         }
       } else {
         setError(result.error || t('Error al iniciar sesión', 'Error signing in'));

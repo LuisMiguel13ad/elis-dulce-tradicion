@@ -1,8 +1,7 @@
 # ⚠️⚠️⚠️ PRODUCTION ENVIRONMENT VARIABLES ⚠️⚠️⚠️
 # Copy this to .env.production before deploying
 
-# 🔐 CRITICAL: Dashboard Authentication (MUST SET BEFORE LAUNCH)
-VITE_DASHBOARD_PIN=CHANGE_THIS_TO_SECURE_PIN_BEFORE_LAUNCH
+
 
 # API Configuration
 VITE_API_URL=https://api.yourdomain.com/api
@@ -25,13 +24,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 # Set secrets in Supabase: supabase secrets set RESEND_API_KEY=re_xxx
 # RESEND_API_KEY is set as Supabase secret, not here
 
-# Square Payment Processing
-# Get from Square Developer Dashboard: https://developer.squareup.com/apps
-VITE_SQUARE_APPLICATION_ID=your-square-application-id
-VITE_SQUARE_LOCATION_ID=your-square-location-id
-VITE_SQUARE_ENVIRONMENT=production
-SQUARE_ACCESS_TOKEN=your-square-access-token
-SQUARE_WEBHOOK_SECRET=your-webhook-signature-key
+
 
 # Webhook Notifications
 # URL to send order notifications to (e.g., n8n, Zapier, Make, etc.)

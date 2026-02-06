@@ -141,7 +141,7 @@ export async function submitContactForm(data: {
     } catch (emailInvokeError) {
       // Network/relay failures - log but don't block
       if (emailInvokeError instanceof FunctionsRelayError ||
-          emailInvokeError instanceof FunctionsFetchError) {
+        emailInvokeError instanceof FunctionsFetchError) {
         console.error('Email function network error (will retry on next submission):', emailInvokeError);
       } else {
         console.error('Email notification error:', emailInvokeError);
@@ -254,6 +254,22 @@ export async function submitOrderIssue(data: {
     if (error) {
       console.error('Error submitting order issue:', error);
       throw error;
+    }
+
+    // Invoke edge function for email notification
+    try {
+      const { error: emailError } = await supabase.functions.invoke(
+        'send-order-issue-notification',
+        {
+          body: { issue }
+        }
+      );
+
+      if (emailError) {
+        console.error('Email notification failed:', emailError);
+      }
+    } catch (emailInvokeError) {
+      console.error('Email notification error:', emailInvokeError);
     }
 
     return issue;

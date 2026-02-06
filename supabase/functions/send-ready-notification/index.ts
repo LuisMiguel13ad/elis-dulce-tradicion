@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
+import { getBusinessInfo } from "../_shared/emailTemplates.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://elisbakery.com";
@@ -55,13 +56,8 @@ Deno.serve(async (req) => {
       ? `¡Tu Pedido #${order.order_number} Está Listo! - Eli's Bakery`
       : `Your Order #${order.order_number} is Ready! - Eli's Bakery`;
 
-    const htmlContent = isSpanish
-      ? generateSpanishReadyEmail(order, trackingUrl)
-      : generateEnglishReadyEmail(order, trackingUrl);
-
-    const textContent = isSpanish
-      ? generateSpanishReadyText(order, trackingUrl)
-      : generateEnglishReadyText(order, trackingUrl);
+    const htmlContent = generateReadyEmail(order, trackingUrl, isSpanish);
+    const textContent = generateReadyText(order, trackingUrl, isSpanish);
 
     const { data, error } = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
@@ -92,8 +88,28 @@ Deno.serve(async (req) => {
   }
 });
 
-function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: string): string {
+function generateReadyEmail(order: ReadyNotificationData, trackingUrl: string, isSpanish: boolean): string {
   const isDelivery = order.delivery_option === 'delivery';
+  const biz = getBusinessInfo(isSpanish ? 'es' : 'en');
+
+  const labels = {
+    title: isSpanish ? '¡Tu Pedido Está Listo!' : 'Your Order is Ready!',
+    greeting: isSpanish ? 'Estimado/a' : 'Dear',
+    intro: isSpanish ? '¡Buenas noticias! ¡Tu pedido de pastel personalizado está listo!' : 'Great news! Your custom cake order is ready!',
+    deliveryInfo: isSpanish ? 'Información de Entrega' : 'Delivery Information',
+    pickupInfo: isSpanish ? 'Información de Recogida' : 'Pickup Information',
+    orderNumber: isSpanish ? 'Número de Orden:' : 'Order Number:',
+    deliveryAddress: isSpanish ? 'Dirección de Entrega:' : 'Delivery Address:',
+    deliveryNote: isSpanish ? 'Tu pedido será entregado pronto. Por favor asegúrate de que haya alguien disponible para recibirlo.' : 'Your order will be delivered soon. Please ensure someone is available to receive it.',
+    pickupNote: isSpanish ? 'Puedes recoger tu pedido en nuestra panadería. Por favor trae una identificación válida.' : 'You can pick up your order at our bakery location. Please bring a valid ID.',
+    pickupLocation: isSpanish ? 'Ubicación de Recogida:' : 'Pickup Location:',
+    phone: isSpanish ? 'Teléfono:' : 'Phone:',
+    viewDetails: isSpanish ? 'Ver Detalles del Pedido' : 'View Order Details',
+    questions: isSpanish ? '¿Preguntas?' : 'Questions?',
+    contactUs: isSpanish ? 'Contáctanos al' : 'Contact us at',
+    or: isSpanish ? 'o' : 'or',
+    thanks: isSpanish ? "¡Gracias por elegir Eli's Bakery!" : "Thank you for choosing Eli's Bakery!"
+  };
 
   return `
 <!DOCTYPE html>
@@ -104,41 +120,41 @@ function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: st
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: #fff; margin: 0; font-size: 32px;">🎉 Your Order is Ready!</h1>
+    <h1 style="color: #fff; margin: 0; font-size: 32px;">🎉 ${labels.title}</h1>
   </div>
   
   <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 18px; font-weight: bold;">Dear ${order.customer_name},</p>
+    <p style="font-size: 18px; font-weight: bold;">${labels.greeting} ${order.customer_name},</p>
     
-    <p style="font-size: 16px;">Great news! Your custom cake order is ready!</p>
+    <p style="font-size: 16px;">${labels.intro}</p>
     
     <div style="background: #f0f9ff; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
-      <h2 style="color: #28a745; margin-top: 0;">${isDelivery ? '🚗 Delivery Information' : '📍 Pickup Information'}</h2>
-      <p><strong>Order Number:</strong> ${order.order_number}</p>
+      <h2 style="color: #28a745; margin-top: 0;">${isDelivery ? `🚗 ${labels.deliveryInfo}` : `📍 ${labels.pickupInfo}`}</h2>
+      <p><strong>${labels.orderNumber}</strong> ${order.order_number}</p>
       ${isDelivery ? `
-        <p><strong>Delivery Address:</strong> ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}</p>
-        <p style="color: #666; font-size: 14px;">Your order will be delivered soon. Please ensure someone is available to receive it.</p>
+        <p><strong>${labels.deliveryAddress}</strong> ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}</p>
+        <p style="color: #666; font-size: 14px;">${labels.deliveryNote}</p>
       ` : `
-        <p style="color: #666; font-size: 14px;">You can pick up your order at our bakery location. Please bring a valid ID.</p>
-        <p><strong>Pickup Location:</strong><br>
+        <p style="color: #666; font-size: 14px;">${labels.pickupNote}</p>
+        <p><strong>${labels.pickupLocation}</strong><br>
         Eli's Bakery<br>
         324 W Marshall St, Norristown, PA 19401<br>
-        Phone: (610) 279-6200</p>
+        ${labels.phone} ${biz.phone}</p>
       `}
     </div>
     
     <div style="text-align: center; margin: 30px 0;">
       <a href="${trackingUrl}" style="background: #28a745; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-        View Order Details
+        ${labels.viewDetails}
       </a>
     </div>
     
     <p style="font-size: 14px; color: #666;">
-      <strong>Questions?</strong> Contact us at (610) 279-6200 or orders@elisbakery.com
+      <strong>${labels.questions}</strong> ${labels.contactUs} ${biz.phone} ${labels.or} ${biz.email}
     </p>
     
     <p style="font-size: 16px; font-weight: bold; color: #28a745; text-align: center; margin-top: 30px;">
-      Thank you for choosing Eli's Bakery! 🎂
+      ${labels.thanks} 🎂
     </p>
   </div>
 </body>
@@ -146,62 +162,39 @@ function generateEnglishReadyEmail(order: ReadyNotificationData, trackingUrl: st
   `;
 }
 
-function generateSpanishReadyEmail(order: ReadyNotificationData, trackingUrl: string): string {
+function generateReadyText(order: ReadyNotificationData, trackingUrl: string, isSpanish: boolean): string {
   const isDelivery = order.delivery_option === 'delivery';
+  const biz = getBusinessInfo(isSpanish ? 'es' : 'en');
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: #fff; margin: 0; font-size: 32px;">🎉 ¡Tu Pedido Está Listo!</h1>
-  </div>
-  
-  <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 18px; font-weight: bold;">Estimado/a ${order.customer_name},</p>
-    
-    <p style="font-size: 16px;">¡Buenas noticias! ¡Tu pedido de pastel personalizado está listo!</p>
-    
-    <div style="background: #f0f9ff; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
-      <h2 style="color: #28a745; margin-top: 0;">${isDelivery ? '🚗 Información de Entrega' : '📍 Información de Recogida'}</h2>
-      <p><strong>Número de Orden:</strong> ${order.order_number}</p>
-      ${isDelivery ? `
-        <p><strong>Dirección de Entrega:</strong> ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}</p>
-        <p style="color: #666; font-size: 14px;">Tu pedido será entregado pronto. Por favor asegúrate de que haya alguien disponible para recibirlo.</p>
-      ` : `
-        <p style="color: #666; font-size: 14px;">Puedes recoger tu pedido en nuestra panadería. Por favor trae una identificación válida.</p>
-        <p><strong>Ubicación de Recogida:</strong><br>
-        Eli's Bakery<br>
-        324 W Marshall St, Norristown, PA 19401<br>
-        Teléfono: (610) 279-6200</p>
-      `}
-    </div>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${trackingUrl}" style="background: #28a745; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-        Ver Detalles del Pedido
-      </a>
-    </div>
-    
-    <p style="font-size: 14px; color: #666;">
-      <strong>¿Preguntas?</strong> Contáctanos al (610) 279-6200 o orders@elisbakery.com
-    </p>
-    
-    <p style="font-size: 16px; font-weight: bold; color: #28a745; text-align: center; margin-top: 30px;">
-      ¡Gracias por elegir Eli's Bakery! 🎂
-    </p>
-  </div>
-</body>
-</html>
-  `;
-}
+  if (isSpanish) {
+    return `
+¡Tu Pedido Está Listo!
 
-function generateEnglishReadyText(order: ReadyNotificationData, trackingUrl: string): string {
-  const isDelivery = order.delivery_option === 'delivery';
+Estimado/a ${order.customer_name},
+
+¡Buenas noticias! ¡Tu pedido de pastel personalizado está listo!
+
+Número de Orden: ${order.order_number}
+
+${isDelivery ? `
+Información de Entrega:
+- Dirección de Entrega: ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}
+- Tu pedido será entregado pronto. Por favor asegúrate de que haya alguien disponible para recibirlo.
+` : `
+Información de Recogida:
+- Puedes recoger tu pedido en nuestra panadería
+- Por favor trae una identificación válida
+- Ubicación: 324 W Marshall St, Norristown, PA 19401
+- Teléfono: ${biz.phone}
+`}
+
+Ver detalles del pedido: ${trackingUrl}
+
+¿Preguntas? Contáctanos al ${biz.phone} o ${biz.email}
+
+¡Gracias por elegir Eli's Bakery! 🎂
+    `;
+  }
 
   return `
 Your Order is Ready!
@@ -221,45 +214,13 @@ Pickup Information:
 - You can pick up your order at our bakery location
 - Please bring a valid ID
 - Location: 324 W Marshall St, Norristown, PA 19401
-- Phone: (610) 279-6200
+- Phone: ${biz.phone}
 `}
 
 View order details: ${trackingUrl}
 
-Questions? Contact us at (610) 279-6200 or orders@elisbakery.com
+Questions? Contact us at ${biz.phone} or ${biz.email}
 
 Thank you for choosing Eli's Bakery! 🎂
-  `;
-}
-
-function generateSpanishReadyText(order: ReadyNotificationData, trackingUrl: string): string {
-  const isDelivery = order.delivery_option === 'delivery';
-
-  return `
-¡Tu Pedido Está Listo!
-
-Estimado/a ${order.customer_name},
-
-¡Buenas noticias! ¡Tu pedido de pastel personalizado está listo!
-
-Número de Orden: ${order.order_number}
-
-${isDelivery ? `
-Información de Entrega:
-- Dirección de Entrega: ${order.delivery_address}${order.delivery_apartment ? `, ${order.delivery_apartment}` : ''}
-- Tu pedido será entregado pronto. Por favor asegúrate de que haya alguien disponible para recibirlo.
-` : `
-Información de Recogida:
-- Puedes recoger tu pedido en nuestra panadería
-- Por favor trae una identificación válida
-- Ubicación: 324 W Marshall St, Norristown, PA 19401
-- Teléfono: (610) 279-6200
-`}
-
-Ver detalles del pedido: ${trackingUrl}
-
-¿Preguntas? Contáctanos al (610) 279-6200 o orders@elisbakery.com
-
-¡Gracias por elegir Eli's Bakery! 🎂
   `;
 }
