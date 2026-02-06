@@ -1394,6 +1394,14 @@ class ApiClient {
       return { success: false, error: err.message };
     }
   }
+
+  async trackEvent(name: string, properties?: any) {
+    // Analytics placeholder - non-blocking
+    if (import.meta.env.DEV) {
+      console.log(`[Analytics] ${name}`, properties);
+    }
+    return { success: true };
+  }
 }
 
 export const api = new ApiClient();

@@ -29,14 +29,17 @@ const Login = () => {
   // Auto-redirect authenticated users to their dashboard
   useEffect(() => {
     if (user && !isLoading) {
-      // If we're already logged in, redirect based on role
-      // We rely on the role from metadata if the profile isn't fully loaded yet?
-      // Actually AuthContext handles profile loading. 
-      // checkUserRole handles the redirection routing.
-      const checkUserRole = async () => {
-        // ... existing checkUserRole logic is likely inside useEffect or similar
-        // But here we just want to ensure we don't double redirect or fight with the form submission
-      };
+      // Check role and redirect accordingly
+      const role = user.profile?.role;
+
+      if (role === 'owner') {
+        navigate('/owner-dashboard', { replace: true });
+      } else if (role === 'baker') {
+        navigate('/front-desk', { replace: true });
+      } else {
+        // Default fallback
+        navigate('/', { replace: true });
+      }
     }
   }, [user, isLoading, navigate]);
 
