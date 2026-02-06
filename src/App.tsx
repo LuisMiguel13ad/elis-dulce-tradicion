@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { initServiceWorker } from "@/lib/pwa";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Lazy load pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -43,93 +44,97 @@ import { useWebsiteTracker } from "@/hooks/useWebsiteTracker";
 
 // Tracker component to use inside Router
 const Tracker = () => {
-  useWebsiteTracker();
-  return null;
+    useWebsiteTracker();
+    return null;
 };
 
 // Loading component
 const PageLoader = () => (
-  <div className="flex min-h-screen items-center justify-center">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-  </div>
-);
+    <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>div>
+  );
 
 const App = () => {
-  // Initialize PWA service worker
-  useEffect(() => {
-    initServiceWorker();
-  }, []);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        <LanguageProvider>
-          <AuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <OfflineIndicator />
-              <AnnouncementBanner />
-              <BrowserRouter>
-                <Tracker />
-                <ScrollToTop />
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    {/* Public Routes */}
-                    <Route path="/" element={<Index />} />
-                    <Route path="/order" element={<Order />} />
-                    <Route path="/payment-checkout" element={<PaymentCheckout />} />
-                    <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/gallery" element={<Gallery />} />
-                    <Route path="/menu" element={<Menu />} />
-                    <Route path="/faq" element={<FAQ />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/privacy" element={<Privacy />} />
-                    <Route path="/terms" element={<Terms />} />
-                    {/* Legal Pages */}
-                    <Route path="/legal/terms" element={<TermsOfService />} />
-                    <Route path="/legal/privacy" element={<PrivacyPolicy />} />
-                    <Route path="/legal/refund" element={<RefundPolicy />} />
-                    <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
-                    <Route path="/order-tracking" element={<OrderTracking />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/order-issue" element={<OrderIssue />} />
-
-                    {/* Protected Routes - Require Authentication */}
-                    <Route
-                      path="/front-desk"
-                      element={
-                        <ProtectedRoute requiredRole={['baker', 'owner']}>
-                          <Suspense fallback={<PageLoader />}>
-                            <FrontDesk />
-                          </Suspense>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/owner-dashboard"
-                      element={
-                        <ProtectedRoute requiredRole="owner">
-                          <Suspense fallback={<PageLoader />}>
-                            <OwnerDashboard />
-                          </Suspense>
-                        </ProtectedRoute>
-                      }
-                    />
-
-                    {/* 404 Route */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </BrowserRouter>
-            </TooltipProvider>
-          </AuthProvider>
-        </LanguageProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  );
-};
-
-export default App;
+    // Initialize PWA service worker
+    useEffect(() => {
+          initServiceWorker();
+    }, []);
+  
+    return (
+          <ErrorBoundary>
+                <QueryClientProvider client={queryClient}>
+                        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+                                  <LanguageProvider>
+                                              <AuthProvider>
+                                                            <TooltipProvider>
+                                                                            <Toaster />
+                                                                            <Sonner />
+                                                                            <OfflineIndicator />
+                                                                            <AnnouncementBanner />
+                                                                            <BrowserRouter>
+                                                                                              <Tracker />
+                                                                                              <ScrollToTop />
+                                                                                              <Suspense fallback={<PageLoader />}>
+                                                                                                                  <Routes>
+                                                                                                                    {/* Public Routes */}
+                                                                                                                                        <Route path="/" element={<Index />} />
+                                                                                                                                        <Route path="/order" element={<Order />} />
+                                                                                                                                        <Route path="/payment-checkout" element={<PaymentCheckout />} />
+                                                                                                                                        <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                                                                                                                                        <Route path="/login" element={<Login />} />
+                                                                                                                                        <Route path="/signup" element={<Signup />} />
+                                                                                                                                        <Route path="/gallery" element={<Gallery />} />
+                                                                                                                                        <Route path="/menu" element={<Menu />} />
+                                                                                                                                        <Route path="/faq" element={<FAQ />} />
+                                                                                                                                        <Route path="/about" element={<About />} />
+                                                                                                                                        <Route path="/privacy" element={<Privacy />} />
+                                                                                                                                        <Route path="/terms" element={<Terms />} />
+                                                                                                                  
+                                                                                                                    {/* Legal Pages */}
+                                                                                                                                        <Route path="/legal/terms" element={<TermsOfService />} />
+                                                                                                                                        <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+                                                                                                                                        <Route path="/legal/refund" element={<RefundPolicy />} />
+                                                                                                                                        <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
+                                                                                                                  
+                                                                                                                                        <Route path="/order-tracking" element={<OrderTracking />} />
+                                                                                                                                        <Route path="/contact" element={<Contact />} />
+                                                                                                                                        <Route path="/order-issue" element={<OrderIssue />} />
+                                                                                                                  
+                                                                                                                    {/* Protected Routes - Require Authentication */}
+                                                                                                                                        <Route
+                                                                                                                                                                  path="/front-desk"
+                                                                                                                                                                  element={
+                                                                                                                                                                                              <ProtectedRoute requiredRole={['baker', 'owner']}>
+                                                                                                                                                                                                                          <Suspense fallback={<PageLoader />}>
+                                                                                                                                                                                                                                                        <FrontDesk />
+                                                                                                                                                                                                                                                      </Suspense>Suspense>
+                                                                                                                                                                                                                        </ProtectedRoute>ProtectedRoute>
+                                                                                                                                          }
+                                                                                                                                                              />
+                                                                                                                                                              <Route
+                                                                                                                                                                                        path="/owner-dashboard"
+                                                                                                                                                                                        element={
+                                                                                                                                                                                                                    <ProtectedRoute requiredRole="owner">
+                                                                                                                                                                                                                                                <Suspense fallback={<PageLoader />}>
+                                                                                                                                                                                                                                                                              <OwnerDashboard />
+                                                                                                                                                                                                                                                                            </Suspense>Suspense>
+                                                                                                                                                                                                                                              </ProtectedRoute>ProtectedRoute>
+                                                                                                                                                                }
+                                                                                                                                                                                    />
+                                                                                                                                                              
+                                                                                                                                                                {/* 404 Route */}
+                                                                                                                                                                                    <Route path="*" element={<NotFound />} />
+                                                                                                                                                                </Route>Routes>
+                                                                                                                                          </Route>Suspense>
+                                                                                                                    </Routes>BrowserRouter>
+                                                                                                </Suspense>TooltipProvider>
+                                                                            </BrowserRouter>AuthProvider>
+                                                            </TooltipProvider>LanguageProvider>
+                                              </AuthProvider>ThemeProvider>
+                                  </LanguageProvider>QueryClientProvider>
+                        </ThemeProvider>ErrorBoundary>
+                  );
+                  };
+                
+                export default App;</div>
