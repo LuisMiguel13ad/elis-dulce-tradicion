@@ -200,7 +200,6 @@ const Order = () => {
         }
 
         // Restore valid draft
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { _timestamp, ...rest } = parsed; // Remove timestamp from form data
         setFormData(prev => ({ ...prev, ...rest }));
         if (parsed.selectedFillings) setSelectedFillings(parsed.selectedFillings);

@@ -92,16 +92,16 @@ R - Refresh | P - Print | F - Search
           break;
 
         case 'f':
-        case '/':
+        case '/': {
           event.preventDefault();
           handlers.onSearch?.();
-          // Focus the search input
           const searchInput = document.querySelector('input[type="text"], input[type="search"]') as HTMLInputElement;
           if (searchInput) {
             searchInput.focus();
             searchInput.select();
           }
           break;
+        }
 
         case '1':
           event.preventDefault();

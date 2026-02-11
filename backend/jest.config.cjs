@@ -1,11 +1,14 @@
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>'],
   testMatch: ['**/__tests__/**/*.test.{js,ts}', '**/?(*.)+(spec|test).{js,ts}'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
+    '^.+\\.js$': ['babel-jest', { plugins: ['@babel/plugin-transform-modules-commonjs'] }],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!.*\\.mjs$)',
+  ],
   collectCoverageFrom: [
     'routes/**/*.{js,ts}',
     'middleware/**/*.{js,ts}',
@@ -14,7 +17,7 @@ module.exports = {
     '!**/node_modules/**',
     '!**/__tests__/**',
   ],
-  coverageThresholds: {
+  coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,

@@ -327,7 +327,7 @@ class ApiClient {
 
     // Fallback: Supabase-only computation
     const now = new Date();
-    let startDate = new Date();
+    const startDate = new Date();
 
     if (dateRange === 'week') startDate.setDate(now.getDate() - 7);
     if (dateRange === 'month') startDate.setMonth(now.getMonth() - 1);

@@ -361,7 +361,7 @@ export function validatePhone(phone: string): {
   }
 
   // Remove common formatting characters
-  const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
+  const cleaned = phone.replace(/[\s\-().]/g, '');
 
   // Check if it starts with + (E.164 format)
   if (cleaned.startsWith('+')) {

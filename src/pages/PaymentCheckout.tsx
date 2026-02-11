@@ -40,7 +40,6 @@ const PaymentCheckout = () => {
 
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
 
   // Load pending payment from sessionStorage or URL params
