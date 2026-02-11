@@ -653,32 +653,43 @@ const Order = () => {
 
             {/* --- STEP 2: SIZE --- */}
             {STEPS[currentStep].id === 'size' && (
-              <div className="grid grid-cols-2 gap-4">
-                {CAKE_SIZES.map(s => (
-                  <button
-                    key={s.value}
-                    onClick={() => setFormData({ ...formData, cakeSize: s.value })}
-                    className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
-                      ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
-                      : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
-                      }`}
-                  >
-                    {s.featured && (
-                      <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
-                        Popular
-                      </div>
-                    )}
-                    <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
-                    <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
-                    <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
+              <div className="space-y-6">
+                <div className="bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-2xl p-4 flex items-center gap-4 mb-2">
+                  <div className="bg-[#C6A649] text-black rounded-lg p-2">
+                    <User size={20} strokeWidth={3} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-[#C6A649]">{t('Guía de Porciones', 'Serving Guide')}</p>
+                    <p className="text-sm text-gray-300 font-medium">{t('Escoge según el número de invitados', 'Choose based on your headcount')}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {CAKE_SIZES.map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => setFormData({ ...formData, cakeSize: s.value })}
+                      className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
+                        ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
+                        }`}
+                    >
+                      {s.featured && (
+                        <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
+                          Popular
+                        </div>
+                      )}
+                      <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
+                      <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
+                      <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
 
-                    {formData.cakeSize === s.value && (
-                      <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
-                        <Check size={28} strokeWidth={4} />
-                      </div>
-                    )}
-                  </button>
-                ))}
+                      {formData.cakeSize === s.value && (
+                        <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
+                          <Check size={28} strokeWidth={4} />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -802,6 +813,18 @@ const Order = () => {
                   icon={Star}
                   placeholder="e.g. Happy Birthday!"
                 />
+
+                <div className="pt-2">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">
+                    {t('Notas de Decoración', 'Decoration Notes')}
+                  </label>
+                  <textarea
+                    value={formData.theme}
+                    onChange={(e) => setFormData({ ...formData, theme: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl p-4 text-white font-medium outline-none min-h-[100px] text-sm"
+                    placeholder={t('Describe tu visión... (colores, estilo, personajes)', 'Describe your vision... (colors, style, characters)')}
+                  />
+                </div>
 
                 {/* Photo Upload */}
                 <div className="relative mt-8">

@@ -178,7 +178,7 @@ class ApiClient {
     return { success: true, order: data };
   }
 
-  async updateOrderStatus(id: number, status: string, metadata?: { reason?: string; [key: string]: any }) {
+  async updateOrderStatus(id: number, status: string, metadata?: { reason?: string;[key: string]: any }) {
     const sb = this.ensureSupabase();
     if (!sb) return { success: false, error: 'Database connection not available.' };
 
@@ -297,95 +297,56 @@ class ApiClient {
 
   async getDashboardMetrics(dateRange: 'today' | 'week' | 'month') {
     const sb = this.ensureSupabase();
+    if (!sb) return this.getFallbackMetrics();
 
-    // Try to fetch from backend first (has accurate capacity calculation)
+    // 1. Try backend/edge function first (if configured for capacity)
     try {
-      const session = sb ? (await sb.auth.getSession()).data.session : null;
+      const { data: { session } } = await sb.auth.getSession();
       if (session?.access_token) {
         const response = await fetch(
           `${API_BASE_URL}/api/analytics/dashboard?dateRange=${dateRange}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+          { headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' } }
         );
         if (response.ok) {
-          const backendMetrics = await response.json();
-          // Backend returns capacityUtilization as percentage (0-100)
-          // Convert to decimal (0-1) for UI consistency
-          return {
-            ...backendMetrics,
-            capacityUtilization: (backendMetrics.capacityUtilization || 0) / 100,
-          };
+          const metrics = await response.json();
+          return { ...metrics, capacityUtilization: (metrics.capacityUtilization || 0) / 100 };
         }
       }
-    } catch (error) {
-      console.warn('Backend metrics unavailable, falling back to Supabase:', error);
+    } catch (e) {
+      console.warn('Backend metrics failed, using RPC fallback');
     }
 
-    // Fallback: Supabase-only computation
-    const now = new Date();
-    let startDate = new Date();
+    // 2. Efficient RPC Fallback (New Optimized Logic)
+    const today = new Date().toLocaleDateString('en-CA');
+    const { data: summary, error } = await sb.rpc('get_dashboard_summary', { p_start_date: today });
 
-    if (dateRange === 'week') startDate.setDate(now.getDate() - 7);
-    if (dateRange === 'month') startDate.setMonth(now.getMonth() - 1);
-
-    // Normalize logic for "today"
-    const startStr = dateRange === 'today'
-      ? new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
-      : startDate.toISOString();
-
-    // --- DB Data ---
-    let dbMetrics = {
-      todayOrders: 0,
-      pendingOrders: 0,
-      todayRevenue: 0
-    };
-
-    if (sb) {
-      // 1. Today's Orders (or range)
-      const { count: todayOrders } = await sb
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', startStr);
-
-      // 2. Pending Orders
-      const { count: pendingOrders } = await sb
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
-      // 3. Revenue
-      const { data: revenueData } = await sb
-        .from('orders')
-        .select('total_amount')
-        .gte('created_at', startStr);
-
-      const revenue = revenueData?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
-
-      dbMetrics = {
-        todayOrders: todayOrders || 0,
-        pendingOrders: pendingOrders || 0,
-        todayRevenue: revenue
-      };
+    if (error) {
+      console.error('Dashboard RPC error:', error);
+      return this.getFallbackMetrics();
     }
 
-
-    // --- Return DB Metrics Only (fallback without capacity data) ---
     return {
-      todayOrders: dbMetrics.todayOrders,
-      todayRevenue: dbMetrics.todayRevenue,
-      pendingOrders: dbMetrics.pendingOrders,
-      capacityUtilization: 0, // Fallback when backend unavailable
-      averageOrderValue: (dbMetrics.todayRevenue) / (dbMetrics.todayOrders || 1),
-      totalCustomers: 0, // Placeholder
+      ...summary,
+      capacityUtilization: 0,
+      averageOrderValue: summary.todayRevenue / (summary.todayOrders || 1),
+      totalCustomers: 0,
+      lowStockItems: 0 // Will be fetched separately if needed
+    };
+  }
+
+  private getFallbackMetrics() {
+    return {
+      todayOrders: 0,
+      todayRevenue: 0,
+      pendingOrders: 0,
+      capacityUtilization: 0,
+      averageOrderValue: 0,
+      totalCustomers: 0,
       lowStockItems: 0,
       todayDeliveries: 0
     };
-
   }
+
 
   // Fallback / Stubbed Methods to keep TypeScript happy until fully implemented
 

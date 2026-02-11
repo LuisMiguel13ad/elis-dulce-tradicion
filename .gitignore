@@ -60,3 +60,4 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 .vercel
 .env*.local
+.mcp.json

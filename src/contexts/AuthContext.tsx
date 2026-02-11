@@ -32,9 +32,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Get initial session (reads from localStorage, essentially instant)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        loadUserProfile(session.user);
+      if (session) {
+        setSession(session);
+        // Optimistically set some user info if possible to reduce shift
+        if (session.user) {
+          loadUserProfile(session.user);
+        } else {
+          setIsLoading(false);
+        }
       } else {
         setIsLoading(false);
       }

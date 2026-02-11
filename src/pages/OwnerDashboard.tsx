@@ -73,7 +73,7 @@ const OwnerDashboard = () => {
   const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
   const [statusBreakdown, setStatusBreakdown] = useState<OrderStatusBreakdown[]>([]);
 
-  const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month'>('day');
+  const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'week' | 'month'>('today');
 
 
   // --- 1. DATA LOADING (The "Brain") ---
@@ -81,18 +81,21 @@ const OwnerDashboard = () => {
     try {
       console.log('🔄 OwnerDashboard: Fetching fresh data...');
 
-      // 1. Fetch RAW Orders
+      // 1. Fetch Metrics (Optimized RPC)
+      const freshMetrics = await api.getDashboardMetrics(revenuePeriod);
+      setMetrics(freshMetrics as DashboardMetrics);
+
+      // 2. Fetch RAW Orders (for Calendar/List)
       const orders = await api.getAllOrders();
-      const orderList = Array.isArray(orders) ? orders : [];
-      setAllOrders(orderList); // Primary State for Calendar & Lists
+      setAllOrders(Array.isArray(orders) ? orders : []);
 
-      setAllOrders(orderList); // Primary State for Calendar & Lists
+      // 3. Status Breakdown (Offload to the component or API eventually)
+      const breakdown = await api.getOrdersByStatus();
+      setStatusBreakdown(breakdown as OrderStatusBreakdown[]);
 
-      // 3. Fetch auxiliary data (Low Stock) - non-critical
-      try {
-        const stock = await api.getLowStockItems();
-        setLowStockItems(Array.isArray(stock) ? stock : []);
-      } catch (e) { console.warn('Low stock fetch fail', e); }
+      // 4. Fetch auxiliary data (Low Stock)
+      const stock = await api.getLowStockItems();
+      setLowStockItems(Array.isArray(stock) ? stock : []);
 
     } catch (error) {
       console.error('❌ Error loading dashboard:', error);
@@ -102,75 +105,9 @@ const OwnerDashboard = () => {
     }
   };
 
-  // Compute derived state from the raw order list
-  const computeMetrics = useMemo(() => {
-    if (!allOrders.length) return null;
+  // Keep revenue chart computation client-side for now as it needs historical granularity
+  // but we can optimize it in Phase 2
 
-    const orders = allOrders;
-    const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd'); // Local YYYY-MM-DD ideally
-
-    // Filter Today's Orders (Naive startWith check usually works for ISO strings)
-    const ordersToday = orders.filter(o => o.created_at?.startsWith(todayStr));
-
-    // Revenue Today
-    const revenueToday = ordersToday.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-
-    // Pending Count
-    const pendingCount = orders.filter(o => o.status === 'pending').length;
-
-    // Compute Status Breakdown
-    const statusCounts: Record<string, number> = {};
-    orders.forEach(o => {
-      const s = o.status || 'unknown';
-      statusCounts[s] = (statusCounts[s] || 0) + 1;
-    });
-    const breakdown = Object.entries(statusCounts).map(([status, count]) => ({
-      status,
-      count,
-      totalRevenue: 0,
-      percentage: (count / orders.length) * 100
-    }));
-
-    // Compute Popular Items (Simplistic extraction from cake_size)
-    const itemCounts: Record<string, number> = {};
-    orders.forEach(o => {
-      const key = o.cake_size || 'Unknown';
-      itemCounts[key] = (itemCounts[key] || 0) + 1;
-    });
-    const topItems = Object.entries(itemCounts)
-      .map(([name, count]) => ({
-        itemName: name,
-        orderCount: count,
-        itemType: 'size' as any,
-        totalRevenue: 0
-      }))
-      .sort((a, b) => b.orderCount - a.orderCount)
-      .slice(0, 5);
-
-    return {
-      metrics: {
-        todayOrders: ordersToday.length,
-        todayRevenue: revenueToday,
-        pendingOrders: pendingCount,
-        capacityUtilization: 0.5, // Placeholder
-        averageOrderValue: ordersToday.length > 0 ? revenueToday / ordersToday.length : 0,
-        totalCustomers: new Set(orders.map(o => o.customer_name)).size,
-        lowStockItems: 0, // Updated separately
-        todayDeliveries: ordersToday.filter(o => o.delivery_option === 'delivery').length
-      },
-      breakdown,
-      topItems
-    };
-  }, [allOrders]);
-
-  useEffect(() => {
-    if (computeMetrics) {
-      setMetrics(computeMetrics.metrics);
-      setStatusBreakdown(computeMetrics.breakdown);
-      setPopularItems(computeMetrics.topItems);
-    }
-  }, [computeMetrics]);
 
   // Re-compute revenue chart when period changes or orders update
   useEffect(() => {
@@ -179,7 +116,7 @@ const OwnerDashboard = () => {
     }
 
     const daysMap = new Map<string, number>();
-    const daysToLookBack = revenuePeriod === 'day' ? 7 : revenuePeriod === 'week' ? 30 : 90;
+    const daysToLookBack = revenuePeriod === 'today' ? 7 : revenuePeriod === 'week' ? 30 : 90;
 
     // Init map with explicit 0s for previous days
     for (let i = daysToLookBack - 1; i >= 0; i--) {
@@ -409,7 +346,7 @@ const OwnerDashboard = () => {
                     <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle>{t('Tendencias', 'Trends')}</CardTitle>
                       <div className="flex bg-gray-100 rounded-lg p-1">
-                        <button onClick={() => setRevenuePeriod('day')} className={`px-3 py-1 text-xs rounded-md ${revenuePeriod === 'day' ? 'bg-white shadow' : ''}`}>7D</button>
+                        <button onClick={() => setRevenuePeriod('today')} className={`px-3 py-1 text-xs rounded-md ${revenuePeriod === 'today' ? 'bg-white shadow' : ''}`}>{t('Hoy', '7D')}</button>
                         <button onClick={() => setRevenuePeriod('week')} className={`px-3 py-1 text-xs rounded-md ${revenuePeriod === 'week' ? 'bg-white shadow' : ''}`}>30D</button>
                       </div>
                     </CardHeader>

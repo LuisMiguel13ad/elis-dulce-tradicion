@@ -1,0 +1,3634 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { supabase, STORAGE_BUCKET, isSupabaseConfigured } from './supabase';
+import { UserProfile } from '@/types/auth';
+import { getAvailableTransitions as getStateMachineTransitions, validateTransition, type OrderStatus, type UserRole } from './orderStateMachine';
+import type { OrderNote } from '@/types/order';
+
+/**
+ * API client for backend communication via Supabase
+ */
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+const MOCK_PRODUCTS = [
+  {
+    id: 1,
+    name_es: 'Pastel de Tres Leches Tradicional',
+    name_en: 'Traditional Tres Leches Cake',
+    description_es: 'Nuestro famoso pastel de tres leches, esponjoso y perfectamente humedecido con nuestra mezcla secreta.',
+    description_en: 'Our famous tres leches cake, moist and perfectly balanced with our secret milk blend.',
+    price: 35.00,
+    category: 'cakes',
+    image_url: '/images/menu/wedding_cake_display_1768064340098.png',
+    is_active: true
+  },
+  {
+    id: 2,
+    name_es: 'Conchas de Vainilla y Chocolate',
+    name_en: 'Vanilla & Chocolate Conchas',
+    description_es: 'Pan dulce tradicional con una costra crujiente de azúcar en forma de concha.',
+    description_en: 'Traditional sweet bread with a crunchy shell-patterned sugar topping.',
+    price: 2.50,
+    category: 'bread',
+    image_url: '/images/menu/pan_dulce_basket_1768064358293.png',
+    is_active: true
+  },
+  {
+    id: 3,
+    name_es: 'Pastel de Bodas "Elegancia"',
+    name_en: 'Elegance Wedding Cake',
+    description_es: 'Diseño multinivel con flores frescas y detalles en oro comestible.',
+    description_en: 'Multi-tiered design with fresh flowers and edible gold accents.',
+    price: 250.00,
+    category: 'cakes',
+    image_url: '/images/menu/wedding_cake_display_1768064340098.png',
+    is_active: true
+  },
+  {
+    id: 4,
+    name_es: 'Surtido de Pan Dulce de Temporada',
+    name_en: 'Seasonal Sweet Bread Assortment',
+    description_es: 'Una selección de nuestros mejores panes dulces del día, incluyendo orejas y cuernitos.',
+    description_en: 'A selection of our best daily sweet breads, including orejas and cuernitos.',
+    price: 15.00,
+    category: 'bread',
+    image_url: '/images/menu/pan_dulce_basket_1768064358293.png',
+    is_active: true
+  },
+  {
+    id: 5,
+    name_es: 'Tamales de Pollo con Salsa Verde',
+    name_en: 'Chicken Tamales with Green Sauce',
+    description_es: 'Tamales hechos a mano con masa de maíz fresca y pollo deshebrado en salsa verde.',
+    description_en: 'Handmade tamales with fresh corn masa and shredded chicken in green sauce.',
+    price: 3.50,
+    category: 'other',
+    image_url: '/images/menu/dessert_table_spread_1768064377177.png',
+    is_active: true
+  },
+  {
+    id: 6,
+    name_es: 'Mesa de Postres "Fiesta"',
+    name_en: 'Fiesta Dessert Table',
+    description_es: 'Servicio completo de mesa de postres para eventos, incluye variedad de mini postres.',
+    description_en: 'Full dessert table service for events, includes a variety of mini desserts.',
+    price: 450.00,
+    category: 'other',
+    image_url: '/images/menu/dessert_table_spread_1768064377177.png',
+    is_active: true
+  }
+];
+
+class ApiClient {
+
+  // Helper to ensure Supabase is configured
+  private ensureSupabase() {
+    if (!isSupabaseConfigured() || !supabase) {
+      console.warn('Supabase not configured or available. Some features will use fallback data.');
+      return null;
+    }
+    return supabase;
+  }
+
+  // --- ORDERS API ---
+
+  async getAllOrders() {
+    const sb = this.ensureSupabase();
+    let dbOrders: any[] = [];
+
+    if (sb) {
+      // Fetch all orders
+      const { data, error } = await sb
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching orders:', error);
+      } else {
+        dbOrders = data || [];
+      }
+    }
+
+
+    // Return DB orders only - Single Source of Truth
+    // Removed strict 'paid' filter so Owner/Admin can see pending payment orders too
+    const allOrders = dbOrders
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return allOrders;
+
+  }
+
+  async getOrder(id: string | number) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database connection not available.');
+
+    const { data, error } = await sb
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error(`Error fetching order ${id}:`, error);
+      throw error;
+    }
+
+    return data;
+  }
+
+  async getOrderByNumber(orderNumber: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database connection not available.');
+
+    // Use Secure RPC for public order lookup
+    const { data, error } = await sb.rpc('get_public_order', { p_order_number: orderNumber });
+
+    if (error) {
+      console.error(`Error fetching order by number ${orderNumber}:`, error);
+      throw error;
+    }
+
+    // RPC returns the object directly or null
+    return data;
+  }
+
+  async createOrder(orderData: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database connection not available.');
+
+    // Ensure order_number is generated if not present
+    // Ideally this should be a DB trigger or function, but doing client-side for now if not set
+    const orderPayload = {
+      ...orderData,
+      status: orderData.status || 'pending',
+      payment_status: orderData.payment_status || 'pending',
+      // If user is logged in, supabase rls might handle user_id, but sending it explicit is safe if RLS allows
+    };
+
+    // Use Secure RPC for public order creation
+    const { data, error } = await sb.rpc('create_new_order', { payload: orderPayload });
+
+    if (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
+
+    // RPC returns the created order object
+    return { success: true, order: data };
+  }
+
+  async updateOrderStatus(id: number, status: string, metadata?: { reason?: string; [key: string]: any }) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database connection not available.' };
+
+    try {
+      // Get current user for history tracking
+      const { data: { user } } = await sb.auth.getUser();
+
+      // Use atomic RPC that updates status AND records history
+      const { data, error } = await sb.rpc('transition_order_status', {
+        p_order_id: id,
+        p_new_status: status,
+        p_user_id: user?.id || null,
+        p_reason: metadata?.reason || null,
+        p_metadata: metadata || {}
+      });
+
+      if (error) {
+        console.error(`Error updating order ${id} status:`, error);
+        return { success: false, error: error.message };
+      }
+
+      // RPC returns { success, previous_status, new_status, order_id } or { success, error }
+      return data as { success: boolean; error?: string };
+    } catch (err: any) {
+      console.error(`Error updating order ${id} status:`, err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Method to check existence of order for idempotency or validation
+  async checkOrderExists(orderId: number): Promise<boolean> {
+    const sb = this.ensureSupabase();
+    if (!sb) return false;
+    const { count, error } = await sb
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('id', orderId);
+
+    if (error || count === null) return false;
+    return count > 0;
+  }
+
+
+  // --- PRODUCTS / MENU API ---
+  // Assuming a 'products' table exists
+
+  async getProducts() {
+    const sb = this.ensureSupabase();
+
+    if (sb) {
+      const { data, error } = await sb.from('products').select('*').eq('is_active', true);
+      if (!error && data && data.length > 0) {
+        return data;
+      }
+      if (error) {
+        console.warn('Error fetching products, using mock fallback', error);
+      }
+    }
+
+    // Return mock products if DB fail or empty
+    return MOCK_PRODUCTS;
+  }
+
+  async getAllProducts() {
+    const sb = this.ensureSupabase();
+    if (sb) {
+      const { data, error } = await sb.from('products').select('*').order('category').order('name_en');
+      if (error) throw error;
+      return data || [];
+    }
+    return MOCK_PRODUCTS;
+  }
+
+  async createProduct(productData: any) {
+    const sb = this.ensureSupabase();
+    const { data, error } = await sb.from('products').insert(productData).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateProduct(id: number, productData: any) {
+    const sb = this.ensureSupabase();
+    const { data, error } = await sb.from('products').update(productData).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteProduct(id: number) {
+    const sb = this.ensureSupabase();
+    const { error } = await sb.from('products').update({ is_active: false }).eq('id', id);
+    if (error) throw error;
+  }
+
+  // --- FILE UPLOAD ---
+  async uploadFile(file: File) {
+    const sb = this.ensureSupabase();
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    const { error: uploadError } = await sb.storage
+      .from(STORAGE_BUCKET)
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+
+    return { url: data.publicUrl };
+  }
+
+  // --- ANALYTICS (Real Implementation) ---
+
+  async getDashboardMetrics(dateRange: 'today' | 'week' | 'month') {
+    const sb = this.ensureSupabase();
+
+    // Try to fetch from backend first (has accurate capacity calculation)
+    try {
+      const session = sb ? (await sb.auth.getSession()).data.session : null;
+      if (session?.access_token) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/analytics/dashboard?dateRange=${dateRange}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (response.ok) {
+          const backendMetrics = await response.json();
+          // Backend returns capacityUtilization as percentage (0-100)
+          // Convert to decimal (0-1) for UI consistency
+          return {
+            ...backendMetrics,
+            capacityUtilization: (backendMetrics.capacityUtilization || 0) / 100,
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Backend metrics unavailable, falling back to Supabase:', error);
+    }
+
+    // Fallback: Supabase-only computation
+    const now = new Date();
+    let startDate = new Date();
+
+    if (dateRange === 'week') startDate.setDate(now.getDate() - 7);
+    if (dateRange === 'month') startDate.setMonth(now.getMonth() - 1);
+
+    // Normalize logic for "today"
+    const startStr = dateRange === 'today'
+      ? new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+      : startDate.toISOString();
+
+    // --- DB Data ---
+    let dbMetrics = {
+      todayOrders: 0,
+      pendingOrders: 0,
+      todayRevenue: 0
+    };
+
+    if (sb) {
+      // 1. Today's Orders (or range)
+      const { count: todayOrders } = await sb
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', startStr);
+
+      // 2. Pending Orders
+      const { count: pendingOrders } = await sb
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      // 3. Revenue
+      const { data: revenueData } = await sb
+        .from('orders')
+        .select('total_amount')
+        .gte('created_at', startStr);
+
+      const revenue = revenueData?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
+
+      dbMetrics = {
+        todayOrders: todayOrders || 0,
+        pendingOrders: pendingOrders || 0,
+        todayRevenue: revenue
+      };
+    }
+
+
+    // --- Return DB Metrics Only (fallback without capacity data) ---
+    return {
+      todayOrders: dbMetrics.todayOrders,
+      todayRevenue: dbMetrics.todayRevenue,
+      pendingOrders: dbMetrics.pendingOrders,
+      capacityUtilization: 0, // Fallback when backend unavailable
+      averageOrderValue: (dbMetrics.todayRevenue) / (dbMetrics.todayOrders || 1),
+      totalCustomers: 0, // Placeholder
+      lowStockItems: 0,
+      todayDeliveries: 0
+    };
+
+  }
+
+  // Fallback / Stubbed Methods to keep TypeScript happy until fully implemented
+
+
+  async getRevenueByPeriod(startDate: string, endDate: string) {
+    const sb = this.ensureSupabase();
+    let dbOrders: any[] = [];
+    if (sb) {
+      const { data } = await sb.from('orders')
+        .select('created_at, total_amount')
+        .gte('created_at', startDate)
+        .lte('created_at', `${endDate}T23:59:59`);
+      dbOrders = data || [];
+    }
+
+    // Group by date
+    const grouped = dbOrders.reduce((acc: any, order) => {
+      const date = order.created_at.split('T')[0];
+      if (!acc[date]) {
+        acc[date] = { revenue: 0, count: 0 };
+      }
+      acc[date].revenue += Number(order.total_amount) || 0;
+      acc[date].count += 1;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([date, stats]: [string, any]) => ({
+      date,
+      revenue: stats.revenue,
+      orderCount: stats.count,
+      avgOrderValue: stats.count > 0 ? stats.revenue / stats.count : 0
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async getPopularItems() {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    // Attempt to query order_items or similar if it exists
+    // Since we don't have the exact schema for items, we'll try a common pattern
+    // or return a safe default if the table query fails.
+    try {
+      // Assuming 'order_items' table exists with product_name or similar
+      const { data, error } = await sb
+        .from('order_items')
+        .select('name, quantity, price')
+        .limit(100);
+
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
+
+      const itemStats: Record<string, { count: number, revenue: number }> = {};
+
+      data.forEach((item: any) => {
+        const name = item.name || 'Unknown Item';
+        if (!itemStats[name]) itemStats[name] = { count: 0, revenue: 0 };
+        itemStats[name].count += (item.quantity || 1);
+        itemStats[name].revenue += ((item.price || 0) * (item.quantity || 1));
+      });
+
+      return Object.entries(itemStats)
+        .map(([name, stats]) => ({
+          name,
+          count: stats.count,
+          revenue: stats.revenue
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5); // Top 5
+
+    } catch (err) {
+      console.warn('Could not fetch popular items (table might not exist yet):', err);
+      return [];
+    }
+  }
+  async getOrdersByStatus() {
+    const sb = this.ensureSupabase();
+    let dbOrders: any[] = [];
+
+    // 1. Fetch from DB
+    if (sb) {
+      const { data } = await sb.from('orders').select('status, total_amount');
+      dbOrders = data || [];
+    }
+
+    const totalCount = dbOrders.length;
+    if (totalCount === 0) return [];
+
+    // 3. Aggregate
+    const stats: Record<string, { count: number, revenue: number }> = {};
+
+    dbOrders.forEach((o: any) => {
+      const s = o.status || 'unknown';
+      if (!stats[s]) stats[s] = { count: 0, revenue: 0 };
+      stats[s].count++;
+      stats[s].revenue += Number(o.total_amount) || 0;
+    });
+
+    // 4. Format
+    return Object.entries(stats).map(([status, data]) => ({
+      status,
+      count: data.count,
+      totalRevenue: data.revenue,
+      percentage: (data.count / totalCount) * 100
+    })).sort((a, b) => b.count - a.count);
+  }
+  async getPeakOrderingTimes() { return []; }
+  async getCapacityUtilization() {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Simple utilization: Count pending/confirmed orders for today vs arbitrary capacity
+    // In a real app, maxCapacity might come from a settings table
+    const MAX_CAPACITY = 20;
+
+    const { count } = await sb
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', today);
+
+    const currentOrders = count || 0;
+    const utilization = Math.min((currentOrders / MAX_CAPACITY) * 100, 100);
+
+    return [{
+      date: today,
+      utilization: Math.round(utilization),
+      available: Math.max(0, MAX_CAPACITY - currentOrders)
+    }];
+  }
+  async getAverageOrderValue() { return 0; }
+  async getCustomerRetention() { return []; }
+
+  async getTodayDeliveries() {
+    const sb = this.ensureSupabase();
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+
+    // 1. DB
+    let dbDeliveries: any[] = [];
+    if (sb) {
+      const { data } = await sb.from('orders')
+        .select('*')
+        .eq('delivery_option', 'delivery')
+        .eq('date_needed', today);
+      dbDeliveries = data || [];
+    }
+
+    return dbDeliveries;
+  }
+
+
+  async getLowStockItems() {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    try {
+      // Supabase JS doesn't support column-to-column comparison,
+      // so fetch all ingredients and filter client-side
+      const { data, error } = await sb
+        .from('ingredients')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+
+      return (data || []).filter(
+        (item: any) => item.quantity <= item.low_stock_threshold
+      );
+    } catch (e) {
+      console.warn('Error fetching low stock items:', e);
+      return [];
+    }
+  }
+  async generateDailySalesReport() { return new Blob([''], { type: 'text/csv' }); }
+  async generateInventoryReport() { return new Blob([''], { type: 'text/csv' }); }
+  async generateCustomerActivityReport() { return new Blob([''], { type: 'text/csv' }); }
+
+  // Payment Stubs
+  // --- STRIPE PAYMENTS ---
+
+  async createPaymentIntent(amount: number, metadata?: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Supabase not available');
+
+    const { data, error } = await sb.functions.invoke('create-payment-intent', {
+      body: {
+        amount,
+        currency: 'usd',
+        metadata
+      }
+    });
+
+    if (error) {
+      console.error('Error creating payment intent:', error);
+      throw error;
+    }
+
+    return data; // { clientSecret, id }
+  }
+
+  // Deprecated mocks
+  async createCheckout(amount: number) { return { url: '#' }; }
+  async createPayment() { return { success: true }; }
+  async verifyPayment() { return { verified: true }; }
+  async refundPayment() { return { success: true }; }
+
+  async subscribeNewsletter(email: string) {
+    const sb = this.ensureSupabase();
+    // Assuming a 'newsletter_subscribers' table
+    const { error } = await sb.from('newsletter_subscribers').insert([{ email }]);
+    if (error) {
+      // Ignore duplicate key errors 
+      if (error.code !== '23505') throw error;
+    }
+    return { success: true };
+  }
+
+  // --- NOTIFICATIONS ---
+  async sendReadyNotification(order: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      const { data, error } = await sb.functions.invoke('send-ready-notification', {
+        body: { order }
+      });
+
+      if (error) {
+        console.error('Error sending ready notification:', error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error('Exception sending notification:', err);
+      return { success: false, error: err };
+    }
+  }
+
+  async sendOrderConfirmation(order: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      const { data, error } = await sb.functions.invoke('send-order-confirmation', {
+        body: { order }
+      });
+
+      if (error) {
+        console.error('Error sending confirmation email:', error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error('Exception sending confirmation email:', err);
+      return { success: false, error: err };
+    }
+  }
+
+  async sendStatusUpdate(order: any, oldStatus: string, newStatus: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      // Construct payload expected by Edge Function
+      const payload = {
+        order: {
+          ...order,
+          new_status: newStatus,
+          // ensure required fields are present if order object is partial
+        },
+        oldStatus
+      };
+
+      const { data, error } = await sb.functions.invoke('send-status-update', {
+        body: payload
+      });
+
+      if (error) {
+        console.error(`Error sending ${newStatus} notification:`, error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error(`Exception sending ${newStatus} notification:`, err);
+      return { success: false, error: err };
+    }
+  }
+
+  async sendOrderIssueNotification(issue: any) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      const { data, error } = await sb.functions.invoke('send-order-issue-notification', {
+        body: { issue }
+      });
+
+      if (error) {
+        console.error('Error sending issue notification:', error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error('Exception sending issue notification:', err);
+      return { success: false, error: err };
+    }
+  }
+
+  async sendDailyReport(datePreset?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Supabase not available' };
+
+    try {
+      const { data, error } = await sb.functions.invoke('send-daily-report', {
+        body: { datePreset: datePreset || 'today' }
+      });
+
+      if (error) {
+        console.error('Error sending daily report:', error);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error('Exception sending daily report:', err);
+      return { success: false, error: err };
+    }
+  }
+
+  // Placeholders for other methods to match interface
+  async getCurrentPricing() { return { success: true, data: {} }; }
+  async calculatePricing() { return { success: true, price: 0 }; }
+  async getAvailableDates() { return { success: true, dates: [] }; }
+  async getDateCapacity() { return { success: true }; }
+  async getBusinessHours() {
+    // Return default business hours (8am-8pm every day)
+    return [
+      { day_of_week: 0, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 1, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 2, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 3, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 4, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 5, is_closed: false, open_time: '08:00', close_time: '20:00' },
+      { day_of_week: 6, is_closed: false, open_time: '08:00', close_time: '20:00' },
+    ];
+  }
+  async getHolidays() { return { success: true }; }
+  async validatePromoCode() { return { success: true, valid: false }; }
+  async updatePricing() { return { success: true }; }
+  async createPricing() { return { success: true }; }
+  async deletePricing() { return { success: true }; }
+  async getPriceHistory() { return { success: true, data: [] }; }
+  async getCapacityByDate() {
+    // Return available capacity by default
+    return { available: true, current_orders: 0, max_orders: 10 };
+  }
+  async setCapacity() { return { success: true }; }
+  async checkHoliday() {
+    // Return no holiday by default
+    return { is_holiday: false, is_closed: false, name: '' };
+  }
+  async getInventory() {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('*')
+      .order('category')
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching inventory:', error);
+      throw error;
+    }
+    return data || [];
+  }
+  async updateIngredient(id: number, quantity: number, notes?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database not available');
+
+    const { data, error } = await sb
+      .from('ingredients')
+      .update({
+        quantity,
+        last_updated: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+  async logIngredientUsage(ingredientId: number, quantityUsed: number, orderId?: number, notes?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) throw new Error('Database not available');
+
+    // 1. Log the usage
+    const { error: usageError } = await sb
+      .from('ingredient_usage')
+      .insert({
+        ingredient_id: ingredientId,
+        quantity_used: quantityUsed,
+        order_id: orderId || null,
+        notes: notes || null,
+      });
+
+    if (usageError) throw usageError;
+
+    // 2. Decrement ingredient quantity
+    const { data: current } = await sb
+      .from('ingredients')
+      .select('quantity')
+      .eq('id', ingredientId)
+      .single();
+
+    if (current) {
+      const newQty = Math.max(0, current.quantity - quantityUsed);
+      await sb
+        .from('ingredients')
+        .update({ quantity: newQty, last_updated: new Date().toISOString() })
+        .eq('id', ingredientId);
+    }
+
+    return { success: true };
+  }
+  // --- DELIVERY API ---
+
+  async validateDeliveryAddress(address: string, zipCode: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, valid: false, error: 'Database not available' };
+
+    try {
+      const { data: zones, error } = await sb
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      const matchingZone = (zones || []).find((zone: any) =>
+        (zone.zip_codes || []).includes(zipCode)
+      );
+
+      return { success: true, valid: !!matchingZone, zone: matchingZone || undefined };
+    } catch (err: any) {
+      console.error('Error validating delivery address:', err);
+      return { success: false, valid: false, error: err.message };
+    }
+  }
+
+  async calculateDeliveryFee(address: string, zipCode: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { serviceable: false };
+
+    try {
+      const { data: zones, error } = await sb
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      const zone = (zones || []).find((z: any) =>
+        (z.zip_codes || []).includes(zipCode)
+      );
+
+      if (!zone) return { serviceable: false };
+
+      const estimatedDistance = (zone.max_distance_miles || 5) * 0.7;
+      const fee = (zone.base_fee || 0) + (estimatedDistance * (zone.per_mile_rate || 0));
+
+      return {
+        serviceable: true,
+        zone: {
+          name: zone.name,
+          estimated_delivery_minutes: zone.estimated_delivery_minutes,
+        },
+        fee: Math.round(fee * 100) / 100,
+        distance: Math.round(estimatedDistance * 10) / 10,
+      };
+    } catch (err: any) {
+      console.error('Error calculating delivery fee:', err);
+      return { serviceable: false };
+    }
+  }
+
+  async getDeliveryZones() {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, data: [], error: 'Database not available' };
+
+    try {
+      const { data, error } = await sb
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (err: any) {
+      console.error('Error fetching delivery zones:', err);
+      return { success: false, data: [], error: err.message };
+    }
+  }
+
+  async updateDeliveryStatus(orderId: number, status: string, notes?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const updates: any = { delivery_status: status, updated_at: new Date().toISOString() };
+      if (status === 'delivered') updates.completed_at = new Date().toISOString();
+      if (notes) updates.delivery_notes = notes;
+
+      const { error } = await sb.from('orders').update(updates).eq('id', orderId);
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error updating delivery status:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async getStaffMembers(): Promise<{ id: string; full_name: string; role: string }[]> {
+    const sb = this.ensureSupabase();
+    if (!sb) return [];
+
+    try {
+      const { data, error } = await sb
+        .from('user_profiles')
+        .select('user_id, full_name, role')
+        .in('role', ['baker', 'owner'])
+        .order('full_name');
+
+      if (error) throw error;
+
+      return (data || []).map((p: any) => ({
+        id: p.user_id,
+        full_name: p.full_name || 'Staff Member',
+        role: p.role,
+      }));
+    } catch (err: any) {
+      console.error('Error fetching staff members:', err);
+      return [];
+    }
+  }
+
+  async assignDelivery(orderId: number, driverId: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { error: assignError } = await sb
+        .from('delivery_assignments')
+        .upsert({
+          order_id: orderId,
+          driver_id: driverId,
+          assigned_at: new Date().toISOString(),
+        }, { onConflict: 'order_id' });
+
+      if (assignError) throw assignError;
+
+      const { error: orderError } = await sb
+        .from('orders')
+        .update({ delivery_status: 'assigned', updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+
+      if (orderError) throw orderError;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error assigning delivery:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // --- CUSTOMER STUBS (not actively used yet) ---
+  async getCustomerProfile() { return { success: true, data: {} }; }
+  async getCustomerOrders() { return { success: true, data: [] }; }
+  async getCustomerAddresses() { return { success: true, data: [] }; }
+  async createCustomerAddress() { return { success: true }; }
+  async updateCustomerAddress() { return { success: true }; }
+  async deleteCustomerAddress() { return { success: true }; }
+  async updateCustomerPreferences() { return { success: true }; }
+  async reorderOrder() { return { success: true }; }
+  async getAttributes() { return { success: true, data: {} }; }
+  async checkCapacity() { return { success: true, available: true }; }
+  async getBakerTicket() { return { success: true, data: {} }; }
+
+  // --- CANCELLATION API ---
+
+  async getCancellationPolicy(orderId: number, hoursUntilNeeded: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return null;
+
+    try {
+      const { data, error } = await sb
+        .from('cancellation_policies')
+        .select('*')
+        .lte('hours_before_needed', hoursUntilNeeded)
+        .order('hours_before_needed', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching cancellation policy:', error);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.error('Error fetching cancellation policy:', err);
+      return null;
+    }
+  }
+
+  async cancelOrder(orderId: number, request: { reason: string; reasonDetails?: string }) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      if (['cancelled', 'completed'].includes(order.status)) {
+        return { success: false, error: `Cannot cancel order with status '${order.status}'` };
+      }
+
+      const previousStatus = order.status;
+
+      // Calculate hours until needed for refund policy
+      let hoursUntilNeeded = Infinity;
+      if (order.date_needed && order.time_needed) {
+        const neededDateTime = new Date(`${order.date_needed}T${order.time_needed}`);
+        hoursUntilNeeded = Math.max(0, (neededDateTime.getTime() - Date.now()) / (1000 * 60 * 60));
+      }
+
+      let refundAmount = 0;
+      let refundPercentage = 0;
+      const policy = await this.getCancellationPolicy(orderId, hoursUntilNeeded);
+      if (policy && order.total_amount) {
+        refundPercentage = policy.refund_percentage || 0;
+        refundAmount = Math.round((parseFloat(order.total_amount) * refundPercentage / 100) * 100) / 100;
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: request.reason,
+          refund_amount: refundAmount || null,
+          refund_status: refundAmount > 0 ? 'pending' : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Record status history (non-blocking)
+      sb.from('order_status_history').insert({
+        order_id: orderId,
+        previous_status: previousStatus,
+        new_status: 'cancelled',
+        reason: request.reason,
+        metadata: { reason_details: request.reasonDetails },
+      }).then(({ error: histError }) => {
+        if (histError) console.error('Error inserting status history:', histError);
+      });
+
+      return {
+        success: true,
+        refund: refundAmount > 0 ? {
+          refundAmount,
+          refundPercentage,
+          refundStatus: 'pending' as const,
+        } : undefined,
+      };
+    } catch (err: any) {
+      console.error('Error cancelling order:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async adminCancelOrder(
+    orderId: number,
+    request: { reason: string; reasonDetails?: string; overrideRefundAmount?: number; adminNotes?: string }
+  ) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      if (order.status === 'cancelled') {
+        return { success: false, error: 'Order is already cancelled' };
+      }
+
+      const previousStatus = order.status;
+
+      // Calculate refund — admin can override
+      let refundAmount = 0;
+      let refundPercentage = 0;
+
+      if (request.overrideRefundAmount !== undefined) {
+        refundAmount = request.overrideRefundAmount;
+        if (order.total_amount) {
+          refundPercentage = Math.round((refundAmount / parseFloat(order.total_amount)) * 100);
+        }
+      } else {
+        let hoursUntilNeeded = Infinity;
+        if (order.date_needed && order.time_needed) {
+          const neededDateTime = new Date(`${order.date_needed}T${order.time_needed}`);
+          hoursUntilNeeded = Math.max(0, (neededDateTime.getTime() - Date.now()) / (1000 * 60 * 60));
+        }
+        const policy = await this.getCancellationPolicy(orderId, hoursUntilNeeded);
+        if (policy && order.total_amount) {
+          refundPercentage = policy.refund_percentage || 0;
+          refundAmount = Math.round((parseFloat(order.total_amount) * refundPercentage / 100) * 100) / 100;
+        }
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: request.reason,
+          admin_notes: request.adminNotes || null,
+          refund_amount: refundAmount || null,
+          refund_status: refundAmount > 0 ? 'pending' : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Record status history (non-blocking)
+      sb.from('order_status_history').insert({
+        order_id: orderId,
+        previous_status: previousStatus,
+        new_status: 'cancelled',
+        reason: request.reason,
+        metadata: {
+          reason_details: request.reasonDetails,
+          admin_notes: request.adminNotes,
+          override_refund_amount: request.overrideRefundAmount,
+          is_admin_cancellation: true,
+        },
+      }).then(({ error: histError }) => {
+        if (histError) console.error('Error inserting status history:', histError);
+      });
+
+      return {
+        success: true,
+        refund: refundAmount > 0 ? {
+          refundAmount,
+          refundPercentage,
+          refundStatus: 'pending' as const,
+        } : undefined,
+      };
+    } catch (err: any) {
+      console.error('Error admin-cancelling order:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // --- ORDER TRANSITIONS API ---
+
+  async getAvailableTransitions(orderId: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, transitions: [] as OrderStatus[], error: 'Database not available' };
+
+    try {
+      const { data: order, error } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (error || !order) return { success: false, transitions: [] as OrderStatus[], error: 'Order not found' };
+
+      // Get current user role
+      const { data: { user } } = await sb.auth.getUser();
+      let userRole: UserRole = 'customer';
+      if (user) {
+        const { data: profile } = await sb
+          .from('user_profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        if (profile?.role) userRole = profile.role as UserRole;
+      }
+
+      const transitions = getStateMachineTransitions(order.status as OrderStatus, order, userRole);
+      return { success: true, transitions };
+    } catch (err: any) {
+      console.error('Error getting available transitions:', err);
+      return { success: false, transitions: [] as OrderStatus[], error: err.message };
+    }
+  }
+
+  async transitionOrderStatus(orderId: number, newStatus: string, reason?: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      // Get current user
+      const { data: { user } } = await sb.auth.getUser();
+      let userRole: UserRole = 'customer';
+      if (user) {
+        const { data: profile } = await sb
+          .from('user_profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        if (profile?.role) userRole = profile.role as UserRole;
+      }
+
+      // Validate transition
+      const validation = validateTransition(
+        order.status as OrderStatus,
+        newStatus as OrderStatus,
+        order,
+        { orderId, userRole, reason }
+      );
+
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      const previousStatus = order.status;
+      const updates: any = { status: newStatus, updated_at: new Date().toISOString() };
+      if (newStatus === 'ready') updates.ready_at = new Date().toISOString();
+      if (newStatus === 'completed') updates.completed_at = new Date().toISOString();
+      if (newStatus === 'cancelled') {
+        updates.cancelled_at = new Date().toISOString();
+        if (reason) updates.cancellation_reason = reason;
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update(updates)
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Record status history (non-blocking)
+      sb.from('order_status_history').insert({
+        order_id: orderId,
+        previous_status: previousStatus,
+        new_status: newStatus,
+        changed_by: user?.id || null,
+        reason: reason || null,
+      }).then(({ error: histError }) => {
+        if (histError) console.error('Error inserting status history:', histError);
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error transitioning order status:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async getTransitionHistory(orderId: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, history: [], error: 'Database not available' };
+
+    try {
+      const { data, error } = await sb
+        .from('order_status_history')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return { success: true, history: data || [] };
+    } catch (err: any) {
+      console.error('Error fetching transition history:', err);
+      return { success: false, history: [], error: err.message };
+    }
+  }
+
+  // --- ORDER NOTES API ---
+
+  async getOrderNotes(orderId: number): Promise<{ success: boolean; data: OrderNote[]; error?: string }> {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, data: [], error: 'Database not available' };
+
+    try {
+      const { data, error } = await sb
+        .from('order_notes')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (err: any) {
+      console.error('Error fetching order notes:', err);
+      return { success: false, data: [], error: err.message };
+    }
+  }
+
+  async addOrderNote(orderId: number, content: string): Promise<{ success: boolean; data?: OrderNote; error?: string }> {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return { success: false, error: 'Not authenticated' };
+
+      const { data: profile } = await sb
+        .from('user_profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      const authorName = profile?.full_name || user.email || 'Staff';
+
+      const { data, error } = await sb
+        .from('order_notes')
+        .insert({
+          order_id: orderId,
+          created_by: user.id,
+          author_name: authorName,
+          content: content.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err: any) {
+      console.error('Error adding order note:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async deleteOrderNote(noteId: number): Promise<{ success: boolean; error?: string }> {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { error } = await sb
+        .from('order_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error deleting order note:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async searchOrders(query: string) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database connection not available.' };
+
+    try {
+      const { data, error } = await sb
+        .from('orders')
+        .select('*')
+        .or(`id.eq.${query},customer_name.ilike.%${query}%,email.ilike.%${query}%,order_number.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err: any) {
+      // If query is not a number, id.eq.${query} might fail in Postgres if id is numeric.
+      // We can retry or just log. For now, we assume mixed search might need robust handler or
+      // separate text search column.
+      console.error('Search order error:', err);
+      return { success: false, error: err.message };
+    }
+  }
+  // SIMULATED ONLY: This records the refund in DB but does not process it via Stripe/Square.
+  async processRefund(orderId: string, amount?: number) {
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: false, error: 'Database not available' };
+
+    try {
+      const { data: order, error: fetchError } = await sb
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError || !order) return { success: false, error: 'Order not found' };
+
+      const refundAmount = amount || parseFloat(order.total_amount) || 0;
+
+      // Record refund in refunds table (actual Square processing requires server-side)
+      const { error: refundError } = await sb
+        .from('refunds')
+        .insert({
+          order_id: orderId,
+          amount: refundAmount,
+          status: 'pending',
+          reason: 'Refund requested',
+        });
+
+      if (refundError) {
+        // Table may not exist yet — log but continue to update order
+        console.warn('Could not insert refund record:', refundError);
+      }
+
+      const { error: updateError } = await sb
+        .from('orders')
+        .update({
+          refund_status: 'pending',
+          refund_amount: refundAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      return { success: true, message: 'Refund recorded and pending processing' };
+    } catch (err: any) {
+      console.error('Error processing refund:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async trackEvent(name: string, properties?: Record<string, any>) {
+    // Always log in dev for debugging
+    if (import.meta.env.DEV) {
+      console.log(`[Analytics] ${name}`, properties);
+    }
+
+    const sb = this.ensureSupabase();
+    if (!sb) return { success: true }; // Silently succeed if no DB connection
+
+    try {
+      await sb.rpc('track_analytics_event', {
+        p_event_name: name,
+        p_properties: {
+          ...properties,
+          timestamp: new Date().toISOString(),
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+        }
+      });
+      return { success: true };
+    } catch (error) {
+      // Analytics should never block user experience
+      console.warn('Analytics tracking failed:', error);
+      return { success: true };
+    }
+  }
+}
+
+export const api = new ApiClient();
+export default api;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star, Mail } from 'lucide-react';
+import logoImage from '@/assets/brand/logo.png';
+import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
+import { validateLeadTime, validateOrderDateTimeComplete } from '@/lib/validation';
+import { useNavigate } from 'react-router-dom';
+import { uploadReferenceImage } from '@/lib/storage';
+import { isValidImageType, isValidFileSize } from '@/lib/imageCompression';
+import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { CameraCapture } from '@/components/mobile/CameraCapture';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatPrice } from '@/lib/pricing';
+import { motion, AnimatePresence } from 'framer-motion';
+import LanguageToggle from '@/components/LanguageToggle';
+
+const STORAGE_KEY = 'bakery_order_draft';
+
+// --- CONSTANTS ---
+const CAKE_SIZES = [
+  { value: '6-round', label: '6" Round', labelEs: '6" Redondo', price: 30, serves: '6-8', featured: false },
+  { value: '8-round', label: '8" Round', labelEs: '8" Redondo', price: 35, serves: '10-12', featured: false },
+  { value: '10-round', label: '10" Round', labelEs: '10" Redondo', price: 55, serves: '20-25', featured: true },
+  { value: '12-round', label: '12" Round', labelEs: '12" Redondo', price: 85, serves: '30-35', featured: false },
+  { value: 'quarter-sheet', label: '1/4 Sheet', labelEs: '1/4 Plancha', price: 70, serves: '20-25', featured: false },
+  { value: 'half-sheet', label: '1/2 Sheet', labelEs: '1/2 Plancha', price: 135, serves: '40-50', featured: false },
+  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', price: 240, serves: '90-100', featured: false },
+  { value: '8-hard-shape', label: '8" Hard Shape', labelEs: '8" Forma Especial', price: 50, serves: '10-12', featured: false },
+];
+
+const BREAD_TYPES = [
+  { value: 'tres-leches', label: '3 Leches', desc: 'Moist & Traditional' },
+  { value: 'chocolate', label: 'Chocolate', desc: 'Rich & Decadent' },
+  { value: 'vanilla', label: 'Regular', desc: 'Classic Vanilla' },
+];
+
+const FILLINGS = [
+  { value: 'strawberry', label: 'Fresa', sub: 'Strawberry', premium: false },
+  { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate', premium: false },
+  { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend', premium: false },
+  { value: 'mousse', label: 'Mousse', sub: 'Whipped', premium: false },
+  { value: 'napolitano', label: 'Napolitano', sub: 'Mix', premium: false },
+  { value: 'pecan', label: 'Nuez', sub: 'Pecan', premium: false },
+  { value: 'coconut', label: 'Coco', sub: 'Coconut', premium: false },
+  { value: 'pineapple', label: 'Piña', sub: 'Pineapple', premium: false },
+  { value: 'pina-colada', label: 'Piña Colada', sub: 'Tropical', premium: false },
+  { value: 'peach', label: 'Durazno', sub: 'Peach', premium: false },
+  { value: 'tiramisu', label: 'Tiramisu', sub: 'Italian Style', premium: true },
+  { value: 'relleno-flan', label: 'Relleno de Flan', sub: 'Flan Filling', premium: true },
+  { value: 'oreo', label: 'Oreo', sub: 'Cookies & Cream', premium: false },
+  { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese', premium: false },
+];
+
+// Premium filling size options with upcharges
+const PREMIUM_FILLING_OPTIONS = [
+  { value: '10-inch', label: '10"', labelEs: '10"', upcharge: 5 },
+  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', upcharge: 20 },
+];
+
+const TIME_OPTIONS = [
+  '10:00', '11:00', '12:00', '13:00', '14:00',
+  '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
+];
+
+const formatTimeDisplay = (time: string) => {
+  const [hours, minutes] = time.split(':');
+  const h = parseInt(hours);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes} ${ampm}`;
+};
+
+// --- ANIMATION VARIANTS ---
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 50 : -50,
+    opacity: 0,
+    position: 'absolute' as const,
+  }),
+  center: {
+    zIndex: 1,
+    x: 0,
+    opacity: 1,
+    position: 'relative' as const,
+  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? 50 : -50,
+    opacity: 0,
+    position: 'absolute' as const,
+  })
+};
+
+// --- CUSTOM COMPONENTS ---
+const FloatingInput = ({ label, value, onChange, type = "text", placeholder, icon: Icon, maxLength, className }: any) => {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <div className={`relative group ${className}`}>
+      <div className={`absolute inset-0 bg-[#C6A649]/10 rounded-2xl transition-all duration-300 pointer-events-none ${focused ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} />
+      <div className={`relative bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-[#C6A649]/30 ${focused ? 'ring-[3px] ring-[#C6A649]/40 border-[#C6A649]/50' : ''}`}>
+        <label className={`absolute left-10 transition-all duration-200 pointer-events-none ${focused || value ? 'top-2 text-[10px] text-[#C6A649] font-black tracking-widest uppercase' : 'top-4 text-sm text-gray-400 font-medium'}`}>
+          {label}
+        </label>
+        {Icon && (
+          <div className={`absolute left-3 top-4 transition-colors duration-300 ${focused ? 'text-[#C6A649]' : 'text-gray-500'}`}>
+            <Icon size={18} />
+          </div>
+        )}
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          maxLength={maxLength}
+          className="w-full bg-transparent p-4 pl-10 pt-5 text-white font-bold placeholder-transparent focus:outline-none min-h-[60px]"
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
+const Order = () => {
+  const { t, language } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const isSpanish = language === 'es';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Steps definition
+  const STEPS = [
+    { id: 'date', title: t('Fecha', 'Date'), subtitle: t('¿Cuándo lo necesitas?', 'When needed?') },
+    { id: 'size', title: t('Tamaño', 'Size'), subtitle: t('¿Para cuántas personas?', 'How many people?') },
+    { id: 'flavor', title: t('Sabor', 'Flavor'), subtitle: t('Pan y Relleno', 'Bread & Filling') },
+    { id: 'details', title: t('Detalles', 'Details'), subtitle: t('Personalización', 'Customization') },
+    { id: 'info', title: t('Contacto', 'Contact'), subtitle: t('Tus datos', 'Your info') },
+  ];
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [direction, setDirection] = useState(0);
+
+  const [formData, setFormData] = useState({
+    dateNeeded: '',
+    timeNeeded: '',
+    customerName: '',
+    phone: '',
+    email: '',
+    pickupType: 'pickup',
+    cakeSize: '',
+    breadType: 'tres-leches',
+    filling: '',
+    theme: '',
+    dedication: '',
+  });
+
+  const [selectedFillings, setSelectedFillings] = useState<string[]>([]);
+  const [premiumFillingSizes, setPremiumFillingSizes] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
+
+  // --- LOGIC HOOKS ---
+  useEffect(() => {
+    if (user && user.profile) {
+      setFormData(prev => ({
+        ...prev,
+        customerName: user.profile.full_name || prev.customerName,
+        email: user.email || prev.email,
+        phone: user.profile.phone || prev.phone,
+      }));
+    }
+  }, [user]);
+
+  // Load draft with expiration
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+
+        // Check if draft is older than 30 minutes
+        const now = Date.now();
+        const draftTime = parsed._timestamp || 0;
+        const thirtyMinutes = 30 * 60 * 1000;
+
+        if (now - draftTime > thirtyMinutes) {
+          // Draft expired, clear it
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+
+        // Restore valid draft
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _timestamp, ...rest } = parsed; // Remove timestamp from form data
+        setFormData(prev => ({ ...prev, ...rest }));
+        if (parsed.selectedFillings) setSelectedFillings(parsed.selectedFillings);
+      } catch (e) {
+        console.error('Error loading draft:', e);
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  // Save draft with timestamp
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Only save if we have some data
+      if (formData.cakeSize || formData.dateNeeded) {
+        const dataToSave = {
+          ...formData,
+          selectedFillings,
+          _timestamp: Date.now()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [formData, selectedFillings]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl]);
+
+  const { pricingBreakdown, isLoading: isCalculatingPrice } = useOptimizedPricing({
+    size: formData.cakeSize,
+    filling: formData.breadType,
+    theme: formData.theme || 'custom',
+    deliveryOption: formData.pickupType as 'pickup' | 'delivery',
+  });
+
+  const getBasePrice = () => {
+    const size = CAKE_SIZES.find(s => s.value === formData.cakeSize);
+    return size?.price || 0;
+  };
+
+  const getTotal = () => {
+    const base = pricingBreakdown ? pricingBreakdown.total : getBasePrice();
+    const premiumUpcharge = getPremiumFillingUpcharge();
+    return base + premiumUpcharge;
+  };
+
+  const toggleFilling = (filling: string) => {
+    const fillingObj = FILLINGS.find(f => f.value === filling);
+
+    setSelectedFillings(prev => {
+      if (prev.includes(filling)) {
+        // If deselecting, also remove premium size selection
+        if (fillingObj?.premium) {
+          setPremiumFillingSizes(sizes => {
+            const newSizes = { ...sizes };
+            delete newSizes[filling];
+            return newSizes;
+          });
+        }
+        return prev.filter(f => f !== filling);
+      }
+      // Limit to 2 fillings max
+      if (prev.length >= 2) {
+        toast.error(t('Máximo 2 rellenos permitidos', 'Maximum 2 fillings allowed'));
+        return prev;
+      }
+      return [...prev, filling];
+    });
+  };
+
+  const setPremiumFillingSize = (filling: string, sizeOption: string) => {
+    setPremiumFillingSizes(prev => ({
+      ...prev,
+      [filling]: sizeOption
+    }));
+  };
+
+  const getPremiumFillingUpcharge = () => {
+    let upcharge = 0;
+    for (const filling of selectedFillings) {
+      const fillingObj = FILLINGS.find(f => f.value === filling);
+      if (fillingObj?.premium && premiumFillingSizes[filling]) {
+        const sizeOption = PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[filling]);
+        if (sizeOption) {
+          upcharge += sizeOption.upcharge;
+        }
+      }
+    }
+    return upcharge;
+  };
+
+  const hasPendingPremiumSelection = () => {
+    for (const filling of selectedFillings) {
+      const fillingObj = FILLINGS.find(f => f.value === filling);
+      if (fillingObj?.premium && !premiumFillingSizes[filling]) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+    let formatted = '';
+    if (digits.length > 0) formatted = '(' + digits.slice(0, 3);
+    if (digits.length > 3) formatted += ') ' + digits.slice(3, 6);
+    if (digits.length > 6) formatted += '-' + digits.slice(6, 10);
+    setFormData({ ...formData, phone: formatted });
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
+
+    if (!isValidImageType(file)) {
+      toast.error(t('Tipo de archivo no válido. Solo JPG, PNG o WebP.', 'Invalid file type. Only JPG, PNG or WebP.'));
+      return;
+    }
+    if (!isValidFileSize(file)) {
+      toast.error(t('Archivo muy grande. Máximo 5MB.', 'File too large. Max 5MB.'));
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreviewUrl(previewUrl);
+    setIsUploadingImage(true);
+
+    try {
+      const result = await uploadReferenceImage(file);
+      if (result.success && result.url) {
+        setUploadedImageUrl(result.url);
+        toast.success(t('Imagen subida', 'Image uploaded'));
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Error uploading image';
+      toast.error(errorMsg);
+      setImagePreviewUrl(null);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setImagePreviewUrl(null);
+    setUploadedImageUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // --- NAVIGATION VALIDATION ---
+  const validateStep = async (stepIndex: number): Promise<boolean> => {
+    setValidationError(null);
+    const stepId = STEPS[stepIndex].id;
+
+    if (stepId === 'date') {
+      if (!formData.dateNeeded || !formData.timeNeeded) {
+        setValidationError(t('Selecciona fecha y hora', 'Select date and time'));
+        return false;
+      }
+      const validation = await validateOrderDateTimeComplete(formData.dateNeeded, formData.timeNeeded);
+      if (!validation.isValid) {
+        setValidationError(validation.errors.join(', '));
+        return false;
+      }
+    }
+
+    if (stepId === 'size') {
+      if (!formData.cakeSize) {
+        setValidationError(t('Debes seleccionar un tamaño', 'Must select a size'));
+        return false;
+      }
+    }
+
+    if (stepId === 'flavor') {
+      if (hasPendingPremiumSelection()) {
+        setValidationError(t('Selecciona el tamaño para los rellenos premium', 'Select size for premium fillings'));
+        return false;
+      }
+    }
+
+    if (stepId === 'info') {
+      if (!formData.customerName.trim()) {
+        setValidationError(t('Tu nombre es requerido', 'Name is required'));
+        return false;
+      }
+      if (formData.phone.replace(/\D/g, '').length !== 10) {
+        setValidationError(t('Teléfono incompleto', 'Phone incomplete'));
+        return false;
+      }
+      if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setValidationError(t('Correo electrónico inválido', 'Invalid email address'));
+        return false;
+      }
+      if (!consentGiven) {
+        setValidationError(t('Marca la casilla de confirmación', 'Check the confirmation box'));
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const nextStep = async () => {
+    const isValid = await validateStep(currentStep);
+    if (isValid) {
+      if (currentStep < STEPS.length - 1) {
+        setDirection(1);
+        setCurrentStep(c => c + 1);
+      } else {
+        handleSubmit();
+      }
+    } else {
+      // Shake animation triggering could be added here
+      toast.error(validationError || t('Completa este paso', 'Complete this step'));
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setDirection(-1);
+      setCurrentStep(c => c - 1);
+      setValidationError(null);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      const selectedSize = CAKE_SIZES.find(s => s.value === formData.cakeSize);
+
+      // Build filling description with premium options
+      const fillingDescriptions = selectedFillings.map(filling => {
+        const fillingObj = FILLINGS.find(f => f.value === filling);
+        if (fillingObj?.premium && premiumFillingSizes[filling]) {
+          const sizeOpt = PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[filling]);
+          return `${fillingObj.label} (${sizeOpt?.label || premiumFillingSizes[filling]} +$${sizeOpt?.upcharge || 0})`;
+        }
+        return fillingObj?.label || filling;
+      });
+
+      const orderData = {
+        customer_name: formData.customerName,
+        customer_email: formData.email,
+        customer_phone: `+1${cleanPhone}`,
+        customer_language: language,
+        date_needed: formData.dateNeeded,
+        time_needed: formData.timeNeeded,
+        cake_size: selectedSize?.label || formData.cakeSize,
+        filling: fillingDescriptions.join(', ') || formData.breadType,
+        theme: formData.theme || 'Custom',
+        dedication: formData.dedication || '',
+        reference_image_path: uploadedImageUrl || '',
+        delivery_option: formData.pickupType,
+        consent_given: true,
+        consent_timestamp: new Date().toISOString(),
+        total_amount: getTotal(),
+        user_id: user?.id || null,
+        premium_filling_upcharge: getPremiumFillingUpcharge(),
+      };
+
+      sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
+      localStorage.removeItem(STORAGE_KEY);
+      navigate('/payment-checkout');
+    } catch (error: any) {
+      console.error('Error preparing payment:', error);
+      toast.error(t('Error del sistema', 'System error'));
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen font-sans pb-32 relative bg-black flex flex-col selection:bg-[#C6A649]/30">
+
+      {/* --- BACKGROUND ANIMATION --- */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {/* Cinematic Premium Glows (Consistent with site-wide theme) */}
+        <div className="absolute top-1/4 left-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-[#C6A649]/10 rounded-full blur-[140px] pointer-events-none opacity-50" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none opacity-40" />
+
+        <motion.div
+          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_70%)]"
+        />
+        <motion.div
+          animate={{ y: [0, -50, 0], x: [0, 30, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.03),transparent_60%)] filter blur-3xl opacity-40"
+        />
+      </div>
+
+      {/* --- TOP BAR --- */}
+      <div className="h-1.5 w-full flex sticky top-0 z-50 shadow-sm opacity-90">
+        <div className="h-full w-1/3 bg-[#C6A649]"></div>
+        <div className="h-full w-1/3 bg-white"></div>
+        <div className="h-full w-1/3 bg-[#C6A649]"></div>
+      </div>
+
+      {/* --- HEADER --- */}
+      <header className="bg-black/80 backdrop-blur-xl shadow-2xl sticky top-1.5 z-40 border-b border-white/10">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+
+            {/* Left: Back & Logo */}
+            <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-start">
+              <button
+                onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
+                className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#C6A649] hover:text-black transition-all flex-shrink-0 group shadow-lg"
+              >
+                <ChevronLeft size={20} strokeWidth={3} className="group-hover:-translate-x-0.5 transition-transform" />
+              </button>
+
+              <button className="cursor-pointer group hover:scale-110 transition-transform duration-500" onClick={() => navigate('/')}>
+                <img src={logoImage} alt="Eli's Bakery" className="h-14 w-auto object-contain filter drop-shadow-[0_0_10px_rgba(198,166,73,0.3)]" />
+              </button>
+
+              {/* Mobile spacer to balance back button */}
+              <div className="w-12 md:hidden" />
+            </div>
+
+            {/* Right: Progress & Language */}
+            <div className="flex items-center gap-8 w-full md:w-auto justify-center md:justify-end">
+              {/* Progress Indicator */}
+              <div className="flex gap-2">
+                {STEPS.map((_, i) => (
+                  <div key={i} className={`h-2 w-10 rounded-full transition-all duration-500 ${i <= currentStep ? 'bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]' : 'bg-white/10'}`} />
+                ))}
+              </div>
+
+              {/* Language Toggle - Custom Styles handled in component */}
+              <div className="scale-95">
+                <LanguageToggle />
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </header>
+
+      {/* --- CONTENT WIZARD --- */}
+      <main className="flex-1 flex flex-col justify-center items-center p-5 relative z-10 w-full max-w-md mx-auto min-h-[60vh]">
+
+        {/* Step Title */}
+        <div className="w-full mb-12 text-center">
+          <motion.div
+            key={currentStep}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="inline-block space-y-2"
+          >
+            <span className="text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-2">Eli's Tradition</span>
+            <h2 className="text-5xl font-black text-white uppercase tracking-tighter leading-tight">{STEPS[currentStep].title}</h2>
+            <p className="text-gray-400 font-medium italic font-serif text-lg">{STEPS[currentStep].subtitle}</p>
+          </motion.div>
+        </div>
+
+        {/* Validation Error */}
+        <AnimatePresence>
+          {validationError && (
+            <motion.div
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              className="w-full flex items-center gap-4 rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 backdrop-blur-3xl shadow-2xl"
+            >
+              <AlertCircle className="h-6 w-6 flex-shrink-0 text-red-400" />
+              <p className="text-sm font-black uppercase tracking-wide">{validationError}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence custom={direction} mode="wait">
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="w-full bg-white/5 backdrop-blur-3xl p-8 sm:p-10 rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 min-h-[400px] flex flex-col justify-center relative overflow-hidden group"
+          >
+            <div className="absolute top-0 right-0 w-40 h-40 bg-[#C6A649]/5 rounded-full blur-3xl pointer-events-none" />
+            {/* --- STEP 1: DATE --- */}
+            {STEPS[currentStep].id === 'date' && (
+              <div className="space-y-6">
+                <div className="relative group/date">
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    value={formData.dateNeeded}
+                    onChange={(e) => setFormData({ ...formData, dateNeeded: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-3xl p-6 text-center text-2xl font-black text-white outline-none cursor-pointer"
+                  />
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-[#C6A649] group-hover/date:scale-110 transition-transform">
+                    <Calendar size={24} />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block text-center opacity-70">{t('Hora de Entrega', 'Pickup Time')}</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {TIME_OPTIONS.map(time => (
+                      <button
+                        key={time}
+                        onClick={() => setFormData({ ...formData, timeNeeded: time })}
+                        className={`py-4 rounded-2xl text-xs font-black transition-all border uppercase tracking-widest ${formData.timeNeeded === time
+                          ? 'bg-[#C6A649] text-black border-[#C6A649] shadow-[0_0_20px_rgba(198,166,73,0.4)] scale-105'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/10'
+                          }`}
+                      >
+                        {formatTimeDisplay(time)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lead Time Display */}
+                {formData.dateNeeded && formData.timeNeeded && (
+                  <div className="flex justify-center">
+                    {(() => {
+                      const leadTime = validateLeadTime(formData.dateNeeded, formData.timeNeeded);
+                      if (leadTime.isValid && leadTime.hoursUntilEvent) {
+                        const days = Math.floor(leadTime.hoursUntilEvent / 24);
+                        return (
+                          <div className="flex items-center gap-2 text-[#C6A649] text-xs font-black uppercase tracking-widest bg-[#C6A649]/10 px-6 py-2 rounded-full border border-[#C6A649]/20 animate-fade-in">
+                            <Check size={14} strokeWidth={4} /> {days} {t('días para preparar', 'days to prepare')}
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="flex items-center gap-2 text-amber-500 text-xs font-black uppercase tracking-widest bg-amber-500/10 px-6 py-2 rounded-full border border-amber-500/20">
+                          <Clock size={14} strokeWidth={4} /> {t('Mínimo 48h requerido', 'Min 48h required')}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- STEP 2: SIZE --- */}
+            {STEPS[currentStep].id === 'size' && (
+              <div className="grid grid-cols-2 gap-4">
+                {CAKE_SIZES.map(s => (
+                  <button
+                    key={s.value}
+                    onClick={() => setFormData({ ...formData, cakeSize: s.value })}
+                    className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
+                      ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
+                      }`}
+                  >
+                    {s.featured && (
+                      <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
+                        Popular
+                      </div>
+                    )}
+                    <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
+                    <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
+                    <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
+
+                    {formData.cakeSize === s.value && (
+                      <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
+                        <Check size={28} strokeWidth={4} />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* --- STEP 3: FLAVOR --- */}
+            {STEPS[currentStep].id === 'flavor' && (
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">{t('Tipo de Pan', 'Bread Type')}</label>
+                  <div className="flex flex-col gap-3">
+                    {BREAD_TYPES.map(type => (
+                      <button
+                        key={type.value}
+                        onClick={() => setFormData({ ...formData, breadType: type.value })}
+                        className={`p-6 rounded-3xl flex items-center justify-between border transition-all duration-500 ${formData.breadType === type.value
+                          ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_15px_30px_rgba(198,166,73,0.3)] scale-[1.02]'
+                          : 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08] hover:border-[#C6A649]/30'
+                          }`}
+                      >
+                        <div className="text-left">
+                          <div className="font-black uppercase tracking-tight text-lg">{type.label}</div>
+                          <div className={`text-sm font-medium italic ${formData.breadType === type.value ? 'text-black/60' : 'text-gray-400'}`}>{type.desc}</div>
+                        </div>
+                        {formData.breadType === type.value && <Check size={24} className="text-black" strokeWidth={4} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70 flex items-center justify-between">
+                    <span>{t('Relleno', 'Filling')} <span className="opacity-50 font-medium">({t('Opcional', 'Optional')})</span></span>
+                    <span className={`${selectedFillings.length >= 2 ? 'text-[#C6A649]' : 'text-gray-500'}`}>
+                      {selectedFillings.length}/2
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {FILLINGS.map(f => {
+                      const isSelected = selectedFillings.includes(f.value);
+                      const needsSizeSelection = f.premium && isSelected && !premiumFillingSizes[f.value];
+                      const selectedSizeOption = f.premium && isSelected ? PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[f.value]) : null;
+
+                      return (
+                        <div key={f.value} className="relative">
+                          <button
+                            onClick={() => toggleFilling(f.value)}
+                            className={`w-full p-4 rounded-2xl border text-left transition-all duration-500 relative overflow-hidden group/filling ${isSelected
+                              ? 'bg-[#C6A649]/20 border-[#C6A649] text-[#C6A649] shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.05]'
+                              : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/[0.08]'
+                              }`}
+                          >
+                            <div className="relative z-10 flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-black uppercase tracking-tight mb-1">{f.label}</div>
+                                {f.premium && (
+                                  <span className="text-[8px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-widest">Premium</span>
+                                )}
+                              </div>
+                              <div className="text-[10px] font-bold uppercase tracking-widest opacity-60 leading-none">{f.sub}</div>
+                              {selectedSizeOption && (
+                                <div className="text-[10px] font-black text-[#C6A649] mt-2 flex items-center gap-1">
+                                  +${selectedSizeOption.upcharge} ({isSpanish ? selectedSizeOption.labelEs : selectedSizeOption.label})
+                                </div>
+                              )}
+                            </div>
+                            {isSelected && <div className="absolute inset-0 bg-[#C6A649]/5 z-0" />}
+                          </button>
+
+                          {/* Premium filling size selection popup */}
+                          {needsSizeSelection && (
+                            <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-black/95 backdrop-blur-xl border border-[#C6A649]/50 rounded-2xl p-4 shadow-[0_20px_40px_rgba(0,0,0,0.8)] animate-fade-in">
+                              <p className="text-xs font-black text-[#C6A649] uppercase tracking-widest mb-3 text-center">
+                                {t('Selecciona tamaño', 'Select size')}
+                              </p>
+                              <div className="flex flex-col gap-2">
+                                {PREMIUM_FILLING_OPTIONS.map(opt => (
+                                  <button
+                                    key={opt.value}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPremiumFillingSize(f.value, opt.value);
+                                    }}
+                                    className="w-full p-3 rounded-xl bg-white/5 border border-white/10 hover:border-[#C6A649]/50 hover:bg-[#C6A649]/10 transition-all flex justify-between items-center"
+                                  >
+                                    <span className="text-sm font-bold text-white">{isSpanish ? opt.labelEs : opt.label}</span>
+                                    <span className="text-sm font-black text-[#C6A649]">+${opt.upcharge}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Warning if premium filling needs size selection */}
+                  {hasPendingPremiumSelection() && (
+                    <div className="flex items-center gap-3 text-amber-400 text-xs font-bold uppercase tracking-wider bg-amber-500/10 px-4 py-3 rounded-xl border border-amber-500/20">
+                      <AlertCircle size={16} />
+                      {t('Selecciona el tamaño para los rellenos premium', 'Select size for premium fillings')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* --- STEP 4: DETAILS --- */}
+            {STEPS[currentStep].id === 'details' && (
+              <div className="space-y-4">
+                <FloatingInput
+                  label={t('Tema', 'Theme')}
+                  value={formData.theme}
+                  onChange={(e: any) => setFormData({ ...formData, theme: e.target.value })}
+                  icon={Sparkles}
+                  placeholder="e.g. Birthday, Wedding..."
+                />
+                <FloatingInput
+                  label={t('Dedicatoria', 'Message')}
+                  value={formData.dedication}
+                  onChange={(e: any) => setFormData({ ...formData, dedication: e.target.value })}
+                  icon={Star}
+                  placeholder="e.g. Happy Birthday!"
+                />
+
+                {/* Photo Upload */}
+                <div className="relative mt-8">
+                  {!imagePreviewUrl ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {isMobile && (
+                        <button
+                          onClick={() => setShowCamera(true)}
+                          className="bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn"
+                        >
+                          <div className="w-16 h-16 rounded-2xl bg-[#C6A649]/10 border border-[#C6A649]/20 text-[#C6A649] flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:bg-[#C6A649] group-hover/btn:text-black transition-all">
+                            <Camera size={32} />
+                          </div>
+                          <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em]">{t('Cámara', 'Camera')}</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn ${!isMobile ? 'col-span-2' : ''
+                          }`}
+                      >
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 text-gray-500 flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:border-[#C6A649]/30 group-hover/btn:text-[#C6A649] transition-all">
+                          <Upload size={32} />
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em] block mb-1">{t('Subir Foto', 'Upload')}</span>
+                          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">JPG, PNG, WEBP</span>
+                        </div>
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    </div>
+                  ) : (
+                    <div className="relative rounded-[2rem] overflow-hidden shadow-2xl group h-64 border border-white/10 group">
+                      <img src={imagePreviewUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Preview" />
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button onClick={handleRemoveImage} className="bg-white/10 backdrop-blur-md p-5 rounded-full text-white hover:bg-red-500/80 transition-all scale-150 group-hover:scale-100 duration-500">
+                          <X size={32} />
+                        </button>
+                      </div>
+                      {isUploadingImage && (
+                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-30">
+                          <Loader2 className="animate-spin text-[#C6A649]" size={48} />
+                        </div>
+                      )}
+                      <div className="absolute bottom-6 left-6 z-10 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                        <p className="text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {showCamera && (
+                  <CameraCapture
+                    onCapture={(file) => {
+                      const fake = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                      handleImageChange(fake);
+                      setShowCamera(false);
+                    }}
+                    onCancel={() => setShowCamera(false)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* --- STEP 5: CONTACT INFO --- */}
+            {STEPS[currentStep].id === 'info' && (
+              <div className="space-y-4">
+                <FloatingInput
+                  label={t('Nombre', 'Name')}
+                  icon={User}
+                  value={formData.customerName}
+                  onChange={(e: any) => setFormData({ ...formData, customerName: e.target.value })}
+                />
+                <FloatingInput
+                  label={t('Teléfono', 'Phone')}
+                  type="tel"
+                  icon={null}
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  maxLength={14}
+                  placeholder="(555) 555-5555"
+                />
+                <FloatingInput
+                  label={t('Correo Electrónico', 'Email')}
+                  type="email"
+                  icon={Mail}
+                  value={formData.email}
+                  onChange={(e: any) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="ejemplo@email.com"
+                />
+
+                <div className="bg-white/5 p-3 rounded-[2rem] border border-white/10 flex gap-3 shadow-2xl">
+                  <button
+                    onClick={() => setFormData({ ...formData, pickupType: 'pickup' })}
+                    className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${formData.pickupType === 'pickup'
+                      ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      }`}
+                  >
+                    <ShoppingBag size={18} /> Pickup
+                  </button>
+                  <div className="w-px bg-white/10 my-3"></div>
+                  <button
+                    disabled
+                    className="flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 text-white/20 cursor-not-allowed"
+                  >
+                    <MapPin size={18} /> Delivery
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-5 cursor-pointer group p-4 rounded-3xl transition-colors hover:bg-white/5">
+                  <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-500 ${consentGiven ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]' : 'border-white/10 group-hover:border-[#C6A649]'
+                    }`}>
+                    <Check size={18} strokeWidth={4} />
+                  </div>
+                  <input type="checkbox" checked={consentGiven} onChange={e => setConsentGiven(e.target.checked)} className="hidden" />
+                  <div className="text-xs text-gray-400 font-bold leading-relaxed uppercase tracking-wider group-hover:text-white transition-colors">
+                    {t('Acepto los términos y confirmo que los detalles son correctos.', 'I accept terms and confirm details are correct.')}
+                  </div>
+                </label>
+              </div>
+            )}
+
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* --- WIZARD NAVIGATION --- */}
+      <div className="fixed bottom-0 left-0 right-0 p-6 z-50 bg-gradient-to-t from-black via-black/80 to-transparent">
+        <div className="max-w-md mx-auto bg-black/40 backdrop-blur-3xl rounded-[2.5rem] p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center pr-3">
+          <div className="flex flex-col pl-6">
+            <span className="text-[10px] text-[#C6A649] font-black uppercase tracking-[0.3em] mb-1">{t('Total Estimado', 'Estimated Total')}</span>
+            <span className="text-3xl font-black text-white tracking-tighter leading-none">
+              {isCalculatingPrice ? <Loader2 className="inline animate-spin text-[#C6A649]" size={20} /> : formatPrice(getTotal())}
+            </span>
+          </div>
+
+          <div className="flex gap-4">
+            {currentStep > 0 && (
+              <button
+                onClick={prevStep}
+                className="w-14 h-14 rounded-[1.2rem] bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-500"
+              >
+                <ChevronLeft size={24} strokeWidth={3} />
+              </button>
+            )}
+
+            <button
+              onClick={nextStep}
+              disabled={isSubmitting}
+              className={`h-14 px-8 rounded-[1.2rem] flex items-center justify-center gap-3 font-black text-sm uppercase tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] ${isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105'
+                }`}
+            >
+              {isSubmitting ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <>
+                  {currentStep === STEPS.length - 1 ? t('Finalizar', 'Checkout') : t('Siguiente', 'Next')}
+                  <ChevronRight size={20} strokeWidth={4} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Order;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { OwnerSidebar } from '@/components/dashboard/OwnerSidebar';
+import { DashboardHeader, SearchResult } from '@/components/dashboard/DashboardHeader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import {
+  TrendingUp,
+  DollarSign,
+  Package,
+  AlertTriangle,
+  RefreshCw,
+  BarChart3,
+  Truck,
+  CheckCircle2
+} from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  Legend
+} from 'recharts';
+import { formatPrice } from '@/lib/pricing';
+import {
+  DashboardMetrics,
+  RevenueDataPoint,
+  PopularItem,
+  OrderStatusBreakdown
+} from '@/lib/analytics';
+import { api } from '@/lib/api';
+import { toast } from 'sonner';
+import { format, subDays } from 'date-fns';
+import CancelOrderModal from '@/components/order/CancelOrderModal';
+import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
+import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
+import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
+import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
+import MenuManager from '@/components/dashboard/MenuManager';
+import InventoryManager from '@/components/dashboard/InventoryManager';
+import ReportsManager from '@/components/dashboard/ReportsManager';
+import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
+const OwnerDashboard = () => {
+  const { t } = useLanguage();
+  const { user, isLoading: authLoading } = useAuth();
+
+  // --- STATE ---
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [printOrder, setPrintOrder] = useState<any | null>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+
+  // Raw Data (Single Source of Truth)
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+
+  // Computed Metrics
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
+  const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
+  const [statusBreakdown, setStatusBreakdown] = useState<OrderStatusBreakdown[]>([]);
+
+  const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month'>('day');
+
+
+  // --- 1. DATA LOADING (The "Brain") ---
+  const loadDashboardData = async () => {
+    try {
+      console.log('🔄 OwnerDashboard: Fetching fresh data...');
+
+      // 1. Fetch RAW Orders
+      const orders = await api.getAllOrders();
+      const orderList = Array.isArray(orders) ? orders : [];
+      setAllOrders(orderList); // Primary State for Calendar & Lists
+
+      setAllOrders(orderList); // Primary State for Calendar & Lists
+
+      // 3. Fetch auxiliary data (Low Stock) - non-critical
+      try {
+        const stock = await api.getLowStockItems();
+        setLowStockItems(Array.isArray(stock) ? stock : []);
+      } catch (e) { console.warn('Low stock fetch fail', e); }
+
+    } catch (error) {
+      console.error('❌ Error loading dashboard:', error);
+      toast.error('Error syncing dashboard data. Please refresh.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Compute derived state from the raw order list
+  const computeMetrics = useMemo(() => {
+    if (!allOrders.length) return null;
+
+    const orders = allOrders;
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd'); // Local YYYY-MM-DD ideally
+
+    // Filter Today's Orders (Naive startWith check usually works for ISO strings)
+    const ordersToday = orders.filter(o => o.created_at?.startsWith(todayStr));
+
+    // Revenue Today
+    const revenueToday = ordersToday.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+
+    // Pending Count
+    const pendingCount = orders.filter(o => o.status === 'pending').length;
+
+    // Compute Status Breakdown
+    const statusCounts: Record<string, number> = {};
+    orders.forEach(o => {
+      const s = o.status || 'unknown';
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+    const breakdown = Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count,
+      totalRevenue: 0,
+      percentage: (count / orders.length) * 100
+    }));
+
+    // Compute Popular Items (Simplistic extraction from cake_size)
+    const itemCounts: Record<string, number> = {};
+    orders.forEach(o => {
+      const key = o.cake_size || 'Unknown';
+      itemCounts[key] = (itemCounts[key] || 0) + 1;
+    });
+    const topItems = Object.entries(itemCounts)
+      .map(([name, count]) => ({
+        itemName: name,
+        orderCount: count,
+        itemType: 'size' as any,
+        totalRevenue: 0
+      }))
+      .sort((a, b) => b.orderCount - a.orderCount)
+      .slice(0, 5);
+
+    return {
+      metrics: {
+        todayOrders: ordersToday.length,
+        todayRevenue: revenueToday,
+        pendingOrders: pendingCount,
+        capacityUtilization: 0.5, // Placeholder
+        averageOrderValue: ordersToday.length > 0 ? revenueToday / ordersToday.length : 0,
+        totalCustomers: new Set(orders.map(o => o.customer_name)).size,
+        lowStockItems: 0, // Updated separately
+        todayDeliveries: ordersToday.filter(o => o.delivery_option === 'delivery').length
+      },
+      breakdown,
+      topItems
+    };
+  }, [allOrders]);
+
+  useEffect(() => {
+    if (computeMetrics) {
+      setMetrics(computeMetrics.metrics);
+      setStatusBreakdown(computeMetrics.breakdown);
+      setPopularItems(computeMetrics.topItems);
+    }
+  }, [computeMetrics]);
+
+  // Re-compute revenue chart when period changes or orders update
+  useEffect(() => {
+    if (allOrders.length === 0 && !isLoading) {
+      // Even if 0 orders, we should show empty chart
+    }
+
+    const daysMap = new Map<string, number>();
+    const daysToLookBack = revenuePeriod === 'day' ? 7 : revenuePeriod === 'week' ? 30 : 90;
+
+    // Init map with explicit 0s for previous days
+    for (let i = daysToLookBack - 1; i >= 0; i--) {
+      const d = subDays(new Date(), i);
+      daysMap.set(format(d, 'yyyy-MM-dd'), 0);
+    }
+
+    // Sum revenue
+    allOrders.forEach(o => {
+      if (!o.created_at) return;
+      const d = o.created_at.split('T')[0]; // YYYY-MM-DD
+      if (daysMap.has(d)) {
+        daysMap.set(d, (daysMap.get(d) || 0) + (Number(o.total_amount) || 0));
+      }
+    });
+
+    const chartData = Array.from(daysMap.entries()).map(([date, revenue]) => ({
+      date,
+      revenue,
+      orderCount: 0,
+      avgOrderValue: 0
+    }));
+    setRevenueData(chartData);
+
+  }, [allOrders, revenuePeriod, isLoading]);
+
+
+  // --- 2. LIFECYCLE & REALTIME ---
+
+  // Initial Load (ProtectedRoute already enforces requiredRole="owner")
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadDashboardData();
+    }
+  }, [user, authLoading]);
+
+  // Real-time Listener (Supabase)
+  useRealtimeOrders({
+    filterByUserId: false,
+    onOrderInsert: () => {
+      toast.info('New Order Received! 🔔');
+      loadDashboardData();
+    },
+    onOrderUpdate: () => loadDashboardData(),
+    onOrderDelete: () => loadDashboardData(),
+  });
+
+  // --- 3. GLOBAL SEARCH ---
+  const searchCacheRef = useRef<{ products: any[]; ingredients: any[] } | null>(null);
+
+  const handleGlobalSearch = useCallback(
+    (query: string): SearchResult[] => {
+      const q = query.toLowerCase();
+      const results: SearchResult[] = [];
+
+      // Search orders (already in state)
+      allOrders
+        .filter(
+          (o) =>
+            o.customer_name?.toLowerCase().includes(q) ||
+            o.order_number?.toLowerCase().includes(q) ||
+            o.customer_email?.toLowerCase().includes(q)
+        )
+        .slice(0, 5)
+        .forEach((o) => {
+          results.push({
+            type: 'order',
+            label: o.customer_name || o.order_number || `Order #${o.id}`,
+            subtitle: `${o.order_number || ''} · ${o.status || ''} · $${Number(o.total_amount || 0).toFixed(2)}`,
+            tabId: 'orders',
+          });
+        });
+
+      // Search products (lazy-loaded cache)
+      if (searchCacheRef.current?.products) {
+        searchCacheRef.current.products
+          .filter(
+            (p: any) =>
+              p.name_en?.toLowerCase().includes(q) ||
+              p.name_es?.toLowerCase().includes(q)
+          )
+          .slice(0, 5)
+          .forEach((p: any) => {
+            results.push({
+              type: 'product',
+              label: p.name_en || p.name_es,
+              subtitle: `${p.category || ''} · $${Number(p.price || 0).toFixed(2)}`,
+              tabId: 'products',
+            });
+          });
+      }
+
+      // Search ingredients (lazy-loaded cache)
+      if (searchCacheRef.current?.ingredients) {
+        searchCacheRef.current.ingredients
+          .filter((i: any) => i.name?.toLowerCase().includes(q))
+          .slice(0, 5)
+          .forEach((i: any) => {
+            results.push({
+              type: 'ingredient',
+              label: i.name,
+              subtitle: `${i.quantity} ${i.unit} · ${i.category || ''}`,
+              tabId: 'inventory',
+            });
+          });
+      }
+
+      // Load products + ingredients on first search if not cached
+      if (!searchCacheRef.current) {
+        Promise.all([api.getAllProducts(), api.getInventory()])
+          .then(([products, ingredients]) => {
+            searchCacheRef.current = {
+              products: Array.isArray(products) ? products : [],
+              ingredients: Array.isArray(ingredients) ? ingredients : [],
+            };
+          })
+          .catch(() => {
+            searchCacheRef.current = { products: [], ingredients: [] };
+          });
+      }
+
+      return results;
+    },
+    [allOrders]
+  );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FC] flex items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-[#C6A649]" />
+        <span className="ml-3 text-gray-400 font-medium">Loading Dashboard...</span>
+      </div>
+    );
+  }
+
+  // --- RENDER ---
+  return (
+    <div className="flex h-screen w-full bg-[#F5F6FA] overflow-hidden">
+      <PrintPreviewModal
+        order={printOrder}
+        isOpen={!!printOrder}
+        onClose={() => setPrintOrder(null)}
+      />
+
+      <OwnerSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <DashboardHeader onSearch={handleGlobalSearch} onNavigateTab={setActiveTab} />
+
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+
+            {/* --- TAB: OVERVIEW --- */}
+            <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
+
+              {/* METRIC CARDS */}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {/* Revenue */}
+                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <p className="text-sm font-medium text-gray-500">{t('Ingresos Hoy', 'Revenue Today')}</p>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                      <DollarSign className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="text-2xl font-bold text-gray-900">{formatPrice(metrics?.todayRevenue || 0)}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 text-green-600 font-medium">Live Data</p>
+                  </CardContent>
+                </Card>
+
+                {/* Orders Today */}
+                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <p className="text-sm font-medium text-gray-500">{t('Pedidos Hoy', 'Orders Today')}</p>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                      <Package className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="text-2xl font-bold text-gray-900">{metrics?.todayOrders || 0}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {metrics?.pendingOrders} {t('pendientes', 'pending')}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Avg Ticket */}
+                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <p className="text-sm font-medium text-gray-500">{t('Ticket Promedio', 'Avg Ticket')}</p>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                      <BarChart3 className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="text-2xl font-bold text-gray-900">{formatPrice(metrics?.averageOrderValue || 0)}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{t('por pedido', 'per order')}</p>
+                  </CardContent>
+                </Card>
+
+                {/* Today's Deliveries */}
+                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <p className="text-sm font-medium text-gray-500">{t('Entregas Hoy', "Today's Deliveries")}</p>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <Truck className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="text-2xl font-bold text-gray-900">{metrics?.todayDeliveries || 0}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {metrics?.totalCustomers || 0} {t('clientes totales', 'total customers')}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* TODAY'S SCHEDULE SUMMARY */}
+              <TodayScheduleSummary orders={allOrders} />
+
+              {/* CHARTS ROW */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* Revenue Graph */}
+                <div className="lg:col-span-2">
+                  <Card className="border-none shadow-sm h-[400px]">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle>{t('Tendencias', 'Trends')}</CardTitle>
+                      <div className="flex bg-gray-100 rounded-lg p-1">
+                        <button onClick={() => setRevenuePeriod('day')} className={`px-3 py-1 text-xs rounded-md ${revenuePeriod === 'day' ? 'bg-white shadow' : ''}`}>7D</button>
+                        <button onClick={() => setRevenuePeriod('week')} className={`px-3 py-1 text-xs rounded-md ${revenuePeriod === 'week' ? 'bg-white shadow' : ''}`}>30D</button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="h-[320px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={revenueData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9CA3AF' }} />
+                          <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{ fontSize: 12, fill: '#9CA3AF' }} />
+                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                          <Line type="monotone" dataKey="revenue" stroke="#C6A649" strokeWidth={3} dot={{ fill: '#fff', stroke: '#C6A649', strokeWidth: 2 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Status Pie */}
+                <div>
+                  <Card className="border-none shadow-sm h-[400px]">
+                    <CardHeader>
+                      <CardTitle>{t('Estado de Pedidos', 'Order Status')}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[320px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={statusBreakdown}
+                            dataKey="count"
+                            nameKey="status"
+                            cx="50%" cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                          >
+                            {statusBreakdown.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend verticalAlign="bottom" />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* POPULAR ITEMS + LOW STOCK ROW */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {/* Popular Items */}
+                <Card className="border-none shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>{t('Más Pedidos', 'Most Ordered')}</CardTitle>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {popularItems.length === 0 ? (
+                      <p className="text-center py-6 text-gray-400 text-sm">{t('Sin datos aún', 'No data yet')}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {popularItems.map((item, i) => (
+                          <div key={item.itemName} className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-sm font-medium text-gray-700 truncate">{item.itemName}</p>
+                                <span className="text-xs font-bold text-gray-500 ml-2">{item.orderCount}</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-[#C6A649] rounded-full transition-all"
+                                  style={{ width: `${(item.orderCount / (popularItems[0]?.orderCount || 1)) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Low Stock Alerts */}
+                <Card className="border-none shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>{t('Alertas de Stock', 'Stock Alerts')}</CardTitle>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${lowStockItems.length > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                      {lowStockItems.length > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {lowStockItems.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6">
+                        <CheckCircle2 className="h-10 w-10 text-green-400 mb-2" />
+                        <p className="text-sm text-gray-400">{t('Todo abastecido', 'All stocked')}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {lowStockItems.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                              <p className="text-sm font-medium text-gray-700">{item.name || item.title}</p>
+                            </div>
+                            <Badge variant="destructive" className="text-[10px]">
+                              {t('Bajo', 'Low')}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* RECENT ORDERS TABLE (Preview) */}
+              <Card className="border-none shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>{t('Pedidos Recientes', 'Recent Orders')}</CardTitle>
+                  <Button variant="ghost" onClick={() => setActiveTab('orders')} className="text-sm text-blue-600">Ver Todo</Button>
+                </CardHeader>
+                <CardContent>
+                  {allOrders.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400">No recent orders.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {allOrders.slice(0, 5).map(order => (
+                        <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => setPrintOrder(order)}>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-2 h-12 rounded-full ${order.status === 'pending' ? 'bg-orange-400' : order.status === 'ready' ? 'bg-green-400' : 'bg-blue-400'}`}></div>
+                            <div>
+                              <p className="font-bold text-gray-800">{order.customer_name}</p>
+                              <p className="text-sm text-gray-500">#{order.order_number} • {order.cake_size}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-gray-900">{formatPrice(order.total_amount)}</p>
+                            <Badge variant="outline" className="text-[10px]">{order.status}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* --- TAB: ORDERS (FULL LIST) --- */}
+            <TabsContent value="orders">
+              <OrderListWithSearch
+                userRole="owner"
+                onOrderClick={(order) => setPrintOrder(order)}
+                showExport={true}
+              // We verified OrderListWithSearch uses our robust api.getAllOrders() too.
+              />
+            </TabsContent>
+
+            {/* --- TAB: CALENDAR --- */}
+            <TabsContent value="calendar">
+              <div className="h-[calc(100vh-140px)]">
+                <OwnerCalendar
+                  orders={allOrders} // Passing raw data down
+                  onOrderClick={(order) => setPrintOrder(order)}
+                />
+              </div>
+            </TabsContent>
+
+            {/* --- TAB: PRODUCTS --- */}
+            <TabsContent value="products" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <MenuManager />
+            </TabsContent>
+
+            {/* --- TAB: INVENTORY --- */}
+            <TabsContent value="inventory" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <InventoryManager />
+            </TabsContent>
+
+            {/* --- TAB: REPORTS --- */}
+            <TabsContent value="reports" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <ReportsManager />
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+
+      {cancelOrderId && (
+        <CancelOrderModal
+          order={allOrders.find(o => o.id === cancelOrderId)}
+          open={!!cancelOrderId}
+          onClose={() => setCancelOrderId(null)}
+          onSuccess={() => { loadDashboardData(); setCancelOrderId(null); }}
+          isAdmin={true}
+        />
+      )}
+    </div>
+  );
+};
+
+export default OwnerDashboard;
+/**
+ * Pricing Calculation Service
+ * Handles all pricing calculations for cake orders
+ */
+
+import { api } from './api';
+
+export interface PricingBreakdown {
+  basePrice: number;
+  fillingCost: number;
+  themeCost: number;
+  deliveryFee: number;
+  tax: number;
+  subtotal: number;
+  discount: number;
+  total: number;
+}
+
+export interface OrderDetails {
+  size: string;
+  filling: string;
+  theme: string;
+  deliveryOption: 'delivery' | 'pickup';
+  deliveryAddress?: string;
+  zipCode?: string;
+  promoCode?: string;
+}
+
+export interface PricingData {
+  cakePricing: Array<{ size: string; base_price: number }>;
+  fillingPricing: Array<{ name: string; additional_cost: number }>;
+  themePricing: Array<{ name: string; additional_cost: number }>;
+  deliveryZones: Array<{
+    zone_name: string;
+    base_fee: number;
+    per_mile_rate: number;
+    max_distance: number | null;
+    zip_codes: string[];
+  }>;
+  taxRates: Array<{
+    state: string;
+    county: string | null;
+    rate: number;
+  }>;
+}
+
+let cachedPricing: PricingData | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Fetch current pricing from API
+ */
+export async function fetchCurrentPricing(): Promise<PricingData> {
+  const now = Date.now();
+  
+  // Return cached data if still valid
+  if (cachedPricing && (now - cacheTimestamp) < CACHE_DURATION) {
+    return cachedPricing;
+  }
+
+  try {
+    const data = await api.getCurrentPricing();
+    cachedPricing = data;
+    cacheTimestamp = now;
+    return data;
+  } catch (error) {
+    console.error('Error fetching pricing:', error);
+    
+    // Return cached data if available, even if expired
+    if (cachedPricing) {
+      return cachedPricing;
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Calculate base cake price
+ */
+export function calculateCakePrice(
+  size: string,
+  pricing: PricingData
+): number {
+  const cakePrice = pricing.cakePricing.find(
+    (p) => p.size === size && p.base_price !== null
+  );
+  
+  if (!cakePrice) {
+    console.warn(`No pricing found for size: ${size}`);
+    return 0;
+  }
+  
+  return parseFloat(cakePrice.base_price.toString());
+}
+
+/**
+ * Calculate filling additional cost
+ */
+export function calculateFillingCost(
+  filling: string,
+  pricing: PricingData
+): number {
+  const fillingPrice = pricing.fillingPricing.find(
+    (p) => p.name === filling && p.additional_cost !== null
+  );
+  
+  if (!fillingPrice) {
+    console.warn(`No pricing found for filling: ${filling}`);
+    return 0;
+  }
+  
+  return parseFloat(fillingPrice.additional_cost.toString());
+}
+
+/**
+ * Calculate theme additional cost
+ */
+export function calculateThemeCost(
+  theme: string,
+  pricing: PricingData
+): number {
+  const themePrice = pricing.themePricing.find(
+    (p) => p.name === theme && p.additional_cost !== null
+  );
+  
+  if (!themePrice) {
+    console.warn(`No pricing found for theme: ${theme}`);
+    return 0;
+  }
+  
+  return parseFloat(themePrice.additional_cost.toString());
+}
+
+/**
+ * Calculate delivery fee based on zone and distance
+ */
+export async function calculateDeliveryFee(
+  address: string,
+  zipCode: string,
+  pricing: PricingData
+): Promise<number> {
+  // Find zone by zip code
+  const zone = pricing.deliveryZones.find((z) =>
+    z.zip_codes.includes(zipCode)
+  );
+  
+  if (!zone) {
+    // Default to highest zone if zip not found
+    const defaultZone = pricing.deliveryZones
+      .filter((z) => z.active)
+      .sort((a, b) => b.base_fee - a.base_fee)[0];
+    
+    if (defaultZone) {
+      return parseFloat(defaultZone.base_fee.toString());
+    }
+    
+    return 15.00; // Fallback default
+  }
+  
+  // Calculate distance (would use Google Maps API in production)
+  // For now, use base fee + estimate based on zone
+  let distance = 0;
+  
+  try {
+    // Use Google Maps Distance Matrix API if available
+    const { calculateDistance } = await import('./googleMaps');
+    distance = await calculateDistance(address);
+  } catch (error) {
+    console.warn('Could not calculate distance, using base fee:', error);
+    // Use base fee if distance calculation fails
+    return parseFloat(zone.base_fee.toString());
+  }
+  
+  // Apply max distance limit if set
+  if (zone.max_distance && distance > zone.max_distance) {
+    // Use max distance for calculation
+    distance = zone.max_distance;
+  }
+  
+  const baseFee = parseFloat(zone.base_fee.toString());
+  const perMileRate = parseFloat(zone.per_mile_rate.toString());
+  
+  return baseFee + (distance * perMileRate);
+}
+
+/**
+ * Calculate tax based on delivery address
+ */
+export function calculateTax(
+  subtotal: number,
+  state: string = 'CA',
+  county?: string,
+  pricing: PricingData
+): number {
+  // Find tax rate for state/county
+  const taxRate = pricing.taxRates.find((r) => {
+    if (r.state !== state) return false;
+    if (county && r.county) {
+      return r.county.toLowerCase() === county.toLowerCase();
+    }
+    return r.county === null; // Default state rate
+  });
+  
+  if (!taxRate) {
+    // Default to 8% if no rate found
+    console.warn(`No tax rate found for ${state}/${county}, using default 8%`);
+    return subtotal * 0.08;
+  }
+  
+  const rate = parseFloat(taxRate.rate.toString());
+  return subtotal * rate;
+}
+
+/**
+ * Validate and apply promo code
+ */
+export async function applyPromoCode(
+  code: string,
+  subtotal: number
+): Promise<{ discount: number; valid: boolean; message?: string }> {
+  try {
+    const promoData = await api.validatePromoCode(code, subtotal);
+    
+    if (!promoData.valid) {
+      return {
+        discount: 0,
+        valid: false,
+        message: promoData.message || 'Invalid promo code',
+      };
+    }
+    
+    let discount = 0;
+    
+    if (promoData.discount_type === 'percentage') {
+      discount = subtotal * (parseFloat(promoData.discount_value.toString()) / 100);
+      
+      // Apply max discount if set
+      if (promoData.max_discount_amount) {
+        const maxDiscount = parseFloat(promoData.max_discount_amount.toString());
+        discount = Math.min(discount, maxDiscount);
+      }
+    } else if (promoData.discount_type === 'fixed') {
+      discount = parseFloat(promoData.discount_value.toString());
+      // Don't allow discount to exceed subtotal
+      discount = Math.min(discount, subtotal);
+    }
+    
+    return {
+      discount,
+      valid: true,
+    };
+  } catch (error) {
+    console.error('Error applying promo code:', error);
+    return {
+      discount: 0,
+      valid: false,
+      message: 'Error validating promo code',
+    };
+  }
+}
+
+/**
+ * Calculate total order price with breakdown
+ */
+export async function calculateTotal(
+  orderDetails: OrderDetails,
+  pricing?: PricingData
+): Promise<PricingBreakdown> {
+  // Fetch pricing if not provided
+  const currentPricing = pricing || await fetchCurrentPricing();
+  
+  // Calculate base price
+  const basePrice = calculateCakePrice(orderDetails.size, currentPricing);
+  
+  // Calculate add-ons
+  const fillingCost = calculateFillingCost(orderDetails.filling, currentPricing);
+  const themeCost = calculateThemeCost(orderDetails.theme, currentPricing);
+  
+  // Calculate subtotal (before delivery and tax)
+  const subtotal = basePrice + fillingCost + themeCost;
+  
+  // Calculate delivery fee
+  let deliveryFee = 0;
+  if (orderDetails.deliveryOption === 'delivery' && orderDetails.deliveryAddress && orderDetails.zipCode) {
+    deliveryFee = await calculateDeliveryFee(
+      orderDetails.deliveryAddress,
+      orderDetails.zipCode,
+      currentPricing
+    );
+  }
+  
+  // Calculate tax (on subtotal + delivery)
+  const taxableAmount = subtotal + deliveryFee;
+  const tax = calculateTax(taxableAmount, 'CA', undefined, currentPricing);
+  
+  // Apply promo code if provided
+  let discount = 0;
+  if (orderDetails.promoCode) {
+    const promoResult = await applyPromoCode(orderDetails.promoCode, taxableAmount + tax);
+    if (promoResult.valid) {
+      discount = promoResult.discount;
+    }
+  }
+  
+  // Calculate total
+  const total = taxableAmount + tax - discount;
+  
+  return {
+    basePrice,
+    fillingCost,
+    themeCost,
+    deliveryFee,
+    tax,
+    subtotal,
+    discount,
+    total: Math.max(0, total), // Ensure total is never negative
+  };
+}
+
+/**
+ * Format price for display
+ */
+export function formatPrice(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+}
+
+/**
+ * Clear pricing cache (useful after admin updates)
+ */
+export function clearPricingCache(): void {
+  cachedPricing = null;
+  cacheTimestamp = 0;
+}
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Mail, Lock, AlertCircle, Store } from 'lucide-react';
+// Fixed import pointing to the correct logo location
+import TransparentLogo from '../assets/brand/logo.png';
+
+const Login = () => {
+  const { t } = useLanguage();
+  const { signIn, user, isLoading, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const message = location.state?.message;
+
+  // Auto-redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (user && !isLoading) {
+      // Check role and redirect accordingly
+      const role = user.profile?.role;
+
+      if (role === 'owner') {
+        navigate('/owner-dashboard', { replace: true });
+      } else if (role === 'baker') {
+        navigate('/front-desk', { replace: true });
+      } else if (role) {
+        // Only redirect to home if we have a known role that's not owner/baker
+        navigate('/', { replace: true });
+      }
+      // If role is undefined, do nothing — wait for profile to load
+    }
+  }, [user, isLoading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null); // Clear any previous errors
+
+    // Clear any previous scheduled redirects from useEffect if possible (not easily done without refs)
+    // Instead we trust signIn to return the authoritative result.
+
+    try {
+      const { success, error: signInError, role } = await signIn(formData.email, formData.password);
+
+      if (success) {
+        // Explicit redirect based on returned role
+        if (role === 'owner') {
+          navigate('/owner-dashboard', { replace: true });
+        } else if (role === 'baker') {
+          navigate('/front-desk', { replace: true });
+        } else if (role) {
+          // Default fallback for other roles (e.g. driver)
+          navigate('/', { replace: true });
+        }
+        // If role is undefined (timeout or error), don't redirect
+      } else {
+        setError(signInError || t('Error al iniciar sesión', 'Error signing in'));
+      }
+    } catch (err) {
+      setError(t('Ocurrió un error inesperado', 'An unexpected error occurred'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
+
+  // Optimize: Early return for authenticated users to prevent form rendering
+  // This prevents the "flash" of the login form before redirection
+  if (isAuthenticated && user && !isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen w-full bg-black text-white flex items-center justify-center relative overflow-hidden px-4 selection:bg-[#C6A649]/30">
+      {/* Performance Optimization: Replaced heavy blur filters with radial gradients */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(198, 166, 73, 0.08) 0%, rgba(0, 0, 0, 0) 70%)'
+        }}
+      />
+      <div
+        className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, rgba(0, 0, 0, 0) 70%)'
+        }}
+      />
+
+      <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-white/40 hover:text-[#C6A649] transition-all z-20 group">
+        <Store className="h-5 w-5 group-hover:scale-110 transition-transform" />
+        <span className="text-sm font-black uppercase tracking-widest">{t('Volver al Inicio', 'Back to Home')}</span>
+      </Link>
+
+      <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] relative z-10 transition-all duration-500 rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="space-y-2 text-center pb-6 pt-12 px-8">
+          <div className="flex justify-center mb-10 group">
+            <div className="relative">
+              <div className="absolute -inset-4 bg-[#C6A649]/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <img src={TransparentLogo} alt="Eli's Logo" className="h-24 object-contain drop-shadow-2xl relative z-10 transition-transform duration-700 group-hover:scale-110" />
+            </div>
+          </div>
+          <span className="text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-2">{t('Dulce Tradición', 'Sweet Tradition')}</span>
+          <CardTitle className="text-4xl font-black text-white uppercase tracking-tighter leading-none">
+            {t('Bienvenido', 'Welcome Back')}
+          </CardTitle>
+          <CardDescription className="text-gray-400 text-lg font-light italic font-serif">
+            {t(
+              'Ingresa a tu cuenta para administrar',
+              'Access your dashboard to manage'
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8 px-10 pb-12">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {message && (
+              <Alert className="bg-[#C6A649]/10 border-[#C6A649]/30 text-[#C6A649] rounded-2xl">
+                <AlertDescription className="font-bold uppercase tracking-wide text-xs">{message}</AlertDescription>
+              </Alert>
+            )}
+
+            {error && (
+              <Alert variant="destructive" className="bg-red-500/10 border-red-500/30 text-red-200 rounded-2xl">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="font-bold uppercase tracking-wide text-xs">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-4">
+                  {t('Email', 'Email Address')}
+                </Label>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-[#C6A649]/5 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
+                  <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder={t('ejemplo@email.com', 'example@email.com')}
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between ml-4">
+                  <Label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-gray-500">
+                    {t('Contraseña', 'Password')}
+                  </Label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-[10px] font-black uppercase tracking-widest text-[#C6A649] hover:text-white transition-colors"
+                  >
+                    {t('¿Olvidaste tu contraseña?', 'Forgot?')}
+                  </Link>
+                </div>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-[#C6A649]/5 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
+                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500 group-focus-within:text-[#C6A649] transition-colors z-10" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={t('Ingresa tu contraseña', 'Enter your password')}
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-[#C6A649] text-black hover:bg-white font-black uppercase tracking-widest h-14 text-base shadow-[0_10px_30px_rgba(198,166,73,0.3)] hover:shadow-[0_15px_40px_rgba(198,166,73,0.4)] transition-all rounded-2xl hover:scale-105"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                  {t('Iniciando sesión...', 'Signing in...')}
+                </>
+              ) : (
+                t('Iniciar Sesión', 'Authorize & Sign In')
+              )}
+            </Button>
+
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-gray-500">
+              {t('¿No tienes una cuenta?', "Don't have an account?")}{' '}
+              <Link
+                to="/signup"
+                className="text-[#C6A649] hover:text-white transition-colors"
+              >
+                {t('Regístrate', 'Create Account')}
+              </Link>
+            </div>
+          </form>
+
+
+        </CardContent>
+      </Card>
+
+      <div className="absolute bottom-8 w-full text-center text-white/10 text-[10px] font-black tracking-[0.5em] uppercase pointer-events-none">
+        Eli's Dulce Tradición • Est. 2024 • Admin Portal
+      </div>
+    </div>
+  );
+};
+
+export default Login;
