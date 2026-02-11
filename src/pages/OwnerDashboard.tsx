@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { OwnerSidebar } from '@/components/dashboard/OwnerSidebar';
+import { cn } from '@/lib/utils';
 import { DashboardHeader, SearchResult } from '@/components/dashboard/DashboardHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,8 +17,12 @@ import {
   RefreshCw,
   BarChart3,
   Truck,
-  CheckCircle2
+  CheckCircle2,
+  Calendar,
+  Layers,
+  Sparkles
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LineChart,
   Line,
@@ -270,70 +275,53 @@ const OwnerDashboard = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
 
             {/* --- TAB: OVERVIEW --- */}
-            <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
-
-              {/* METRIC CARDS */}
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                {/* Revenue */}
-                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <p className="text-sm font-medium text-gray-500">{t('Ingresos Hoy', 'Revenue Today')}</p>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                      <DollarSign className="h-4 w-4" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <h3 className="text-2xl font-bold text-gray-900">{formatPrice(metrics?.todayRevenue || 0)}</h3>
-                    <p className="text-xs text-muted-foreground mt-1 text-green-600 font-medium">Live Data</p>
-                  </CardContent>
-                </Card>
-
-                {/* Orders Today */}
-                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <p className="text-sm font-medium text-gray-500">{t('Pedidos Hoy', 'Orders Today')}</p>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                      <Package className="h-4 w-4" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <h3 className="text-2xl font-bold text-gray-900">{metrics?.todayOrders || 0}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {metrics?.pendingOrders} {t('pendientes', 'pending')}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Avg Ticket */}
-                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <p className="text-sm font-medium text-gray-500">{t('Ticket Promedio', 'Avg Ticket')}</p>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-                      <BarChart3 className="h-4 w-4" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <h3 className="text-2xl font-bold text-gray-900">{formatPrice(metrics?.averageOrderValue || 0)}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">{t('por pedido', 'per order')}</p>
-                  </CardContent>
-                </Card>
-
-                {/* Today's Deliveries */}
-                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <p className="text-sm font-medium text-gray-500">{t('Entregas Hoy', "Today's Deliveries")}</p>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                      <Truck className="h-4 w-4" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <h3 className="text-2xl font-bold text-gray-900">{metrics?.todayDeliveries || 0}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {metrics?.totalCustomers || 0} {t('clientes totales', 'total customers')}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="overview" className="outline-none">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.1 }
+                  }
+                }}
+                className="space-y-6"
+              >
+                {/* METRIC CARDS */}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label: t('Ingresos Hoy', 'Revenue Today'), value: formatPrice(metrics?.todayRevenue || 0), sub: 'Live Data', icon: DollarSign, color: 'text-orange-600', bg: 'bg-orange-100', trend: '↑ 12%' },
+                    { label: t('Pedidos Hoy', 'Orders Today'), value: metrics?.todayOrders || 0, sub: `${metrics?.pendingOrders} pend`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-100' },
+                    { label: t('Ticket Promedio', 'Avg Ticket'), value: formatPrice(metrics?.averageOrderValue || 0), sub: t('por pedido', 'per order'), icon: BarChart3, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+                    { label: t('Entregas Hoy', "Today's Deliveries"), value: metrics?.todayDeliveries || 0, sub: `${metrics?.totalCustomers || 0} cli`, icon: Truck, color: 'text-emerald-600', bg: 'bg-emerald-100' }
+                  ].map((card, idx) => (
+                    <motion.div
+                      key={idx}
+                      variants={{
+                        hidden: { opacity: 0, y: 20 },
+                        visible: { opacity: 1, y: 0 }
+                      }}
+                    >
+                      <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white/70 backdrop-blur-xl hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 rounded-3xl group overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                          <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">{card.label}</p>
+                          <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl transition-transform group-hover:scale-110", card.bg, card.color)}>
+                            <card.icon className="h-5 w-5" />
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <h3 className="text-3xl font-black text-gray-900 tracking-tighter">{card.value}</h3>
+                          <div className="flex items-center gap-2 mt-2">
+                            {card.trend && <span className="text-[10px] font-black text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full">{card.trend}</span>}
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{card.sub}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
 
               {/* TODAY'S SCHEDULE SUMMARY */}
               <TodayScheduleSummary orders={allOrders} />

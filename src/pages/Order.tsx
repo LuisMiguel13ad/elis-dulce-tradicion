@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { validateLeadTime, validateOrderDateTimeComplete } from '@/lib/validation';
 import { useNavigate } from 'react-router-dom';
 import { uploadReferenceImage } from '@/lib/storage';
-import { isValidImageType, isValidFileSize } from '@/lib/imageCompression';
+import { isValidImageType, isValidFileSize, compressImage } from '@/lib/imageCompression';
 import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CameraCapture } from '@/components/mobile/CameraCapture';
@@ -333,10 +333,17 @@ const Order = () => {
     setIsUploadingImage(true);
 
     try {
-      const result = await uploadReferenceImage(file);
+      // Compress the image before upload
+      const compressedFile = await compressImage(file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1600,
+        useWebWorker: true
+      });
+
+      const result = await uploadReferenceImage(compressedFile);
       if (result.success && result.url) {
         setUploadedImageUrl(result.url);
-        toast.success(t('Imagen subida', 'Image uploaded'));
+        toast.success(t('Imagen optimizada y subida', 'Image optimized and uploaded'));
       } else {
         throw new Error(result.error || 'Upload failed');
       }
